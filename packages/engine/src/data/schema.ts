@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   EffectSchema,
+  InviteMotiveSchema,
   InvitePlanSchema,
   OutcomeSchema,
   SeasonSchema,
@@ -90,6 +91,7 @@ export type CalendarEventDefinition = z.infer<
 >;
 export type SeasonZonkDefinition = z.infer<typeof SeasonZonkDefinitionSchema>;
 export type InvitePlanDefinition = z.infer<typeof InvitePlanDefinitionSchema>;
+export type InviteMotive = z.infer<typeof InviteMotiveSchema>;
 export type Season = z.infer<typeof SeasonSchema>;
 export type MonthNumber = keyof typeof SEASON_BY_MONTH;
 
