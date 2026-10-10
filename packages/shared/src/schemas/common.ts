@@ -16,8 +16,10 @@ export const PawnIdSchema = z.enum([
   "salmon-diamond",
 ]);
 
+export const StatSchema = z.enum(["wealth", "debt", "health", "stress"]);
+
 export const EffectSchema = z.object({
-  stat: z.enum(["wealth", "debt", "health", "stress"]),
+  stat: StatSchema,
   delta: z.number().int(),
 });
 
@@ -28,3 +30,14 @@ export const PrivateStatusSchema = z.object({
   health: z.number().int().min(0).max(10),
   stress: z.number().int().min(0).max(10),
 });
+
+export const CategorySchema = z.enum([
+  "work",
+  "social",
+  "health",
+  "finance",
+  "gold",
+]);
+export const OutcomeSchema = z.enum(["zonk", "safe", "lucky"]);
+export const RiskSchema = z.enum(["low", "medium", "high"]);
+export const SeasonSchema = z.enum(["rainy", "dry", "transition"]);

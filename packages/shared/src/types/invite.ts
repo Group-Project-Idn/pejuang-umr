@@ -1,36 +1,18 @@
-import type { Effect } from "./player";
+import type { z } from "zod";
+import type {
+  InviteCardSchema,
+  InviteIncomingPayloadSchema,
+  InviteMotiveSchema,
+  InvitePlanSchema,
+  InviteResolvedPayloadSchema,
+} from "../schemas/invite";
 
-export type InvitePlan =
-  | "hangout"
-  | "morningRun"
-  | "jointProject"
-  | "staycation";
+export type InvitePlan = z.infer<typeof InvitePlanSchema>;
 
-export type InviteMotive = "sincere" | "commission" | "trap";
+export type InviteMotive = z.infer<typeof InviteMotiveSchema>;
 
-export type InviteCard = {
-  cardId: string;
-  plan: InvitePlan;
-  planEffects: Effect[];
-  motive: InviteMotive;
-  expiresAtMonth: number;
-};
+export type InviteCard = z.infer<typeof InviteCardSchema>;
 
-export type InviteIncomingPayload = {
-  inviteId: string;
-  fromPlayerId: string;
-  fromName: string;
-  plan: InvitePlan;
-  planEffects: Effect[];
-  deadline: number;
-};
+export type InviteIncomingPayload = z.infer<typeof InviteIncomingPayloadSchema>;
 
-export type InviteResolvedPayload = {
-  inviteId: string;
-  fromPlayerId: string;
-  targetPlayerId: string;
-  answer: "join" | "decline";
-  autoDeclined: boolean;
-  motive: InviteMotive | null;
-  effectsForYou: Effect[];
-};
+export type InviteResolvedPayload = z.infer<typeof InviteResolvedPayloadSchema>;

@@ -1,6 +1,6 @@
 import type { z } from "zod";
 import type { AckCallback } from "../common/ack";
-import type { ServerErrorPayload } from "../common/errors";
+import { ServerErrorPayloadSchema } from "../common/errors";
 import type {
   CalendarAnswerRequestSchema,
   EmoteSendRequestSchema,
@@ -13,6 +13,38 @@ import type {
   TurnJumpRequestSchema,
 } from "../schemas/game-actions";
 import type {
+  CalendarEventPayloadSchema,
+  CalendarResultPayloadSchema,
+  MonthSummaryPayloadSchema,
+} from "../schemas/calendar";
+import { PrivateStatusSchema } from "../schemas/common";
+import {
+  DeadEndPayloadSchema,
+  DoomTriggeredPayloadSchema,
+  GameFinishedPayloadSchema,
+  GamePatchPayloadSchema,
+  GameStartedPayloadSchema,
+  GoldExpiredPayloadSchema,
+  GoldSpawnedPayloadSchema,
+  PlayerConnectionPayloadSchema,
+  PlayerEliminatedPayloadSchema,
+  EmoteShownPayloadSchema,
+  RoomCountdownPayloadSchema,
+  RoomKickedPayloadSchema,
+  SeasonChangedPayloadSchema,
+  SnapshotSchema,
+  TileOpenedPayloadSchema,
+  TileResolvedPayloadSchema,
+  TurnStartPayloadSchema,
+  TurnTimerPayloadSchema,
+  TurnOptionsPayloadSchema,
+} from "../schemas/game";
+import {
+  InviteCardPushPayloadSchema,
+  InviteIncomingPayloadSchema,
+  InviteResolvedPayloadSchema,
+} from "../schemas/invite";
+import type {
   RoomCreateRequestSchema,
   RoomJoinRequestSchema,
   RoomKickRequestSchema,
@@ -22,20 +54,8 @@ import type {
   RoomTimerRequestSchema,
   SessionResumeRequestSchema,
 } from "../schemas/room-actions";
-import type { CalendarEventPayload, CalendarResultPayload, Season } from "../types/calendar";
-import type {
-  DeadEndPayload,
-  GameFinishedPayload,
-  GoldTile,
-  HexCoord,
-  Outcome,
-  PublicGameState,
-  ScoreRow,
-  Snapshot,
-  TurnOptionsPayload,
-} from "../types/game";
-import type { InviteCard, InviteIncomingPayload, InviteResolvedPayload } from "../types/invite";
-import type { Effect, PrivateStatus } from "../types/player";
+import { RoomStateSchema } from "../schemas/room";
+import type { Snapshot } from "../types/game";
 import type { RoomState } from "../types/room";
 import type { PingSchema } from "./ping";
 
@@ -117,115 +137,34 @@ export interface ClientToServerEvents {
 }
 
 export interface ServerToClientEvents {
-  "session:snapshot": (payload: Snapshot) => void;
-  "player:connection": (payload: {
-    version?: number;
-    playerId: string;
-    connected: boolean;
-    at: number;
-  }) => void;
-  error: (payload: ServerErrorPayload) => void;
-  "room:kicked": (payload: { roomCode: string }) => void;
-  "room:state": (payload: RoomState) => void;
-  "room:countdown": (payload: { deadline: number; seconds: 3 }) => void;
-  "game:started": (payload: {
-    version: number;
-    serverTime: number;
-    gameId: string;
-    boardRadius: 4 | 5 | 6;
-    turnSeconds: 30 | 60;
-    turnOrder: string[];
-    startPositions: Array<{ playerId: string; hex: HexCoord }>;
-    calendar: PublicGameState["calendar"];
-  }) => void;
-  "game:finished": (payload: GameFinishedPayload) => void;
-  "game:patch": (payload: {
-    version: number;
-    ops: Array<
-      | { type: "scores"; scores: ScoreRow[] }
-      | { type: "rankOneBurden"; playerIds: string[] }
-      | { type: "calendar"; calendar: PublicGameState["calendar"] }
-      | { type: "inviteSincereDeclined"; fromPlayerId: string; targetPlayerId: string }
-    >;
-  }) => void;
-  "player:status": (payload: PrivateStatus) => void;
-  "calendar:event": (payload: CalendarEventPayload) => void;
-  "calendar:result": (payload: CalendarResultPayload) => void;
-  "season:changed": (payload: {
-    version: number;
-    season: Season;
-    vulnerableCategories: Array<"work" | "social" | "health" | "finance" | "gold">;
-    zonkFocus: "vehicleWash" | "vehicleBreakdown" | "sick";
-  }) => void;
-  "month:summary": (payload: {
-    month: number;
-    salary: 5_730_000;
-    livingCost: 4_600_000;
-    interest: number;
-    interestAddedToDebt: number;
-    doomAmount: number | null;
-    before: PrivateStatus;
-    after: PrivateStatus;
-  }) => void;
-  "turn:start": (payload: {
-    version: number;
-    turnId: string;
-    playerId: string;
-    deadline: number;
-    turnSeconds: 30 | 60;
-  }) => void;
-  "turn:options": (payload: TurnOptionsPayload) => void;
-  "turn:dead-end": (payload: DeadEndPayload) => void;
-  "turn:timer": (payload: {
-    version: number;
-    turnId: string;
-    paused: boolean;
-    deadline: number | null;
-    remainingMs: number;
-  }) => void;
-  "tile:opened": (payload: {
-    version: number;
-    turnId: string;
-    playerId: string;
-    from: HexCoord;
-    to: HexCoord;
-    category: "work" | "social" | "health" | "finance" | "gold";
-    title: string;
-    plan: Effect[];
-    isGold: boolean;
-    viaJump: boolean;
-    autoPicked: boolean;
-  }) => void;
-  "tile:resolved": (payload: {
-    version: number;
-    turnId: string;
-    playerId: string;
-    hex: HexCoord;
-    outcome: Outcome;
-    text: string;
-    effects: Effect[];
-    seasonal: boolean;
-  }) => void;
-  "gold:spawned": (payload: { version: number; gold: GoldTile }) => void;
-  "gold:expired": (payload: { version: number; goldId: string; hex: HexCoord }) => void;
-  "doom:triggered": (payload: {
-    amount: number;
-    trigger: "month" | "tile";
-    stressAfter: number;
-  }) => void;
-  "player:eliminated": (payload: {
-    version: number;
-    playerId: string;
-    reason: "bankrupt" | "burnout";
-    step: number;
-  }) => void;
-  "invite:card": (payload: {
-    card: InviteCard | null;
-    expiredCardId: string | null;
-  }) => void;
-  "invite:incoming": (payload: InviteIncomingPayload) => void;
-  "invite:resolved": (payload: InviteResolvedPayload) => void;
-  "emote:shown": (payload: { playerId: string; emoteId: string; at: number }) => void;
+  "session:snapshot": (payload: z.infer<typeof SnapshotSchema>) => void;
+  "player:connection": (payload: z.infer<typeof PlayerConnectionPayloadSchema>) => void;
+  error: (payload: z.infer<typeof ServerErrorPayloadSchema>) => void;
+  "room:kicked": (payload: z.infer<typeof RoomKickedPayloadSchema>) => void;
+  "room:state": (payload: z.infer<typeof RoomStateSchema>) => void;
+  "room:countdown": (payload: z.infer<typeof RoomCountdownPayloadSchema>) => void;
+  "game:started": (payload: z.infer<typeof GameStartedPayloadSchema>) => void;
+  "game:finished": (payload: z.infer<typeof GameFinishedPayloadSchema>) => void;
+  "game:patch": (payload: z.infer<typeof GamePatchPayloadSchema>) => void;
+  "player:status": (payload: z.infer<typeof PrivateStatusSchema>) => void;
+  "calendar:event": (payload: z.infer<typeof CalendarEventPayloadSchema>) => void;
+  "calendar:result": (payload: z.infer<typeof CalendarResultPayloadSchema>) => void;
+  "season:changed": (payload: z.infer<typeof SeasonChangedPayloadSchema>) => void;
+  "month:summary": (payload: z.infer<typeof MonthSummaryPayloadSchema>) => void;
+  "turn:start": (payload: z.infer<typeof TurnStartPayloadSchema>) => void;
+  "turn:options": (payload: z.infer<typeof TurnOptionsPayloadSchema>) => void;
+  "turn:dead-end": (payload: z.infer<typeof DeadEndPayloadSchema>) => void;
+  "turn:timer": (payload: z.infer<typeof TurnTimerPayloadSchema>) => void;
+  "tile:opened": (payload: z.infer<typeof TileOpenedPayloadSchema>) => void;
+  "tile:resolved": (payload: z.infer<typeof TileResolvedPayloadSchema>) => void;
+  "gold:spawned": (payload: z.infer<typeof GoldSpawnedPayloadSchema>) => void;
+  "gold:expired": (payload: z.infer<typeof GoldExpiredPayloadSchema>) => void;
+  "doom:triggered": (payload: z.infer<typeof DoomTriggeredPayloadSchema>) => void;
+  "player:eliminated": (payload: z.infer<typeof PlayerEliminatedPayloadSchema>) => void;
+  "invite:card": (payload: z.infer<typeof InviteCardPushPayloadSchema>) => void;
+  "invite:incoming": (payload: z.infer<typeof InviteIncomingPayloadSchema>) => void;
+  "invite:resolved": (payload: z.infer<typeof InviteResolvedPayloadSchema>) => void;
+  "emote:shown": (payload: z.infer<typeof EmoteShownPayloadSchema>) => void;
 }
 
 export interface InterServerEvents {}
