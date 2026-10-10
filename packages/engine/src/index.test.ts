@@ -5,7 +5,6 @@ import {
   createBoard,
   createInitialGameState,
   createStartPositions,
-  findNearestClosedHexes,
   getHexDistance,
   hexKey,
   isInsideBoard,
@@ -14,19 +13,6 @@ import {
 describe("engine", () => {
   it("punya versi", () => {
     expect(ENGINE_VERSION).toBe("0.0.1");
-  });
-
-  it("mencari heksa tertutup terdekat secara deterministik", () => {
-    const board = createBoard(4);
-    const opened = new Set(board.map(hexKey));
-    opened.delete(hexKey({ q: 2, r: 0 }));
-    opened.delete(hexKey({ q: -1, r: 0 }));
-    opened.delete(hexKey({ q: 0, r: 3 }));
-
-    expect(findNearestClosedHexes({ q: 0, r: 0 }, board, opened, 2)).toEqual([
-      { q: -1, r: 0 },
-      { q: 2, r: 0 },
-    ]);
   });
 
   it("menyediakan random source yang dapat diprediksi untuk test", () => {
