@@ -12,7 +12,7 @@ Game web multiplayer berbasis giliran di papan heksagon 2D, 2-4 pemain, 24 langk
 ## Struktur
 
 - apps/web (Next.js), apps/server (Node + Socket.IO), packages/engine (logika game), packages/shared (tipe + skema Zod).
-- npm workspaces. Dependensi workspace memakai "_", bukan "workspace:_".
+- npm workspaces. Dependensi workspace memakai `"*"`, bukan `"workspace:*"`.
 
 ## Aturan
 
@@ -27,3 +27,4 @@ Game web multiplayer berbasis giliran di papan heksagon 2D, 2-4 pemain, 24 langk
 - Jangan menjalankan git commit atau git push. Pengguna yang melakukannya.
 - Jangan menambah dependensi npm tanpa izin.
 - Perubahan kecil dan terarah. Jangan menulis ulang file yang tidak terkait.
+- Selalu pakai path relatif dari root repo (contoh: packages/engine/src/data/tiles.ts). Jangan pernah menulis path absolut seperti /Users/... atau Users/...

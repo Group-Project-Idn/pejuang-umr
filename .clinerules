@@ -11,3 +11,4 @@
 - Jangan membaca, membuat, atau menampilkan isi file .env.
 - Jangan menjalankan git commit atau git push. Pengguna yang melakukannya.
 - Perubahan kecil dan terarah. Jangan menulis ulang file yang tidak terkait.
+- Selalu pakai path relatif dari root repo (contoh: packages/engine/src/data/tiles.ts). Jangan pernah menulis path absolut seperti /Users/... atau Users/...
