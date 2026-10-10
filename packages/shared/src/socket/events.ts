@@ -1,6 +1,27 @@
+import type { z } from "zod";
 import type { AckCallback } from "../common/ack";
 import type { ServerErrorPayload } from "../common/errors";
-import type { RequestPayload } from "../common/request";
+import type {
+  CalendarAnswerRequestSchema,
+  EmoteSendRequestSchema,
+  GameStartRequestSchema,
+  InviteRespondRequestSchema,
+  InviteSendRequestSchema,
+  RoomRematchRequestSchema,
+  SpectateEnterRequestSchema,
+  TurnChooseRequestSchema,
+  TurnJumpRequestSchema,
+} from "../schemas/game-actions";
+import type {
+  RoomCreateRequestSchema,
+  RoomJoinRequestSchema,
+  RoomKickRequestSchema,
+  RoomLeaveRequestSchema,
+  RoomPawnRequestSchema,
+  RoomReadyRequestSchema,
+  RoomTimerRequestSchema,
+  SessionResumeRequestSchema,
+} from "../schemas/room-actions";
 import type { CalendarEventPayload, CalendarResultPayload, Season } from "../types/calendar";
 import type {
   DeadEndPayload,
@@ -14,73 +35,83 @@ import type {
   TurnOptionsPayload,
 } from "../types/game";
 import type { InviteCard, InviteIncomingPayload, InviteResolvedPayload } from "../types/invite";
-import type { Effect, PawnId, PrivateStatus } from "../types/player";
+import type { Effect, PrivateStatus } from "../types/player";
 import type { RoomState } from "../types/room";
+import type { PingSchema } from "./ping";
 
 type RoomResult = { room: RoomState };
 
 export interface ClientToServerEvents {
   "ping:test": (
-    payload: { name: string },
+    payload: z.infer<typeof PingSchema>,
     ack: AckCallback<{ message: string }>,
   ) => void;
   "session:resume": (
-    payload: RequestPayload & { roomCode: string },
+    payload: z.infer<typeof SessionResumeRequestSchema>,
     ack: AckCallback<{ snapshot: Snapshot }>,
   ) => void;
-  "room:create": (payload: RequestPayload, ack: AckCallback<RoomResult>) => void;
-  "room:join": (
-    payload: RequestPayload & { roomCode: string },
+  "room:create": (
+    payload: z.infer<typeof RoomCreateRequestSchema>,
     ack: AckCallback<RoomResult>,
   ) => void;
-  "room:leave": (payload: RequestPayload, ack: AckCallback) => void;
+  "room:join": (
+    payload: z.infer<typeof RoomJoinRequestSchema>,
+    ack: AckCallback<RoomResult>,
+  ) => void;
+  "room:leave": (
+    payload: z.infer<typeof RoomLeaveRequestSchema>,
+    ack: AckCallback,
+  ) => void;
   "room:ready": (
-    payload: RequestPayload & { ready: boolean },
+    payload: z.infer<typeof RoomReadyRequestSchema>,
     ack: AckCallback,
   ) => void;
   "room:pawn": (
-    payload: RequestPayload & { pawn: PawnId },
+    payload: z.infer<typeof RoomPawnRequestSchema>,
     ack: AckCallback,
   ) => void;
   "room:timer": (
-    payload: RequestPayload & { turnSeconds: 30 | 60 },
+    payload: z.infer<typeof RoomTimerRequestSchema>,
     ack: AckCallback,
   ) => void;
   "room:kick": (
-    payload: RequestPayload & { targetPlayerId: string },
+    payload: z.infer<typeof RoomKickRequestSchema>,
     ack: AckCallback,
   ) => void;
-  "room:rematch": (payload: RequestPayload, ack: AckCallback<RoomResult>) => void;
-  "game:start": (payload: RequestPayload, ack: AckCallback) => void;
+  "room:rematch": (
+    payload: z.infer<typeof RoomRematchRequestSchema>,
+    ack: AckCallback<RoomResult>,
+  ) => void;
+  "game:start": (
+    payload: z.infer<typeof GameStartRequestSchema>,
+    ack: AckCallback,
+  ) => void;
   "calendar:answer": (
-    payload: RequestPayload & {
-      eventId: string;
-      choice: "join" | "joinPaylater" | "skip";
-    },
+    payload: z.infer<typeof CalendarAnswerRequestSchema>,
     ack: AckCallback,
   ) => void;
   "turn:choose": (
-    payload: RequestPayload & { turnId: string; hex: HexCoord },
+    payload: z.infer<typeof TurnChooseRequestSchema>,
     ack: AckCallback,
   ) => void;
   "turn:jump": (
-    payload: RequestPayload & { turnId: string; hex: HexCoord },
+    payload: z.infer<typeof TurnJumpRequestSchema>,
     ack: AckCallback,
   ) => void;
   "spectate:enter": (
-    payload: RequestPayload,
+    payload: z.infer<typeof SpectateEnterRequestSchema>,
     ack: AckCallback<{ snapshot: Snapshot }>,
   ) => void;
   "invite:send": (
-    payload: RequestPayload & { cardId: string; targetPlayerId: string },
+    payload: z.infer<typeof InviteSendRequestSchema>,
     ack: AckCallback<{ inviteId: string; deadline: number }>,
   ) => void;
   "invite:respond": (
-    payload: RequestPayload & { inviteId: string; answer: "join" | "decline" },
+    payload: z.infer<typeof InviteRespondRequestSchema>,
     ack: AckCallback,
   ) => void;
   "emote:send": (
-    payload: RequestPayload & { emoteId: string },
+    payload: z.infer<typeof EmoteSendRequestSchema>,
     ack: AckCallback,
   ) => void;
 }
