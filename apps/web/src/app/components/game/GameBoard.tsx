@@ -6,7 +6,12 @@ import { Html, OrbitControls, RoundedBox } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import { Suspense, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { HEX_TILE_RADIUS, hexToWorld, TILE_DETAILS } from "@/data/game";
+import {
+  getBoardDeskSize,
+  HEX_TILE_RADIUS,
+  hexToWorld,
+  TILE_DETAILS,
+} from "@/data/game";
 import GameCharacters from "./GameCharacters";
 
 const tempObject = new THREE.Object3D();
@@ -131,7 +136,11 @@ function DeskScene({
   game: PublicGameState;
   room: RoomState;
 }) {
-  const deskSize = game.boardRadius * 3.2;
+  const board = useMemo(
+    () => createBoard(game.boardRadius),
+    [game.boardRadius],
+  );
+  const desk = useMemo(() => getBoardDeskSize(board), [board]);
   return (
     <>
       <color attach="background" args={["#8f4f2f"]} />
@@ -152,7 +161,7 @@ function DeskScene({
         distance={18}
       />
       <RoundedBox
-        args={[deskSize, 0.35, deskSize * 0.78]}
+        args={[desk.width, 0.35, desk.depth]}
         radius={0.24}
         smoothness={4}
         position={[0, -0.36, 0]}

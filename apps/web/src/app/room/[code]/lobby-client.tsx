@@ -3,6 +3,7 @@
 import type {
   Ack,
   PawnId,
+  PrivateStatus,
   PublicGameState,
   RoomState,
   Snapshot,
@@ -11,7 +12,13 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import GameInterface from "@/app/components/game/GameInterface";
 import { readGuestSession } from "@/lib/guest-session";
-import { acceptSnapshot } from "@/lib/game-view";
+import {
+  acceptSnapshot,
+  applyGamePatch,
+  applyRealtimeTurnTimer,
+  type GamePatch,
+  type TurnTimer,
+} from "@/lib/game-view";
 import { createRequestId } from "@/lib/request-id";
 import { clearRoomCode, writeRoomCode } from "@/lib/room-session";
 import { getSocket, type GameSocket } from "@/lib/socket";
@@ -27,13 +34,18 @@ export function LobbyClient({ code }: { code: string }) {
   const router = useRouter();
   const [socket, setSocket] = useState<GameSocket | null>(null);
   const [room, setRoom] = useState<RoomState | null>(null);
-  const [game, setGame] = useState<PublicGameState | null>(null);
+  const [gameView, setGameView] = useState<{
+    game: PublicGameState | null;
+    timerRemainingMs: number | null;
+  }>({ game: null, timerRemainingMs: null });
   const [privateMe, setPrivateMe] = useState<Snapshot["me"] | null>(null);
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [status, setStatus] = useState("menghubungkan...");
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [serverClockOffsetMs, setServerClockOffsetMs] = useState(0);
+  const game = gameView.game;
 
   useEffect(() => {
     const session = readGuestSession();
@@ -64,15 +76,20 @@ export function LobbyClient({ code }: { code: string }) {
           }
           setRoom(response.snapshot.room);
           setPrivateMe(response.snapshot.me);
-          setGame((currentGame) => {
+          setServerClockOffsetMs(response.snapshot.serverTime - Date.now());
+          setGameView((currentView) => {
+            const currentGame = currentView.game;
             if (
               currentGame &&
               response.snapshot.game &&
               currentGame.version > response.snapshot.game.version
             ) {
-              return currentGame;
+              return { ...currentView, timerRemainingMs: null };
             }
-            return response.snapshot.game;
+            return {
+              game: response.snapshot.game,
+              timerRemainingMs: null,
+            };
           });
           setStatus("terhubung");
         },
@@ -86,13 +103,34 @@ export function LobbyClient({ code }: { code: string }) {
     const onSnapshot = (snapshot: Snapshot) => {
       setRoom(snapshot.room);
       setPrivateMe(snapshot.me);
-      setGame((currentGame) => {
+      setServerClockOffsetMs(snapshot.serverTime - Date.now());
+      setGameView((currentView) => {
+        const currentGame = currentView.game;
         const current = currentGame
           ? { ...snapshot, game: currentGame }
           : null;
-        return acceptSnapshot(current, snapshot).game;
+        return {
+          game: acceptSnapshot(current, snapshot).game,
+          timerRemainingMs: null,
+        };
       });
       setCountdown(null);
+    };
+    const onGamePatch = (patch: GamePatch) => {
+      setGameView((currentView) => ({
+        ...currentView,
+        game: applyGamePatch(currentView.game, patch),
+      }));
+    };
+    const onPlayerStatus = (nextStatus: PrivateStatus) => {
+      setPrivateMe((currentMe) =>
+        currentMe ? { ...currentMe, status: nextStatus } : currentMe,
+      );
+    };
+    const onTurnTimer = (timer: TurnTimer) => {
+      setGameView((currentView) =>
+        applyRealtimeTurnTimer(currentView, timer),
+      );
     };
     const onKicked = () => {
       clearRoomCode();
@@ -103,6 +141,9 @@ export function LobbyClient({ code }: { code: string }) {
     gameSocket.on("disconnect", onDisconnect);
     gameSocket.on("room:countdown", onCountdown);
     gameSocket.on("session:snapshot", onSnapshot);
+    gameSocket.on("game:patch", onGamePatch);
+    gameSocket.on("player:status", onPlayerStatus);
+    gameSocket.on("turn:timer", onTurnTimer);
     gameSocket.on("room:kicked", onKicked);
     if (gameSocket.connected) resume();
     else gameSocket.connect();
@@ -112,6 +153,9 @@ export function LobbyClient({ code }: { code: string }) {
       gameSocket.off("disconnect", onDisconnect);
       gameSocket.off("room:countdown", onCountdown);
       gameSocket.off("session:snapshot", onSnapshot);
+      gameSocket.off("game:patch", onGamePatch);
+      gameSocket.off("player:status", onPlayerStatus);
+      gameSocket.off("turn:timer", onTurnTimer);
       gameSocket.off("room:kicked", onKicked);
     };
   }, [code, router]);
@@ -150,6 +194,8 @@ export function LobbyClient({ code }: { code: string }) {
         game={game}
         me={privateMe}
         connectionStatus={status}
+        serverClockOffsetMs={serverClockOffsetMs}
+        timerRemainingMs={gameView.timerRemainingMs}
       />
     );
   }

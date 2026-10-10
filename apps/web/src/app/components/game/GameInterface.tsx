@@ -2,6 +2,7 @@
 
 import type { PublicGameState, RoomState, Snapshot } from "@pejuang/shared";
 import { useEffect, useMemo, useState } from "react";
+import { getTurnSecondsLeft } from "@/lib/game-view";
 import GameBoard from "./GameBoard";
 import Scoreboard from "./Scoreboard";
 import StatusPanel from "./StatusPanel";
@@ -23,24 +24,32 @@ export default function GameInterface({
   game,
   me,
   connectionStatus,
+  serverClockOffsetMs,
+  timerRemainingMs,
 }: {
   room: RoomState;
   game: PublicGameState;
   me: Snapshot["me"] | null;
   connectionStatus: string;
+  serverClockOffsetMs: number;
+  timerRemainingMs: number | null;
 }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    if (!game.turnDeadline) return;
+    if (!game.turnDeadline || game.turnPaused) return;
     const timer = window.setInterval(
       () => setNow(Date.now()),
       250,
     );
     return () => window.clearInterval(timer);
-  }, [game.turnDeadline]);
-  const timeLeft = game.turnDeadline
-    ? Math.max(0, Math.ceil((game.turnDeadline - now) / 1_000))
-    : 0;
+  }, [game.turnDeadline, game.turnPaused]);
+  const timeLeft = getTurnSecondsLeft({
+    localNow: now,
+    serverClockOffsetMs,
+    deadline: game.turnDeadline,
+    paused: game.turnPaused,
+    remainingMs: timerRemainingMs,
+  });
 
   const activePlayer = useMemo(
     () => room.players.find(
