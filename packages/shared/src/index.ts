@@ -3,6 +3,8 @@ import { z } from "zod";
 export * from "./common/ack";
 export * from "./common/errors";
 export * from "./common/request";
+export * from "./hex/board";
+export * from "./hex/coordinates";
 export * from "./schemas/common";
 export * from "./schemas/game";
 export * from "./schemas/guest";

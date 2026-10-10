@@ -1,4 +1,4 @@
-import { createBoard } from "@pejuang/engine";
+import { createBoard } from "@pejuang/shared";
 import { describe, expect, it } from "vitest";
 import {
   getBoardDeskSize,
