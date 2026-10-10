@@ -3,6 +3,8 @@ import {
   ENGINE_VERSION,
   SequenceRandomSource,
   createBoard,
+  createInitialGameState,
+  createStartPositions,
   findNearestClosedHexes,
   getHexDistance,
   getNeighbors,
@@ -47,5 +49,24 @@ describe("engine", () => {
     expect(random.integer(1, 3)).toBe(1);
     expect(random.chance(50)).toBe(true);
     expect(random.pick(["a", "b", "c"])).toBe("c");
+  });
+
+  it("membuat initial game state deterministik dan posisi unik", () => {
+    const players = ["p1", "p2", "p3", "p4"];
+    const first = createInitialGameState(
+      players,
+      "game-1",
+      new SequenceRandomSource([0.2, 0.8, 0.4]),
+    );
+    const second = createInitialGameState(
+      players,
+      "game-1",
+      new SequenceRandomSource([0.2, 0.8, 0.4]),
+    );
+    expect(first).toEqual(second);
+    expect(first.boardRadius).toBe(6);
+    expect(new Set(first.pawns.map(({ hex }) => hexKey(hex))).size).toBe(4);
+    expect(first.pawns.every(({ hex }) => isInsideBoard(hex, 6))).toBe(true);
+    expect(createStartPositions(["p1", "p2"], 4)).toHaveLength(2);
   });
 });

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const RequestIdSchema = z.uuid();
+export const RequestPayloadSchema = z.object({ requestId: RequestIdSchema });
 export const RoomCodeSchema = z.string().regex(/^UMR-\d{4}$/);
 export const HexCoordSchema = z.object({
   q: z.number().int(),

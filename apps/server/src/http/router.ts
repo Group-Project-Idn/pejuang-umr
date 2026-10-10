@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { GuestRequestSchema } from "@pejuang/shared";
 import type { ServerConfig } from "../config";
+import type { RoomRepository } from "../repositories/room-repository";
 import { createGuestToken, verifyGuestToken } from "../services/guest-token";
 import { isNameRejected } from "../services/name-filter";
 import { FixedWindowRateLimiter } from "../services/rate-limit";
@@ -77,7 +78,7 @@ async function handleGuest(
   });
 }
 
-export function createHttpHandler(config: ServerConfig) {
+export function createHttpHandler(config: ServerConfig, rooms: RoomRepository) {
   return async (request: IncomingMessage, response: ServerResponse) => {
     const url = new URL(request.url ?? "/", "http://localhost");
     const origin = request.headers.origin;
@@ -109,6 +110,17 @@ export function createHttpHandler(config: ServerConfig) {
 
     if (request.method === "POST" && url.pathname === "/api/v1/guest") {
       await handleGuest(request, response, config);
+      return;
+    }
+
+    const roomMatch = url.pathname.match(/^\/api\/v1\/rooms\/(UMR-\d{4})$/);
+    if (request.method === "GET" && roomMatch) {
+      const room = rooms.get(roomMatch[1]!);
+      if (!room) {
+        sendError(response, 404, "ROOM_NOT_FOUND", "Room tidak ditemukan.");
+        return;
+      }
+      sendJson(response, 200, { ok: true, room });
       return;
     }
 
