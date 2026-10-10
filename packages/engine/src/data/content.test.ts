@@ -38,9 +38,9 @@ describe("katalog data konten", () => {
   it("memuat 12 petak biasa dengan 3 petak per kategori", () => {
     expect(TILES).toHaveLength(12);
     for (const category of ["work", "social", "health", "finance"]) {
-      expect(
-        TILES.filter((tile) => tile.category === category),
-      ).toHaveLength(3);
+      expect(TILES.filter((tile) => tile.category === category)).toHaveLength(
+        3,
+      );
     }
   });
 
@@ -81,7 +81,9 @@ describe("katalog data konten", () => {
   it("setiap plan dan effects punya maksimal 3 efek", () => {
     const allEffectLists: Array<readonly { stat: string; delta: number }[]> = [
       ...TILES.map((tile) => tile.plan),
-      ...TILES.flatMap((tile) => tile.realities.map((reality) => reality.effects)),
+      ...TILES.flatMap((tile) =>
+        tile.realities.map((reality) => reality.effects),
+      ),
       ...GOLD_TILES.map((tile) => tile.plan),
       ...CALENDAR_EVENTS.flatMap((event) =>
         [event.choices.join, event.choices.skip, event.choices.joinPaylater]
@@ -138,9 +140,7 @@ describe("katalog data konten", () => {
   });
 
   it("Harbolnas punya join dan joinPaylater dengan chance 30% barang tidak sesuai", () => {
-    const harbolnas = CALENDAR_EVENTS.find(
-      (event) => event.id === "harbolnas",
-    );
+    const harbolnas = CALENDAR_EVENTS.find((event) => event.id === "harbolnas");
     expect(harbolnas?.choices.join.effects).toContainEqual({
       stat: "wealth",
       delta: -1_500_000,
@@ -206,14 +206,36 @@ describe("katalog data konten", () => {
     expect(INVITE_MOTIVE_EFFECTS.sincere.decline.declineWealthPenalty).toBe(
       -3_000_000,
     );
-    expect(
-      INVITE_MOTIVE_EFFECTS.commission.join.senderExtra,
-    ).toContainEqual({ stat: "wealth", delta: 3_000_000 });
+    expect(INVITE_MOTIVE_EFFECTS.commission.join.senderExtra).toContainEqual({
+      stat: "wealth",
+      delta: 3_000_000,
+    });
     expect(INVITE_MOTIVE_EFFECTS.trap.join.planAppliesToTarget).toBe(false);
     expect(INVITE_MOTIVE_EFFECTS.trap.join.targetExtra).toContainEqual({
       stat: "wealth",
       delta: -2_000_000,
     });
+  });
+
+  it("pembukaan motif Ajakan sesuai GDD 4.8", () => {
+    const joinReveal = {
+      sincere: "target" as const,
+      commission: "target" as const,
+      trap: "target" as const,
+    };
+    for (const motive of Object.keys(INVITE_MOTIVE_EFFECTS) as Array<
+      keyof typeof INVITE_MOTIVE_EFFECTS
+    >) {
+      expect(INVITE_MOTIVE_EFFECTS[motive].join.revealMotiveTo).toBe(
+        joinReveal[motive],
+      );
+    }
+    expect(INVITE_MOTIVE_EFFECTS.sincere.decline.revealMotiveTo).toBe(
+      "everyone",
+    );
+    for (const motive of ["commission", "trap"] as const) {
+      expect(INVITE_MOTIVE_EFFECTS[motive].decline.revealMotiveTo).toBe("none");
+    }
   });
 
   it("mendaftarkan semua katalog di index data", async () => {

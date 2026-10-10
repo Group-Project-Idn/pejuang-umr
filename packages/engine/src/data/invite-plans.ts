@@ -1,6 +1,7 @@
 import {
   InvitePlanDefinitionSchema,
   type InviteMotive,
+  type InviteMotiveReveal,
   type InvitePlanDefinition,
 } from "./schema";
 
@@ -62,25 +63,28 @@ type InviteMotiveEffects = {
   senderExtra: InvitePlanDefinition["effects"];
   /** Ajakan Tulus yang ditolak: target kena minus, motif dibuka ke semua. */
   declineWealthPenalty: number;
-  /** Apakah motif dibuka setelah jawaban. */
-  revealMotive: boolean;
+  /** Kepada siapa motif dibuka setelah jawaban. */
+  revealMotiveTo: InviteMotiveReveal;
 };
 
-export const INVITE_MOTIVE_EFFECTS: Record<InviteMotive, { join: InviteMotiveEffects; decline: InviteMotiveEffects }> = {
+export const INVITE_MOTIVE_EFFECTS: Record<
+  InviteMotive,
+  { join: InviteMotiveEffects; decline: InviteMotiveEffects }
+> = {
   sincere: {
     join: {
       planAppliesToTarget: true,
       targetExtra: [{ stat: "stress", delta: -1 }],
       senderExtra: [{ stat: "stress", delta: -1 }],
       declineWealthPenalty: 0,
-      revealMotive: true,
+      revealMotiveTo: "target",
     },
     decline: {
       planAppliesToTarget: false,
       targetExtra: [],
       senderExtra: [],
       declineWealthPenalty: -3_000_000,
-      revealMotive: true,
+      revealMotiveTo: "everyone",
     },
   },
   commission: {
@@ -89,14 +93,14 @@ export const INVITE_MOTIVE_EFFECTS: Record<InviteMotive, { join: InviteMotiveEff
       targetExtra: [{ stat: "stress", delta: 2 }],
       senderExtra: [{ stat: "wealth", delta: 3_000_000 }],
       declineWealthPenalty: 0,
-      revealMotive: false,
+      revealMotiveTo: "target",
     },
     decline: {
       planAppliesToTarget: false,
       targetExtra: [],
       senderExtra: [],
       declineWealthPenalty: 0,
-      revealMotive: false,
+      revealMotiveTo: "none",
     },
   },
   trap: {
@@ -108,14 +112,14 @@ export const INVITE_MOTIVE_EFFECTS: Record<InviteMotive, { join: InviteMotiveEff
       ],
       senderExtra: [],
       declineWealthPenalty: 0,
-      revealMotive: true,
+      revealMotiveTo: "target",
     },
     decline: {
       planAppliesToTarget: false,
       targetExtra: [],
       senderExtra: [],
       declineWealthPenalty: 0,
-      revealMotive: false,
+      revealMotiveTo: "none",
     },
   },
 };
