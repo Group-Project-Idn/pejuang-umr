@@ -1,21 +1,11 @@
-import type { PublicPlayer } from "./player";
+import type { z } from "zod";
+import { RoomPlayerSchema, RoomStateSchema } from "../schemas/room";
 
-export type RoomStatus = "waiting" | "countdown" | "playing" | "finished";
-export type StartBlockReason = "NEED_MIN_PLAYERS" | "WAITING_READY";
+export type RoomStatus = z.infer<typeof RoomStateSchema>["status"];
+export type StartBlockReason = NonNullable<
+  z.infer<typeof RoomStateSchema>["startBlockReason"]
+>;
 
-export type RoomPlayer = PublicPlayer & {
-  isHost: boolean;
-  ready: boolean;
-  joinedAt: number;
-};
+export type RoomPlayer = z.infer<typeof RoomPlayerSchema>;
 
-export type RoomState = {
-  code: string;
-  status: RoomStatus;
-  hostId: string;
-  turnSeconds: 30 | 60;
-  players: RoomPlayer[];
-  maxPlayers: 4;
-  canStart: boolean;
-  startBlockReason: StartBlockReason | null;
-};
+export type RoomState = z.infer<typeof RoomStateSchema>;

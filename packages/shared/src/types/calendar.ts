@@ -1,16 +1,10 @@
+import type { z } from "zod";
 import type { Effect } from "./player";
+import { CalendarInfoSchema } from "../schemas/game";
 
-export type Season = "rainy" | "dry" | "transition";
+export type Season = z.infer<typeof CalendarInfoSchema>["season"];
 
-export type CalendarInfo = {
-  step: number;
-  totalSteps: 24;
-  round: number;
-  month: number;
-  dateLabel: string;
-  season: Season;
-  nextEvent: { name: string; stepsLeft: number } | null;
-};
+export type CalendarInfo = z.infer<typeof CalendarInfoSchema>;
 
 export type CalendarEventPayload = {
   version: number;

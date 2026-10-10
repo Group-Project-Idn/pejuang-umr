@@ -1,55 +1,31 @@
-import type { CalendarEventPayload, CalendarInfo, Season } from "./calendar";
+import type { z } from "zod";
+import type { CalendarEventPayload, Season } from "./calendar";
 import type { InviteCard, InviteIncomingPayload } from "./invite";
 import type { Effect, PawnId, PrivateStatus } from "./player";
 import type { RoomState } from "./room";
+import { HexCoordSchema } from "../schemas/common";
+import {
+  CalendarInfoSchema,
+  GoldTileSchema,
+  OpenedHexSchema,
+  PublicGameStateSchema,
+  ScoreRowSchema,
+} from "../schemas/game";
 
-export type HexCoord = { q: number; r: number };
-export type Category = "work" | "social" | "health" | "finance" | "gold";
-export type Outcome = "zonk" | "safe" | "lucky";
+export type HexCoord = z.infer<typeof HexCoordSchema>;
+export type Category = z.infer<typeof OpenedHexSchema>["category"];
+export type Outcome = NonNullable<
+  z.infer<typeof OpenedHexSchema>["outcome"]
+>;
 export type Risk = "low" | "medium" | "high";
 
-export type OpenedHex = {
-  hex: HexCoord;
-  category: Category;
-  title: string;
-  outcome: Outcome | null;
-  byPlayerId: string;
-  step: number;
-};
+export type OpenedHex = z.infer<typeof OpenedHexSchema>;
 
-export type GoldTile = {
-  goldId: string;
-  hex: HexCoord;
-  title: string;
-  plan: Effect[];
-  expiresAtStep: number;
-};
+export type GoldTile = z.infer<typeof GoldTileSchema>;
 
-export type ScoreRow = {
-  playerId: string;
-  provisionalScore: number;
-  rank: number;
-  eliminated: boolean;
-};
+export type ScoreRow = z.infer<typeof ScoreRowSchema>;
 
-export type PublicGameState = {
-  version: number;
-  gameId: string;
-  boardRadius: 4 | 5 | 6;
-  calendar: CalendarInfo;
-  turnOrder: string[];
-  activePlayerId: string | null;
-  turnDeadline: number | null;
-  turnPaused: boolean;
-  pawns: Array<{ playerId: string; hex: HexCoord }>;
-  openedHexes: OpenedHex[];
-  deadHexes: HexCoord[];
-  gold: GoldTile | null;
-  scores: ScoreRow[];
-  rankOneBurden: string[];
-  eliminated: string[];
-  spectators: string[];
-};
+export type PublicGameState = z.infer<typeof PublicGameStateSchema>;
 
 export type RiskTag =
   | { type: "rankOne"; plusPct: 15 }

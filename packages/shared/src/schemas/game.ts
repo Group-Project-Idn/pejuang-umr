@@ -14,7 +14,7 @@ export const CalendarInfoSchema = z.object({
     .nullable(),
 });
 
-const OpenedHexSchema = z.object({
+export const OpenedHexSchema = z.object({
   hex: HexCoordSchema,
   category: z.enum(["work", "social", "health", "finance", "gold"]),
   title: z.string().min(1),
@@ -23,7 +23,7 @@ const OpenedHexSchema = z.object({
   step: z.number().int().min(1).max(24),
 });
 
-const GoldTileSchema = z.object({
+export const GoldTileSchema = z.object({
   goldId: z.string().min(1),
   hex: HexCoordSchema,
   title: z.string().min(1),
@@ -31,7 +31,7 @@ const GoldTileSchema = z.object({
   expiresAtStep: z.number().int().min(1).max(25),
 });
 
-const ScoreRowSchema = z.object({
+export const ScoreRowSchema = z.object({
   playerId: z.string().min(1),
   provisionalScore: z.number().int(),
   rank: z.number().int().positive(),

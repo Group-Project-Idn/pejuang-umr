@@ -1,7 +1,6 @@
 "use client";
 
-import type { PrivateStatus } from "@pejuang/shared";
-import { formatRupiah } from "@/data/game";
+import { formatRupiah, type PrivateStatus } from "@pejuang/shared";
 
 function Meter({
   value,
