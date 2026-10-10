@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@pejuang/shared": "*"
+    "@pejuang/shared": "*",
+    "zod": "^4.6.5"
   }
 }

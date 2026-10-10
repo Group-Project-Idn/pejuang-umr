@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export const ERROR_CODES = [
   "INVALID_PAYLOAD",
   "UNAUTHORIZED",
@@ -26,10 +28,14 @@ export const ERROR_CODES = [
   "INTERNAL",
 ] as const;
 
-export type ErrorCode = (typeof ERROR_CODES)[number];
+export const ErrorCodeSchema = z.enum(ERROR_CODES);
 
-export type ServerErrorPayload = {
-  code: ErrorCode;
-  message: string;
-  fatal: boolean;
-};
+export const ServerErrorPayloadSchema = z.object({
+  code: ErrorCodeSchema,
+  message: z.string(),
+  fatal: z.boolean(),
+});
+
+export type ErrorCode = z.infer<typeof ErrorCodeSchema>;
+
+export type ServerErrorPayload = z.infer<typeof ServerErrorPayloadSchema>;

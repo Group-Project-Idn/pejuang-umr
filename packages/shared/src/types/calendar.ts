@@ -1,30 +1,18 @@
-import type { Effect } from "./player";
+import type { z } from "zod";
+import {
+  CalendarEventPayloadSchema,
+  CalendarInfoSchema,
+  CalendarResultPayloadSchema,
+  MonthSummaryPayloadSchema,
+} from "../schemas/calendar";
+import { SeasonSchema } from "../schemas/common";
 
-export type Season = "rainy" | "dry" | "transition";
+export type Season = z.infer<typeof SeasonSchema>;
 
-export type CalendarInfo = {
-  step: number;
-  totalSteps: 24;
-  round: number;
-  month: number;
-  dateLabel: string;
-  season: Season;
-  nextEvent: { name: string; stepsLeft: number } | null;
-};
+export type CalendarInfo = z.infer<typeof CalendarInfoSchema>;
 
-export type CalendarEventPayload = {
-  version: number;
-  eventId: string;
-  title: string;
-  description: string;
-  choices: Array<"join" | "joinPaylater" | "skip">;
-  deadline: number;
-};
+export type CalendarEventPayload = z.infer<typeof CalendarEventPayloadSchema>;
 
-export type CalendarResultPayload = {
-  eventId: string;
-  choice: "join" | "joinPaylater" | "skip";
-  autoChosen: boolean;
-  effects: Effect[];
-  flavor?: string;
-};
+export type CalendarResultPayload = z.infer<typeof CalendarResultPayloadSchema>;
+
+export type MonthSummaryPayload = z.infer<typeof MonthSummaryPayloadSchema>;

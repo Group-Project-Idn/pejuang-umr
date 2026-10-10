@@ -1,0 +1,13 @@
+# Aturan proyek Pejuang UMR
+
+- Monorepo npm workspaces: apps/web (Next.js), apps/server (Socket.IO), packages/engine, packages/shared.
+- Sumber kebenaran aturan: docs/GDD.md. Kontrak: docs/API_CONTRACT.md. Jangan mengubah angka di luar GDD.
+- packages/engine hanya dipakai apps/server. apps/web TIDAK BOLEH mengimpor @pejuang/engine (isi heksa rahasia).
+- Data konten (petak, Realita, event, musim, Ajakan) hanya di packages/engine/src/data. Jangan taruh di shared.
+- Validasi input dengan Zod 4 dari @pejuang/shared. Tipe diturunkan dari skema dengan z.infer, jangan ditulis dua kali.
+- Nama field dan enum di kode bahasa Inggris. Teks yang tampil ke pemain bahasa Indonesia.
+- Uang dalam Rupiah bulat (number). Kesehatan dan Level Stress 0-10.
+- Setiap perubahan disertai tes Vitest. Sebelum selesai jalankan: npm run typecheck && npm test.
+- Jangan membaca, membuat, atau menampilkan isi file .env.
+- Jangan menjalankan git commit atau git push. Pengguna yang melakukannya.
+- Perubahan kecil dan terarah. Jangan menulis ulang file yang tidak terkait.

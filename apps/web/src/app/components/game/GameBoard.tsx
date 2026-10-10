@@ -1,6 +1,6 @@
 "use client";
 
-import { createBoard, hexKey } from "@pejuang/engine";
+import { createBoard, hexKey } from "@pejuang/shared";
 import type { PublicGameState, RoomState } from "@pejuang/shared";
 import { Html, OrbitControls, RoundedBox } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";

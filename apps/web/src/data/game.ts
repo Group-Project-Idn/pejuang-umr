@@ -74,6 +74,3 @@ export function getBoardDeskSize(board: readonly HexCoord[], margin = 1.2) {
   };
 }
 
-export function formatRupiah(value: number) {
-  return `Rp${new Intl.NumberFormat("id-ID").format(value)}`;
-}

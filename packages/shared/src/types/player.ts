@@ -1,30 +1,21 @@
-export type AvatarId = string;
+import type { z } from "zod";
+import {
+  AvatarIdSchema,
+  EffectSchema,
+  PawnIdSchema,
+  PrivateStatusSchema,
+  StatSchema,
+} from "../schemas/common";
+import { PublicPlayerSchema } from "../schemas/room";
 
-export type PawnId =
-  | "cream-circle"
-  | "iceblue-square"
-  | "mint-triangle"
-  | "salmon-diamond";
+export type AvatarId = z.infer<typeof AvatarIdSchema>;
 
-export type Stat = "wealth" | "debt" | "health" | "stress";
+export type PawnId = z.infer<typeof PawnIdSchema>;
 
-export type Effect = {
-  stat: Stat;
-  delta: number;
-};
+export type Stat = z.infer<typeof StatSchema>;
 
-export type PublicPlayer = {
-  playerId: string;
-  name: string;
-  avatarId: AvatarId;
-  pawn: PawnId | null;
-  connected: boolean;
-};
+export type Effect = z.infer<typeof EffectSchema>;
 
-export type PrivateStatus = {
-  wealth: number;
-  debt: number;
-  debtLimit: 25_000_000;
-  health: number;
-  stress: number;
-};
+export type PublicPlayer = z.infer<typeof PublicPlayerSchema>;
+
+export type PrivateStatus = z.infer<typeof PrivateStatusSchema>;
