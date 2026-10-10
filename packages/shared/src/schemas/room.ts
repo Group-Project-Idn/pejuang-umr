@@ -1,0 +1,27 @@
+import { z } from "zod";
+import { AvatarIdSchema, PawnIdSchema } from "./common";
+
+export const PublicPlayerSchema = z.object({
+  playerId: z.string().min(1),
+  name: z.string().min(1),
+  avatarId: AvatarIdSchema,
+  pawn: PawnIdSchema.nullable(),
+  connected: z.boolean(),
+});
+
+export const RoomPlayerSchema = PublicPlayerSchema.extend({
+  isHost: z.boolean(),
+  ready: z.boolean(),
+  joinedAt: z.number().int(),
+});
+
+export const RoomStateSchema = z.object({
+  code: z.string().regex(/^UMR-\d{4}$/),
+  status: z.enum(["waiting", "countdown", "playing", "finished"]),
+  hostId: z.string().min(1),
+  turnSeconds: z.union([z.literal(30), z.literal(60)]),
+  players: z.array(RoomPlayerSchema).max(4),
+  maxPlayers: z.literal(4),
+  canStart: z.boolean(),
+  startBlockReason: z.enum(["NEED_MIN_PLAYERS", "WAITING_READY"]).nullable(),
+});
