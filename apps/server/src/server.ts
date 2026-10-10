@@ -14,6 +14,7 @@ import { IdempotencyRepository } from "./repositories/idempotency-repository";
 import { RoomRepository } from "./repositories/room-repository";
 import { verifyGuestToken } from "./services/guest-token";
 import { registerRoomHandlers } from "./socket/register-room-handlers";
+import { executeWithAck } from "./socket/safe-handler";
 
 export function createPejuangServer(
   config: ServerConfig,
@@ -75,15 +76,17 @@ export function createPejuangServer(
       io.to(currentRoom.code).emit("room:state", currentRoom);
     }
 
-    socket.on("ping:test", (payload, ack) => {
-      const parsed = PingSchema.safeParse(payload);
-      if (!parsed.success) {
-        ack({ ok: false, error: "INVALID_PAYLOAD" });
-        return;
-      }
-      ack({
-        ok: true,
-        message: `Halo ${parsed.data.name}, server menerima pesanmu`,
+    socket.on("ping:test", (payload, unsafeAck) => {
+      executeWithAck<{ message: string }>(unsafeAck, (ack) => {
+        const parsed = PingSchema.safeParse(payload);
+        if (!parsed.success) {
+          ack({ ok: false, error: "INVALID_PAYLOAD" });
+          return;
+        }
+        ack({
+          ok: true,
+          message: `Halo ${parsed.data.name}, server menerima pesanmu`,
+        });
       });
     });
 

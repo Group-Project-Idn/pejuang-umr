@@ -39,7 +39,7 @@ afterEach(async () => {
   }
 });
 
-async function startServer() {
+async function startServer(countdownMs = 5) {
   const rooms = new RoomRepository(() => "UMR-1234");
   const server = createPejuangServer(
     {
@@ -48,7 +48,7 @@ async function startServer() {
       guestTokenSecret: secret,
       version: "test",
     },
-    { rooms, countdownMs: 5, createGameId: () => "game-test" },
+    { rooms, countdownMs, createGameId: () => "game-test" },
   );
   openServers.push(server);
   server.httpServer.listen(0);
@@ -335,5 +335,88 @@ describe("room lifecycle", () => {
     expect(new Set(hostPayload.startPositions.map(({ hex }) => `${hex.q}:${hex.r}`)).size).toBe(2);
     expect(server.rooms.get("UMR-1234")?.status).toBe("playing");
     expect(server.games.get("UMR-1234")?.gameId).toBe("game-test");
+  });
+
+  it("tetap hidup ketika client mengirim event tanpa ack callback", async () => {
+    const { baseUrl, server } = await startServer();
+    const host = await connectGuest(baseUrl, "Host", "avatar-01");
+    const unsafeSocket = host.socket as unknown as {
+      emit: (event: string, ...args: unknown[]) => void;
+    };
+
+    for (const [event, payload] of [
+      ["ping:test", {}],
+      ["room:join", {}],
+      ["room:leave", {}],
+      ["room:ready", {}],
+      ["room:pawn", {}],
+      ["room:timer", {}],
+      ["room:kick", {}],
+      ["game:start", {}],
+      ["session:resume", {}],
+    ] as const) {
+      unsafeSocket.emit(event, payload);
+    }
+    unsafeSocket.emit("room:create", { requestId: requestIds[0]! });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(server.rooms.get("UMR-1234")?.hostId).toBe(host.playerId);
+    const ping = await host.socket.timeout(1_000).emitWithAck("ping:test", {
+      name: "Server masih hidup",
+    });
+    expect(ping.ok).toBe(true);
+  });
+
+  it("mengunci leave dan kick selama countdown", async () => {
+    const { baseUrl, server } = await startServer(50);
+    const host = await connectGuest(baseUrl, "Host", "avatar-01");
+    const guest = await connectGuest(baseUrl, "Guest", "avatar-02");
+    await host.socket.emitWithAck("room:create", {
+      requestId: requestIds[0]!,
+    });
+    await guest.socket.emitWithAck("room:join", {
+      requestId: requestIds[1]!,
+      roomCode: "UMR-1234",
+    });
+    await host.socket.emitWithAck("room:pawn", {
+      requestId: requestIds[2]!,
+      pawn: "cream-circle",
+    });
+    await guest.socket.emitWithAck("room:pawn", {
+      requestId: requestIds[3]!,
+      pawn: "iceblue-square",
+    });
+    await host.socket.emitWithAck("room:ready", {
+      requestId: requestIds[4]!,
+      ready: true,
+    });
+    await guest.socket.emitWithAck("room:ready", {
+      requestId: requestIds[5]!,
+      ready: true,
+    });
+
+    const started = new Promise<Parameters<ServerToClientEvents["game:started"]>[0]>(
+      (resolve) => host.socket.once("game:started", resolve),
+    );
+    await host.socket.emitWithAck("game:start", {
+      requestId: requestIds[6]!,
+    });
+    const leave = await guest.socket.emitWithAck("room:leave", {
+      requestId: requestIds[7]!,
+    });
+    const kick = await host.socket.emitWithAck("room:kick", {
+      requestId: "00000000-0000-4000-8000-000000000009",
+      targetPlayerId: guest.playerId,
+    });
+    const hostLeave = await host.socket.emitWithAck("room:leave", {
+      requestId: "00000000-0000-4000-8000-000000000010",
+    });
+
+    expect(leave).toEqual({ ok: false, error: "ROOM_LOCKED" });
+    expect(kick).toEqual({ ok: false, error: "ROOM_LOCKED" });
+    expect(hostLeave).toEqual({ ok: false, error: "ROOM_LOCKED" });
+    await expect(started).resolves.toMatchObject({ gameId: "game-test" });
+    expect(server.rooms.get("UMR-1234")?.players).toHaveLength(2);
+    expect(server.games.get("UMR-1234")?.pawns).toHaveLength(2);
   });
 });

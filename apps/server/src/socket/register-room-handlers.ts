@@ -25,6 +25,7 @@ import type { GameRepository } from "../repositories/game-repository";
 import type { IdempotencyRepository } from "../repositories/idempotency-repository";
 import type { RoomRepository } from "../repositories/room-repository";
 import { createSnapshot } from "../services/snapshot";
+import { executeWithAck } from "./safe-handler";
 
 type GameServer = Server<
   ClientToServerEvents,
@@ -81,7 +82,7 @@ export function registerRoomHandlers(
   const countdownMs = options.countdownMs ?? 3_000;
   const random = options.random ?? new MathRandomSource();
   const createGameId = options.createGameId ?? randomUUID;
-  socket.on("room:create", (payload, ack) => {
+  socket.on("room:create", (payload, unsafeAck) => executeWithAck<RoomResult>(unsafeAck, (ack) => {
     const parsed = RoomCreateRequestSchema.safeParse(payload);
     if (!parsed.success) return ack(invalidPayload<RoomResult>());
     const result = runIdempotent<RoomResult>(
@@ -96,9 +97,9 @@ export function registerRoomHandlers(
       emitRoomState(io, result.response.room);
     }
     ack(result.response);
-  });
+  }));
 
-  socket.on("room:join", (payload, ack) => {
+  socket.on("room:join", (payload, unsafeAck) => executeWithAck<RoomResult>(unsafeAck, (ack) => {
     const parsed = RoomJoinRequestSchema.safeParse(payload);
     if (!parsed.success) return ack(invalidPayload<RoomResult>());
     const result = runIdempotent<RoomResult>(
@@ -113,9 +114,9 @@ export function registerRoomHandlers(
       emitRoomState(io, result.response.room);
     }
     ack(result.response);
-  });
+  }));
 
-  socket.on("room:leave", (payload, ack) => {
+  socket.on("room:leave", (payload, unsafeAck) => executeWithAck<EmptyResult>(unsafeAck, (ack) => {
     const parsed = RoomLeaveRequestSchema.safeParse(payload);
     if (!parsed.success) return ack(invalidPayload());
     const roomBefore = rooms.getByPlayer(socket.data.playerId);
@@ -135,9 +136,9 @@ export function registerRoomHandlers(
       if (remaining) emitRoomState(io, remaining);
     }
     ack(result.response);
-  });
+  }));
 
-  socket.on("room:ready", (payload, ack) => {
+  socket.on("room:ready", (payload, unsafeAck) => executeWithAck<EmptyResult>(unsafeAck, (ack) => {
     const parsed = RoomReadyRequestSchema.safeParse(payload);
     if (!parsed.success) return ack(invalidPayload());
     const result = runIdempotent<EmptyResult>(
@@ -155,9 +156,9 @@ export function registerRoomHandlers(
       if (room) emitRoomState(io, room);
     }
     ack(result.response);
-  });
+  }));
 
-  socket.on("room:pawn", (payload, ack) => {
+  socket.on("room:pawn", (payload, unsafeAck) => executeWithAck<EmptyResult>(unsafeAck, (ack) => {
     const parsed = RoomPawnRequestSchema.safeParse(payload);
     if (!parsed.success) return ack(invalidPayload());
     const result = runIdempotent<EmptyResult>(
@@ -175,9 +176,9 @@ export function registerRoomHandlers(
       if (room) emitRoomState(io, room);
     }
     ack(result.response);
-  });
+  }));
 
-  socket.on("room:timer", (payload, ack) => {
+  socket.on("room:timer", (payload, unsafeAck) => executeWithAck<EmptyResult>(unsafeAck, (ack) => {
     const parsed = RoomTimerRequestSchema.safeParse(payload);
     if (!parsed.success) return ack(invalidPayload());
     const result = runIdempotent<EmptyResult>(
@@ -198,9 +199,9 @@ export function registerRoomHandlers(
       if (room) emitRoomState(io, room);
     }
     ack(result.response);
-  });
+  }));
 
-  socket.on("room:kick", (payload, ack) => {
+  socket.on("room:kick", (payload, unsafeAck) => executeWithAck<EmptyResult>(unsafeAck, (ack) => {
     const parsed = RoomKickRequestSchema.safeParse(payload);
     if (!parsed.success) return ack(invalidPayload());
     const roomBefore = rooms.getByPlayer(socket.data.playerId);
@@ -228,9 +229,9 @@ export function registerRoomHandlers(
       if (room) emitRoomState(io, room);
     }
     ack(result.response);
-  });
+  }));
 
-  socket.on("game:start", (payload, ack) => {
+  socket.on("game:start", (payload, unsafeAck) => executeWithAck<EmptyResult>(unsafeAck, (ack) => {
     const parsed = RoomCreateRequestSchema.safeParse(payload);
     if (!parsed.success) return ack(invalidPayload());
     const result = runIdempotent<EmptyResult>(
@@ -251,45 +252,61 @@ export function registerRoomHandlers(
         seconds: 3,
       });
       setTimeout(() => {
-        const playingRoom = rooms.markPlaying(room.code);
-        if (!playingRoom) return;
-        const game = games.set(
-          room.code,
-          createInitialGameState(
-            playingRoom.players.map((player) => player.playerId),
+        try {
+          const countdownRoom = rooms.get(room.code);
+          if (!countdownRoom || countdownRoom.status !== "countdown") return;
+          const pendingGame = createInitialGameState(
+            countdownRoom.players.map((player) => player.playerId),
             createGameId(),
             random,
-          ),
-        );
-        emitRoomState(io, playingRoom);
-        io.to(room.code).emit("game:started", {
-          version: game.version,
-          serverTime: Date.now(),
-          gameId: game.gameId,
-          boardRadius: game.boardRadius,
-          turnSeconds: playingRoom.turnSeconds,
-          turnOrder: game.turnOrder,
-          startPositions: game.pawns,
-          calendar: game.calendar,
-        });
-        for (const candidate of io.sockets.sockets.values()) {
-          if (candidate.rooms.has(room.code)) {
-            candidate.emit(
-              "session:snapshot",
-              createSnapshot(
-                playingRoom,
-                candidate.data.playerId,
-                game,
-              ),
-            );
+          );
+          const transition = rooms.markPlaying(room.code);
+          if (!transition.ok) {
+            io.to(room.code).emit("error", {
+              code: transition.error,
+              message: "Game gagal dimulai karena state room berubah.",
+              fatal: false,
+            });
+            return;
           }
+          const playingRoom = transition.room;
+          const game = games.set(room.code, pendingGame);
+          emitRoomState(io, playingRoom);
+          io.to(room.code).emit("game:started", {
+            version: game.version,
+            serverTime: Date.now(),
+            gameId: game.gameId,
+            boardRadius: game.boardRadius,
+            turnSeconds: playingRoom.turnSeconds,
+            turnOrder: game.turnOrder,
+            startPositions: game.pawns,
+            calendar: game.calendar,
+          });
+          for (const candidate of io.sockets.sockets.values()) {
+            if (candidate.rooms.has(room.code)) {
+              candidate.emit(
+                "session:snapshot",
+                createSnapshot(
+                  playingRoom,
+                  candidate.data.playerId,
+                  game,
+                ),
+              );
+            }
+          }
+        } catch {
+          io.to(room.code).emit("error", {
+            code: "INTERNAL",
+            message: "Game gagal dimulai. Silakan coba lagi.",
+            fatal: false,
+          });
         }
       }, countdownMs);
     }
     ack(result.response);
-  });
+  }));
 
-  socket.on("session:resume", (payload, ack) => {
+  socket.on("session:resume", (payload, unsafeAck) => executeWithAck<{ snapshot: ReturnType<typeof createSnapshot> }>(unsafeAck, (ack) => {
     const parsed = SessionResumeRequestSchema.safeParse(payload);
     if (!parsed.success) {
       return ack(invalidPayload<{ snapshot: ReturnType<typeof createSnapshot> }>());
@@ -314,5 +331,5 @@ export function registerRoomHandlers(
         games.get(connectedRoom.code),
       ),
     });
-  });
+  }));
 }

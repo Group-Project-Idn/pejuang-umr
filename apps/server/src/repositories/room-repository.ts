@@ -97,6 +97,7 @@ export class RoomRepository {
   leave(playerId: string): RoomMutationResult {
     const room = this.getByPlayerMutable(playerId);
     if (!room) return { ok: false, error: "NOT_IN_ROOM" };
+    if (room.status !== "waiting") return { ok: false, error: "ROOM_LOCKED" };
 
     room.players = room.players.filter((player) => player.playerId !== playerId);
     this.playerRooms.delete(playerId);
@@ -151,6 +152,7 @@ export class RoomRepository {
     const room = this.getByPlayerMutable(hostId);
     if (!room) return { ok: false, error: "NOT_IN_ROOM" };
     if (room.hostId !== hostId) return { ok: false, error: "NOT_HOST" };
+    if (room.status !== "waiting") return { ok: false, error: "ROOM_LOCKED" };
     if (targetPlayerId === hostId) return { ok: false, error: "INVALID_TARGET" };
     if (!room.players.some((player) => player.playerId === targetPlayerId)) {
       return { ok: false, error: "INVALID_TARGET" };
@@ -178,11 +180,18 @@ export class RoomRepository {
     return { ok: true, room: cloneRoom(this.save(room)) };
   }
 
-  markPlaying(code: string): RoomState | null {
+  markPlaying(code: string): RoomMutationResult {
     const room = this.rooms.get(code);
-    if (!room || room.status !== "countdown") return null;
+    if (!room) return { ok: false, error: "ROOM_NOT_FOUND" };
+    if (room.status !== "countdown") return { ok: false, error: "ROOM_LOCKED" };
+    if (room.players.length < 2) {
+      return { ok: false, error: "NOT_ENOUGH_PLAYERS" };
+    }
+    if (!room.players.every((player) => player.ready && player.pawn !== null)) {
+      return { ok: false, error: "PLAYERS_NOT_READY" };
+    }
     room.status = "playing";
-    return cloneRoom(this.save(room));
+    return { ok: true, room: cloneRoom(this.save(room)) };
   }
 
   setConnected(playerId: string, connected: boolean): RoomState | null {
