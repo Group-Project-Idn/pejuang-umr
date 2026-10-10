@@ -9,10 +9,27 @@ import {
 import { Server } from "socket.io";
 import type { ServerConfig } from "./config";
 import { createHttpHandler } from "./http/router";
+import { GameRepository } from "./repositories/game-repository";
+import { IdempotencyRepository } from "./repositories/idempotency-repository";
+import { RoomRepository } from "./repositories/room-repository";
 import { verifyGuestToken } from "./services/guest-token";
+import { registerRoomHandlers } from "./socket/register-room-handlers";
 
-export function createPejuangServer(config: ServerConfig) {
-  const httpServer = createNodeServer(createHttpHandler(config));
+export function createPejuangServer(
+  config: ServerConfig,
+  dependencies: {
+    rooms?: RoomRepository;
+    games?: GameRepository;
+    idempotency?: IdempotencyRepository;
+    countdownMs?: number;
+    createGameId?: () => string;
+  } = {},
+) {
+  const rooms = dependencies.rooms ?? new RoomRepository();
+  const games = dependencies.games ?? new GameRepository();
+  const idempotency =
+    dependencies.idempotency ?? new IdempotencyRepository();
+  const httpServer = createNodeServer(createHttpHandler(config, rooms));
   const io = new Server<
     ClientToServerEvents,
     ServerToClientEvents,
@@ -52,6 +69,12 @@ export function createPejuangServer(config: ServerConfig) {
     }
     activeSockets.set(socket.data.playerId, socket.id);
 
+    const currentRoom = rooms.setConnected(socket.data.playerId, true);
+    if (currentRoom) {
+      void socket.join(currentRoom.code);
+      io.to(currentRoom.code).emit("room:state", currentRoom);
+    }
+
     socket.on("ping:test", (payload, ack) => {
       const parsed = PingSchema.safeParse(payload);
       if (!parsed.success) {
@@ -64,12 +87,19 @@ export function createPejuangServer(config: ServerConfig) {
       });
     });
 
+    registerRoomHandlers(io, socket, rooms, games, idempotency, {
+      countdownMs: dependencies.countdownMs,
+      createGameId: dependencies.createGameId,
+    });
+
     socket.on("disconnect", () => {
       if (activeSockets.get(socket.data.playerId) === socket.id) {
         activeSockets.delete(socket.data.playerId);
+        const room = rooms.setConnected(socket.data.playerId, false);
+        if (room) io.to(room.code).emit("room:state", room);
       }
     });
   });
 
-  return { httpServer, io };
+  return { httpServer, io, rooms, games };
 }

@@ -7,6 +7,7 @@ export * from "./schemas/common";
 export * from "./schemas/game";
 export * from "./schemas/guest";
 export * from "./schemas/room";
+export * from "./schemas/room-actions";
 export * from "./socket/events";
 export * from "./types/calendar";
 export * from "./types/game";

@@ -3,6 +3,8 @@ import {
   GuestNameSchema,
   GuestRequestSchema,
   HexCoordSchema,
+  RoomJoinRequestSchema,
+  RoomPawnRequestSchema,
   RequestIdSchema,
   RoomCodeSchema,
 } from "../index";
@@ -33,5 +35,15 @@ describe("shared schemas", () => {
   it("hanya menerima koordinat hex integer", () => {
     expect(HexCoordSchema.safeParse({ q: -2, r: 3 }).success).toBe(true);
     expect(HexCoordSchema.safeParse({ q: 1.5, r: 3 }).success).toBe(false);
+  });
+
+  it("memvalidasi payload room dengan contract yang sama", () => {
+    const requestId = "00000000-0000-4000-8000-000000000000";
+    expect(
+      RoomJoinRequestSchema.parse({ requestId, roomCode: "UMR-1234" }),
+    ).toEqual({ requestId, roomCode: "UMR-1234" });
+    expect(
+      RoomPawnRequestSchema.safeParse({ requestId, pawn: "invalid" }).success,
+    ).toBe(false);
   });
 });

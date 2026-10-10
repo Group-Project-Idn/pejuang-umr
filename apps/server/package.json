@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@pejuang/engine": "*",
     "@pejuang/shared": "*",
     "socket.io": "^4.8.4"
   },
