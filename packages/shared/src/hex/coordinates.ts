@@ -28,3 +28,19 @@ export function getNeighbors(hex: HexCoord): HexCoord[] {
 export function compareHexes(first: HexCoord, second: HexCoord): number {
   return first.q - second.q || first.r - second.r;
 }
+
+export function getHexRing(center: HexCoord, radius: number): HexCoord[] {
+  if (radius === 0) {
+    return [{ ...center }];
+  }
+  const ring: HexCoord[] = [];
+  const start = DIRECTIONS[4]!;
+  let current = { q: center.q + start.q * radius, r: center.r + start.r * radius };
+  for (const direction of DIRECTIONS) {
+    for (let step = 0; step < radius; step += 1) {
+      ring.push(current);
+      current = { q: current.q + direction.q, r: current.r + direction.r };
+    }
+  }
+  return ring;
+}

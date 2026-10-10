@@ -6,6 +6,7 @@ import {
   createInitialGameState,
   createStartPositions,
   findNearestClosedHexes,
+  getHexDistance,
   hexKey,
   isInsideBoard,
 } from "./index";
@@ -51,6 +52,23 @@ describe("engine", () => {
     expect(first.boardRadius).toBe(6);
     expect(new Set(first.pawns.map(({ hex }) => hexKey(hex))).size).toBe(4);
     expect(first.pawns.every(({ hex }) => isInsideBoard(hex, 6))).toBe(true);
-    expect(createStartPositions(["p1", "p2"], 4)).toHaveLength(2);
+    expect(createStartPositions(["p1", "p2"])).toHaveLength(2);
+  });
+
+  it.each([
+    [2, [4, 4]],
+    [3, [4, 4, 4]],
+    [4, [3, 3, 3, 3]],
+  ])("menaruh titik awal %i pemain di cincin radius 2", (count, gaps) => {
+    const ids = Array.from({ length: count }, (_, index) => `p${index}`);
+    const hexes = createStartPositions(ids).map(({ hex }) => hex);
+    expect(new Set(hexes.map(hexKey)).size).toBe(count);
+    expect(hexes.every((hex) => getHexDistance({ q: 0, r: 0 }, hex) === 2)).toBe(
+      true,
+    );
+    const distances = hexes.slice(0, count === 2 ? 1 : count).map((hex, index) =>
+      getHexDistance(hex, hexes[(index + 1) % count]!),
+    );
+    expect(distances).toEqual(gaps.slice(0, distances.length));
   });
 });

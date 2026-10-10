@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createBoard,
   getHexDistance,
+  getHexRing,
   getNeighbors,
   hexKey,
   isInsideBoard,
@@ -24,5 +25,17 @@ describe("hex geometry", () => {
 
   it("membuat kunci heksa yang stabil", () => {
     expect(hexKey({ q: 2, r: -3 })).toBe("2,-3");
+  });
+
+  it("membuat cincin berurutan mengelilingi pusat", () => {
+    const center = { q: 0, r: 0 };
+    const ring = getHexRing(center, 2);
+    expect(ring).toHaveLength(12);
+    expect(new Set(ring.map(hexKey)).size).toBe(12);
+    expect(ring.every((hex) => getHexDistance(center, hex) === 2)).toBe(true);
+    ring.forEach((hex, index) => {
+      const next = ring[(index + 1) % ring.length]!;
+      expect(getHexDistance(hex, next)).toBe(1);
+    });
   });
 });

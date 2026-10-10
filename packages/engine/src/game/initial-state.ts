@@ -1,6 +1,5 @@
-import type { HexCoord, PublicGameState } from "@pejuang/shared";
-import { createBoard, type BoardRadius } from "../hex/board";
-import { getHexDistance } from "../hex/coordinates";
+import { getHexRing, type HexCoord, type PublicGameState } from "@pejuang/shared";
+import type { BoardRadius } from "../hex/board";
 import type { RandomSource } from "../random";
 
 export function getBoardRadius(playerCount: number): BoardRadius {
@@ -22,17 +21,16 @@ export function createTurnOrder(
   return order;
 }
 
+const START_RING_RADIUS = 2;
+
 export function createStartPositions(
   playerIds: readonly string[],
-  radius: BoardRadius,
 ): Array<{ playerId: string; hex: HexCoord }> {
-  const edge = createBoard(radius).filter(
-    (hex) => getHexDistance({ q: 0, r: 0 }, hex) === radius,
-  );
-  const spacing = Math.floor(edge.length / playerIds.length);
+  const ring = getHexRing({ q: 0, r: 0 }, START_RING_RADIUS);
+  const spacing = ring.length / playerIds.length;
   return playerIds.map((playerId, index) => ({
     playerId,
-    hex: edge[index * spacing]!,
+    hex: ring[index * spacing]!,
   }));
 }
 
@@ -60,7 +58,7 @@ export function createInitialGameState(
     activePlayerId: null,
     turnDeadline: null,
     turnPaused: false,
-    pawns: createStartPositions(turnOrder, boardRadius),
+    pawns: createStartPositions(turnOrder),
     openedHexes: [],
     deadHexes: [],
     gold: null,
