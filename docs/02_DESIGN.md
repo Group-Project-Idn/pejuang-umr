@@ -1,0 +1,335 @@
+---
+name: "Pejuang UMR: Jakarta Survival"
+description: "Design system untuk web app game Pejuang UMR (simulasi kehidupan di papan heksagon), responsif, untuk karyawan 22-27 tahun di Jakarta. Arah visual aktual: ilustrasi komik bertema kantor/HRD (map kuning, sticky note, stempel, latar kubikel) dengan palet kuning, hijau, koral, dan navy. Realita pahit yang dibungkus hangat."
+colors:
+  primary: "#F5C542"
+  on-primary: "#3C2F09"
+  primary-container: "#FBE6B1"
+  on-primary-container: "#3C2F09"
+  secondary: "#3FB871"
+  on-secondary: "#092010"
+  secondary-container: "#86DA99"
+  on-secondary-container: "#092010"
+  tertiary: "#E0614A"
+  on-tertiary: "#390803"
+  tertiary-container: "#F4B7AE"
+  tertiary-soft: "#FAE2DC"
+  tertiary-dark: "#7C2A19"
+  on-tertiary-container: "#390803"
+  neutral: "#243040"
+  surface: "#0A1422"
+  surface-container: "#17202F"
+  surface-container-high: "#212B39"
+  outline: "#555F6F"
+  on-surface: "#D9E3F7"
+  on-surface-variant: "#CFC5B0"
+  on-surface-muted: "#85837C"
+  inverted: "#D9E3F7"
+  on-inverted: "#131C2A"
+  paper: "#F5D56B"
+  paper-card: "#EBC25A"
+  ink: "#3B2A12"
+  button-green: "#8BD450"
+  button-green-ink: "#2D5A12"
+  button-blue: "#7FB0F5"
+  button-blue-ink: "#1F3F73"
+  button-orange: "#F5A623"
+  stamp-red: "#C0392B"
+typography:
+  display-lg:
+    fontFamily: "Plus Jakarta Sans"
+    fontSize: 48px
+    fontWeight: 800
+    lineHeight: 1.1
+  headline-md:
+    fontFamily: "Plus Jakarta Sans"
+    fontSize: 28px
+    fontWeight: 700
+    lineHeight: 1.2
+  title-md:
+    fontFamily: "Plus Jakarta Sans"
+    fontSize: 18px
+    fontWeight: 600
+    lineHeight: 1.3
+  body-md:
+    fontFamily: "Plus Jakarta Sans"
+    fontSize: 16px
+    fontWeight: 400
+    lineHeight: 1.5
+  body-sm:
+    fontFamily: "Plus Jakarta Sans"
+    fontSize: 14px
+    fontWeight: 400
+    lineHeight: 1.5
+  label-md:
+    fontFamily: "Plus Jakarta Sans"
+    fontSize: 13px
+    fontWeight: 500
+    lineHeight: 1.3
+rounded:
+  sm: 8px
+  md: 16px
+  lg: 24px
+  full: 9999px
+spacing:
+  xxs: 4px
+  xs: 8px
+  sm: 12px
+  md: 16px
+  lg: 24px
+  xl: 32px
+  xxl: 48px
+components:
+  button-primary:
+    backgroundColor: "{colors.primary-container}"
+    textColor: "{colors.on-primary-container}"
+    typography: "{typography.label-md}"
+    rounded: "{rounded.full}"
+    padding: "{spacing.sm}"
+  button-accent:
+    backgroundColor: "{colors.primary}"
+    textColor: "{colors.on-primary}"
+    typography: "{typography.label-md}"
+    rounded: "{rounded.sm}"
+    padding: "{spacing.sm}"
+  button-secondary:
+    backgroundColor: "{colors.surface-container-high}"
+    textColor: "{colors.on-surface}"
+    typography: "{typography.label-md}"
+    rounded: "{rounded.full}"
+    padding: "{spacing.sm}"
+  button-inverted:
+    backgroundColor: "{colors.inverted}"
+    textColor: "{colors.on-inverted}"
+    typography: "{typography.label-md}"
+    rounded: "{rounded.full}"
+    padding: "{spacing.sm}"
+  button-outlined:
+    backgroundColor: "{colors.surface-container}"
+    textColor: "{colors.on-surface}"
+    typography: "{typography.label-md}"
+    rounded: "{rounded.full}"
+    padding: "{spacing.sm}"
+  search-bar:
+    backgroundColor: "{colors.surface-container-high}"
+    textColor: "{colors.on-surface-variant}"
+    typography: "{typography.body-md}"
+    rounded: "{rounded.md}"
+    padding: "{spacing.sm}"
+  nav-pill:
+    backgroundColor: "{colors.surface-container-high}"
+    rounded: "{rounded.full}"
+    padding: "{spacing.xs}"
+  nav-item-active:
+    backgroundColor: "{colors.primary-container}"
+    textColor: "{colors.on-primary-container}"
+    rounded: "{rounded.full}"
+  card:
+    backgroundColor: "{colors.surface-container}"
+    textColor: "{colors.on-surface}"
+    rounded: "{rounded.md}"
+    padding: "{spacing.md}"
+  bottom-sheet:
+    backgroundColor: "{colors.surface-container}"
+    textColor: "{colors.on-surface}"
+    rounded: "{rounded.lg}"
+    padding: "{spacing.lg}"
+  chip:
+    backgroundColor: "{colors.surface-container-high}"
+    textColor: "{colors.on-surface}"
+    typography: "{typography.label-md}"
+    rounded: "{rounded.sm}"
+    padding: "{spacing.xs}"
+  progress-track:
+    backgroundColor: "{colors.surface-container-high}"
+    rounded: "{rounded.full}"
+  progress-kekayaan:
+    backgroundColor: "{colors.primary-container}"
+    rounded: "{rounded.full}"
+  progress-kesehatan:
+    backgroundColor: "{colors.secondary-container}"
+    rounded: "{rounded.full}"
+  progress-stress:
+    backgroundColor: "{colors.tertiary-soft}"
+    rounded: "{rounded.full}"
+  badge-hutang:
+    backgroundColor: "{colors.tertiary-dark}"
+    textColor: "{colors.tertiary-soft}"
+    typography: "{typography.label-md}"
+    rounded: "{rounded.full}"
+    padding: "{spacing.xs}"
+  hex-tile-closed:
+    backgroundColor: "{colors.neutral}"
+  hex-tile-lit:
+    backgroundColor: "{colors.primary}"
+  hex-tile-open:
+    backgroundColor: "{colors.surface-container-high}"
+  hex-tile-dead:
+    backgroundColor: "{colors.surface-container}"
+---
+
+# Pejuang UMR: Jakarta Survival: Design System
+
+## Arah Visual Aktual **[v1.7]**
+
+Halaman yang sudah dibuat (Home, Lobby, Room, Game Board, Detail Heksa) memakai ilustrasi komik bertema kantor/HRD. Arah ini menggantikan gaya "bento flat" sebagai tampilan utama. Palet dasar (kuning, hijau, koral, navy) tetap dipakai.
+
+- **Tema:** pemain adalah karyawan. Layar diibaratkan berkas HRD: kartu berbentuk **map kuning** (manila folder), **sticky note**, **klip kertas**, dan **stempel "CONFIDENTIAL"** berwarna merah. Latar berupa **kubikel kantor** yang berantakan (tumpukan kertas, kopi, lampu meja). Beberapa layar memakai bingkai "jendela browser".
+- **Garis dan bentuk:** kontur tebal berwarna cokelat tua (`ink`), sudut membulat, bayangan kecil di bawah tombol.
+- **Tombol:** hijau (aksi utama seperti Buat Room, Mulai, Pilih Heksa Ini), biru (aksi sekunder seperti Gabung, Lihat Profil), oranye (navigasi seperti Kembali), outlined untuk aksi ringan (Cara Main).
+- **HUD Game Board:** kartu kertas kuning ("Kartu Status Pribadi", "Papan Skor"), papan heksa datar tampak atas di atas meja kerja, karakter sprite sebagai pion, tanda mahkota untuk peringkat 1, dan catatan "Kamus Petak" sebagai legenda ikon kategori.
+- **Bahasa visual kantor di teks:** "Absen Masuk", "SOP & Pengaturan Hidup", "Ruang Rapat", "Portal Pejuang UMR - HRD System", "Kartu Identitas Pemain".
+- **Tetap berlaku:** warna mengikuti arti (kuning = uang, hijau = sehat, koral = stres/hutang), ikon atau bentuk selalu menyertai warna, kontras teks, dan semua teks berbahasa Indonesia.
+- **Catatan implementasi:** gambar utuh dari generator tidak bisa menjadi UI yang responsif. Untuk game, pakai gambar hanya sebagai **latar**, dan bangun kartu, tombol, serta teks sebagai komponen UI sungguhan. Minta aset terpisah (sprite heksa per kondisi, ikon kategori, karakter, latar meja).
+- Token `paper`, `paper-card`, `ink`, dan `button-*` di atas adalah perkiraan dari gambar yang sudah dibuat dan bisa disesuaikan.
+
+## Overview
+
+**Persona.** Karyawan usia 22-27 tahun (lahir sekitar 1999-2004) yang tinggal di Jakarta dengan gaji setara UMR. Mereka Gen Z (sebagian di batas atas zillennial), dan aman juga untuk milenial muda. Kebiasaan: terbiasa scan cepat, bermain sambil commute (KRL, TransJakarta, ojol), sebagian besar di Android (kadang juga di laptop kantor), dan akrab dengan humor getir ("tanggal tua", "gaji numpang lewat", paylater, burnout). Mereka tidak suka digurui, ditakut-takuti, atau diberi desain yang kekanak-kanakan.
+
+**Konsep visual:** *"realita pahit yang dibungkus hangat"*. Suasana malam sepulang kerja (dark navy), aksen hangat, bentuk membulat, dan terasa seperti diorama kota kecil di atas meja.
+
+**Nada:** jenaka dan berempati, bukan menghakimi.
+
+## Colors
+
+| Peran | Warna | Dipakai untuk |
+|---|---|---|
+| **Primary** | Kuning #F5C542 | Aksi utama, **Kekayaan**, Petak Emas |
+| **Secondary** | Hijau #3FB871 | **Kesehatan**, hasil **Hoki**, status berhasil |
+| **Tertiary** | Merah-oranye #E0614A | **Level Stress**, **Hutang**, hasil **Zonk**, peringatan |
+| **Neutral** | Navy #243040 | Latar, kartu, teks sekunder, heksa tertutup |
+
+Token turunan (surface, container, on-surface, outline) diambil dari skala tonal pada papan style guide.
+
+**Aturan penggunaan:**
+1. **Dark mode sebagai default.** Light mode ditunda ke versi berikutnya, tapi token dipisah supaya mudah ditambah.
+2. **Warna mengikuti arti.** Satu warna selalu punya satu makna di seluruh game: kuning = uang/hadiah, hijau = sehat/untung, merah = bahaya/rugi. Tiga progress bar (kuning, hijau, pink) dipakai untuk Kekayaan, Kesehatan, dan Level Stress.
+3. **Hutang** tidak memakai bar. Tampilkan sebagai angka dengan badge minus dalam merah tua, supaya tidak tertukar dengan Level Stress.
+4. **Warna kategori petak** mengikuti indikator yang paling dipengaruhi: Keuangan kuning, Kesehatan hijau, Sosial salmon, Kerja biru-abu (netral), Emas kuning dengan glow.
+5. **Musim** memakai nada dari palet yang sama, tanpa warna baru: Hujan biru-abu dingin, Kemarau amber hangat, Pancaroba hijau-abu pucat.
+6. **Warna pemain (4 pion):** pakai nada terang dari palet (krem, biru es, mint, salmon) **dan** bedakan juga dengan bentuk pion atau angka.
+7. **Heksa Mati:** abu gelap tanpa saturasi dan terlihat retak.
+8. **Latar bertingkat:** permukaan paling gelap untuk latar, makin terang untuk kartu dan panel. Di dark mode, kedalaman dibuat dengan perbedaan terang-gelap, bukan bayangan.
+9. **Jangan hanya mengandalkan warna.** Merah dan hijau mudah tertukar bagi buta warna, jadi selalu tambahkan ikon dan bentuk.
+10. **Kontras:** teks minimal 4.5:1 dan ikon/elemen UI minimal 3:1. Teks di atas tombol kuning memakai cokelat tua.
+
+## Typography
+
+Font: **Plus Jakarta Sans** untuk semua peran.
+
+| Peran | Ukuran (mobile) | Bobot | Dipakai untuk |
+|---|---|---|---|
+| Display | 40-56 | ExtraBold | Skor akhir, Gelar |
+| Headline | 24-32 | Bold | Judul screen dan popup |
+| Title | 18-20 | SemiBold | Judul kartu dan panel |
+| Body | 14-16 | Regular | Penjelasan dan Rencana petak |
+| Label | 12-13 | Medium | Tombol, chip, indikator |
+
+- Skala dasar 16px, rasio sekitar 1,2. Hanya pakai 3-4 bobot.
+- **Angka uang dan skor harus rata** (tabular figures). Cek apakah font mendukungnya, kalau tidak pasangkan font angka khusus.
+- **Format Rupiah:** di HUD ringkas (Rp5,7jt), di detail lengkap (Rp5.730.000) dengan titik ribuan.
+- Teks Bahasa Indonesia cenderung panjang, jadi sisakan ruang tambahan sekitar 30% di tombol dan kartu.
+- Hindari huruf kapital semua kecuali label sangat pendek.
+- Token tipografi di atas memakai nilai tengah dari rentang tabel. Nilai line-height adalah nilai standar dan bisa disesuaikan.
+
+## Layout
+
+- **Grid 4px:** jarak 4/8/12/16/24/32/48.
+- **Web app responsif, mobile-first.** Desain dimulai dari layar HP portrait, lalu melebar ke tablet dan desktop. Area sentuh minimal 44-48px, aksi utama di mobile ada di bagian bawah layar (jangkauan jempol), dan hormati safe area.
+
+| Breakpoint | Lebar | Penyesuaian layout |
+|---|---|---|
+| Mobile | di bawah 640px | Satu kolom. Navigasi bawah (pill). HUD ringkas di atas. Detail heksa dan Ajakan berupa bottom sheet. |
+| Tablet | 640-1023px | Satu kolom lebar atau dua kolom sederhana. Navigasi bawah atau samping. Panel samping bisa dibuka-tutup. |
+| Desktop | 1024px ke atas | Navigasi di bar atas. Game Board: sidebar kiri (statistik pribadi), sidebar kanan (Papan Skor dan kalender), papan di tengah, bar aksi di bawah tengah. Detail heksa dan Ajakan berupa panel samping atau modal di tengah (lebar sekitar 480px). Konten non-game dibatasi lebar maksimum. |
+
+- Layar HP landscape boleh dipakai: papan memenuhi layar dan panel menjadi overlay samping.
+- Input yang didukung: sentuh, mouse (ada state hover), dan keyboard (urutan fokus jelas, ring fokus terlihat, Esc menutup modal).
+- Satu tombol Primary per layar.
+- HUD dan teks dibuat dengan DOM (bukan di dalam WebGL), papan permainan 3D berada di belakangnya.
+
+## Elevation & Depth
+
+Kedalaman dibuat dengan **tingkat terang-gelap permukaan**, bukan bayangan: surface (#0A1422) paling gelap untuk latar, surface-container (#17202F) untuk kartu dan panel, surface-container-high (#212B39) untuk elemen di atas kartu (search bar, navigasi, chip, track progress). Garis tepi tipis 1px dari neutral memisahkan kartu.
+
+## Shapes
+
+- **Radius besar** bergaya bento: 8 (chip), 16 (kartu), 24 (panel dan bottom sheet), pill penuh (tombol dan navigasi).
+- **Ikon:** grid 24px, garis 1,75-2px dengan ujung membulat, outline untuk biasa dan solid untuk aktif.
+- **Ilustrasi:** flat dengan sedikit tekstur grain, karakter siluet tanpa wajah agar inklusif.
+- **Sentuhan lokal Jakarta:** KRL, warteg, kos-kosan, ojol, kopi susu, struk minimarket, notifikasi paylater. **Jangan memakai logo merek asli.**
+- **Papan 3D:** gaya maket low-poly seperti mainan, material matte, cahaya hangat, dan heksa yang terlihat tebal.
+
+## Components
+
+- **Tombol:** Primary (kuning terisi), Secondary (gelap tonal), Inverted (biru muda terisi, untuk aksi kontras seperti "Ajak"), Outlined (aksi sekunder, garis tepi outline). Setiap tombol punya state default, hover, pressed, focus, disabled, dan loading.
+- **Navigasi bawah (pill):** Home, Lobby, Profil/Pengaturan. Item aktif berupa lingkaran kuning muda. Di desktop menjadi navigasi di bar atas dengan item yang sama.
+- **Search bar:** untuk Glosarium dan cari room.
+- **Tombol ikon bulat:** emote, Ajakan, kamera, pause.
+- **Komponen khusus game (tambahan v1.7):** popup "Masuk sebagai tamu" (nama dan pilihan avatar), kartu identitas pemain dengan tombol "Ubah nama", slot pemain Room (kartu ID dengan pion, status Siap, dan label HOST), dan tombol nonaktif tanpa efek klik untuk fitur yang ditunda.
+- **Komponen khusus game:**
+  - Heksa dengan 4 state: tertutup (neutral, redup), menyala (kuning dengan glow), terbuka (permukaan terang dengan ikon kategori), mati (abu gelap, retak).
+  - Pion dan mahkota Peringkat 1.
+  - Bottom sheet Detail Heksa (di desktop menjadi panel samping kanan).
+  - Indikator risiko Rendah/Sedang/Tinggi, dibedakan lewat jumlah garis atau bentuk ikon (bukan hanya warna).
+  - Kartu Ajakan.
+  - Popup Event Tanggal.
+  - Timer berbentuk cincin.
+  - Baris Papan Skor.
+  - Banner pengumuman dan tooltip istilah.
+
+## Motion
+
+- **Prinsip:** gerak menjelaskan sebab-akibat. Angka yang berubah harus terlihat bergerak dari sumbernya ke indikator.
+- **Durasi:** UI biasa 150-250 ms, momen utama (heksa terbalik, reveal Realita) 400-800 ms.
+- **Easing:** ease-out saat masuk, ease-in saat keluar, dan spring ringan untuk pion.
+- **Batas total animasi per giliran 3-4 detik**, dengan tombol Percepat dan tap-to-skip.
+- Di desktop, elemen yang bisa diklik punya state hover (naik sedikit atau glow) dan tooltip istilah muncul saat hover. Di mobile, tooltip muncul dengan tekan lama.
+- Sediakan opsi **kurangi gerakan**. Efek musim (hujan, heat haze) hanya dekoratif dan bisa dimatikan.
+- **Transisi antar screen:** wipe berbentuk heksagon (iris). Ganti bulan memakai halaman kalender yang terbalik.
+
+## Microcopy
+
+- Bahasa Indonesia santai, sapaan **"kamu"**, kalimat pendek, kata kerja aktif, dan sedikit slang saja. Emoji hemat dan hanya di momen emote.
+- Istilah selalu sama dengan glosarium (Kekayaan, bukan Saldo).
+- Humor menertawakan **situasi**, bukan orangnya.
+- **Topik sensitif:** pinjol, hutang, burnout, dan kesehatan mental jangan dijadikan bahan olok-olok. Tambahkan catatan bahwa ini simulasi tanpa uang sungguhan.
+
+| Momen | Teks |
+|---|---|
+| Ganti bulan | "Gajian masuk. Tagihan juga." |
+| Zonk | "Realita datang tanpa permisi." |
+| Hoki | "Sekali-sekali, semesta baik." |
+| Doom Spending | "Checkout dulu, nyesel belakangan." |
+| Bangkrut | "Saldo habis, tanggal masih tua." |
+| Sudden Death | "Hari ini kamu perlu istirahat." (netral, bukan mengejek) |
+
+## Accessibility
+
+- Jangan hanya mengandalkan warna (selalu ada ikon atau bentuk).
+- Teks bisa diperbesar, dan ada opsi mode buta warna.
+- Getar (haptics) bisa dimatikan.
+- Elemen interaktif punya label untuk pembaca layar.
+- Semua aksi game bisa dilakukan dengan keyboard di desktop (Tab untuk berpindah, Enter untuk memilih, Esc untuk menutup), dengan ring fokus yang jelas.
+
+## Do's and Don'ts
+
+**Do**
+- Pakai satu warna untuk satu makna (kuning = uang, hijau = sehat, merah = bahaya).
+- Satu tombol Primary per layar, aksi utama di bagian bawah.
+- Tambahkan ikon atau bentuk di samping setiap warna status.
+- Pakai bahasa kamu yang santai dan empatik.
+
+**Don't**
+- Jangan menampilkan Hutang sebagai progress bar.
+- Jangan memakai logo merek asli.
+- Jangan memakai bayangan tebal di dark mode, pakai tingkat permukaan.
+- Jangan menjadikan hutang, pinjol, burnout, atau kesehatan mental sebagai bahan olok-olok.
+- Jangan memakai huruf kapital semua untuk kalimat panjang.
+
+## Catatan Implementasi
+
+- Dua lapis token: nama mentah (kuning-500) dan nama makna (indikator-kekayaan, permukaan, teks-utama). Kode hanya memakai nama makna.
+- Di Figma pakai Variables. Di kode ekspor ke CSS variables atau konfigurasi Tailwind.
+- Format file ini adalah DESIGN.md (YAML token di atas, penjelasan di bawah). Validasi dengan `npx @google/design.md lint DESIGN.md`.
