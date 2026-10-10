@@ -6,3 +6,5 @@ export * from "./game/initial-state";
 export * from "./hex/board";
 export * from "./hex/coordinates";
 export * from "./random";
+export * from "./score/ranking";
+export * from "./score/score";
