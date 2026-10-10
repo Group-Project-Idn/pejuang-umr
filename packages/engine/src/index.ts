@@ -5,4 +5,5 @@ export * from "./hex/board";
 export * from "./hex/coordinates";
 export * from "./hex/movement";
 export * from "./random";
+export * from "./score/ranking";
 export * from "./score/score";
