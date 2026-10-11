@@ -1,10 +1,10 @@
 # Pejuang UMR: Jakarta Survival
 
-### Game Design Document (GDD) Ringkas - v1.8
+### Game Design Document (GDD) Ringkas - v1.9
 
 > **Logline:** Game simulasi kehidupan berbasis papan heksagonal di mana pemain harus bertahan hidup selama 12 bulan dengan menyeimbangkan uang, kesehatan, dan kewarasan mental di tengah kejamnya realita finansial Jakarta.
 
-Bagian yang baru atau berubah ditandai **[v1.8]** (perubahan terbaru), **[v1.7]**, atau **[v1.6]**. Ringkasan perubahan dan daftar asumsi ada di Bagian 10. Dokumen ini adalah versi terkonsolidasi: aturan game dari v1.6, scope MVP dan alur Room dari v1.7, dan ide dari konsep awal "Jatah" yang dicatat sebagai backlog.
+Bagian yang baru atau berubah ditandai **[v1.9]** (perubahan terbaru), **[v1.8]**, **[v1.7]**, atau **[v1.6]**. Ringkasan perubahan dan daftar asumsi ada di Bagian 10. Dokumen ini adalah versi terkonsolidasi: aturan game dari v1.6, scope MVP dan alur Room dari v1.7, dan ide dari konsep awal "Jatah" yang dicatat sebagai backlog.
 
 ### Konsep Inti: Petak adalah Kartu **[v1.6]**
 
@@ -54,7 +54,7 @@ Pemain berjalan di **satu papan heksagon bersama** selama 24 langkah (12 bulan).
 **Aturan multiplayer:**
 
 - Semua pemain selalu berada di langkah (tanggal) yang sama. Satu **ronde** = semua pemain yang masih hidup sudah melangkah satu kali.
-- **Pemain berjalan bergantian [v1.4].** Urutan giliran diputar tiap bulan agar adil. Setiap giliran dibatasi **Timer Giliran** yang diatur **host di Room** sebelum game dimulai (lihat 4.3 dan 9.3).
+- **Pemain berjalan bergantian [v1.4].** Urutan giliran diputar tiap bulan agar adil: di awal setiap bulan, pemain pertama pindah ke urutan terakhir, dan pemain yang tereliminasi dilewati **[v1.9]**. Setiap giliran dibatasi **Timer Giliran** yang diatur **host di Room** sebelum game dimulai (lihat 4.3 dan 9.3).
 - **Setiap heksa hanya bisa diinjak satu kali.** Heksa yang sudah diinjak tidak bisa dimasuki lagi oleh siapa pun, termasuk pemain yang menginjaknya.
 - **Papan Skor** selalu tampil di layar dan menampilkan **hanya Skor Sementara** semua pemain. Statistik detail hanya terlihat oleh pemiliknya (lihat 4.6).
 - Pemain pemilik skor tertinggi menanggung Beban Peringkat 1 (lihat 4.6).
@@ -103,7 +103,7 @@ Contoh: Realita "Bos marah" (Level Stress +3, Kesehatan -2) di Multiplayer menja
 
 Pemain langsung tereliminasi (Game Over) sebelum langkah terakhir jika:
 
-- **Bangkrut:** Kekayaan tidak cukup untuk membayar Biaya Hidup Wajib (lihat 2.3) **DAN** sisa limit Hutang (Rp 25.000.000) tidak cukup untuk menutup kekurangannya.
+- **Bangkrut:** Kekayaan tidak cukup untuk membayar Biaya Hidup Wajib (lihat 2.3) **DAN** sisa limit Hutang (Rp 25.000.000) tidak cukup untuk menutup kekurangannya. Bangkrut hanya dicek saat ganti bulan dan setelah Doom Spending (2.5). Kekurangan dari petak atau Realita yang melewati limit tidak mengeliminasi pemain (lihat aturan transaksi di 2.3) **[v1.9]**.
 - **Burnout Total:** Kesehatan mencapai 0/10, **ATAU** Level Stress 10/10 bersamaan dengan Kesehatan ≤ 3/10.
 
 ---
@@ -151,6 +151,18 @@ Sisa gaji bersih per bulan hanya sekitar **Rp 1.130.000** (±20% dari gaji), sam
 
 Tiap kelipatan Rp 5.000.000 Hutang baru memberi +1 Level Stress (dibulatkan ke atas per transaksi). Pokok Hutang hanya berkurang lewat petak **[Bayar Hutang]**.
 
+**Aturan transaksi [v1.9]** (berlaku untuk efek petak, Realita, Event Tanggal, Ajakan, Doom Spending, dan ganti bulan):
+
+| #   | Kasus                                                 | Aturan                                                                                                                                                                                  |
+| --- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Biaya lebih besar dari Kekayaan                       | Kekurangan otomatis menjadi Hutang selama sisa limit cukup. Kekayaan tidak pernah minus.                                                                                                |
+| 2   | Kekurangan melewati limit Hutang                      | Hutang berhenti di Rp25.000.000 dan sisa kekurangan dihapus. Pemain tidak langsung tereliminasi, kecuali kekurangan itu terjadi saat ganti bulan atau Doom Spending (Bangkrut, 1.4).    |
+| 3   | Bayar Hutang melebihi sisa Hutang                     | Hanya sisa Hutang yang dibayar. Kekayaan berkurang sebesar yang benar-benar dibayar.                                                                                                    |
+| 4   | Pinjaman saat Hutang hampir penuh (Pinjol / Paylater) | Pinjaman dibatasi sisa limit. Kekayaan yang diterima sama dengan Hutang yang benar-benar bertambah.                                                                                     |
+| 5   | +1 Level Stress per Rp5.000.000 Hutang baru           | Berlaku untuk **semua** kenaikan Hutang dalam satu transaksi (pinjaman, denda, kekurangan otomatis, dan bunga yang masuk pokok), dihitung ke atas: `ceil(kenaikan Hutang / 5.000.000)`. |
+
+Contoh Multiplayer: Kekayaan Rp300.000 lalu menginjak petak dengan efek Kekayaan -Rp1.000.000 → Kekayaan Rp0, Hutang +Rp700.000, Level Stress +1.
+
 ### 2.4 Urutan Proses Saat Ganti Bulan **[v1.4]**
 
 1. Gaji masuk (+Rp 5.730.000)
@@ -163,7 +175,7 @@ Tiap kelipatan Rp 5.000.000 Hutang baru memberi +1 Level Stress (dibulatkan ke a
 
 ### 2.5 Doom Spending
 
-Jika Level Stress **≥ 9** (saat ganti bulan atau saat menginjak petak apa pun), event "Doom Spending" terpicu: pemain kehilangan **Rp 750.000-1.500.000** (acak) untuk jajan impulsif, lalu Level Stress turun 1. Event ini bisa memicu Bangkrut.
+Jika Level Stress **≥ 9** (saat ganti bulan atau saat menginjak petak apa pun), event "Doom Spending" terpicu: pemain kehilangan **Rp 750.000-1.500.000** (acak, salah satu dari Rp750.000, Rp1.000.000, Rp1.250.000, atau Rp1.500.000 **[v1.9]**) untuk jajan impulsif, lalu Level Stress turun 1. Event ini bisa memicu Bangkrut.
 
 Nominal Doom Spending **sama di Solo dan Multiplayer (tidak dikali)** **[v1.8]**. Ganti bulan terjadi sama seringnya di kedua mode, dan Level Stress di Multiplayer sudah naik lebih cepat karena efek status dikali.
 
@@ -277,6 +289,7 @@ Angka belum termasuk Petak Emas yang tidak diambil (maksimal +6). Jika terasa se
 - **Tidak ada pengambilan kartu.** Pilihan langsung berada di heksa. Sebelum memilih, pemain mengklik heksa yang menyala untuk melihat detail petak (lihat 4.3).
 - Heksa yang sudah diinjak tidak bisa dimasuki lagi oleh siapa pun, termasuk pemain yang menginjaknya. Tidak ada mundur.
 - **Jalan Buntu:** jika semua heksa di sekeliling pion sudah terinjak atau mati, pemain mendapat **3 pilihan heksa untuk melompat**, yaitu 3 heksa tertutup terdekat dari posisinya (jika jaraknya seri, dipilih acak di antara yang seri; jika tersedia kurang dari 3, semuanya ditampilkan). Detail ketiganya bisa dilihat dengan klik seperti biasa, dan **tidak ada pengambilan kartu**. Pemain memilih satu dan pindah ke sana, **Level Stress +1** (kena macet dan nyasar). Lompatan ini menggantikan langkah biasa pada giliran tersebut, dan petak di heksa tujuan dijalankan seperti biasa (Rencana dan Realita).
+- **Tidak ada heksa tersisa:** jika tidak ada satu pun heksa tertutup yang bisa dimasuki di seluruh papan, giliran pemain itu dilewati tanpa efek. Dengan tingkat isi papan sekitar 80% kasus ini hampir tidak terjadi **[v1.9]**.
 - **Strategi blocking:** pemain boleh sengaja menutup jalur lawan, terutama saat berebut Petak Emas.
 
 ### 4.2 Urutan Fase **[v1.6]**
@@ -779,6 +792,26 @@ Bagian ini mengatur apa yang terjadi sebelum, selama, dan sesudah game Multiplay
 ---
 
 ## 10. Ringkasan Revisi
+
+### v1.9 (aturan transaksi dan penyelarasan dengan engine)
+
+| #   | Keputusan                                                                                                   | Perubahan                 |
+| --- | ----------------------------------------------------------------------------------------------------------- | ------------------------- |
+| 1   | Kekurangan biaya otomatis menjadi Hutang, Kekayaan tidak pernah minus                                       | 2.3 (aturan transaksi #1) |
+| 2   | Kekurangan yang melewati limit dihapus; Bangkrut hanya saat ganti bulan dan Doom Spending                   | 1.4, 2.3 (#2)             |
+| 3   | Bayar Hutang hanya sebesar sisa Hutang                                                                      | 2.3 (#3)                  |
+| 4   | Pinjaman dibatasi sisa limit                                                                                | 2.3 (#4)                  |
+| 5   | +1 Level Stress per Rp5.000.000 berlaku untuk semua kenaikan Hutang, termasuk bunga dan kekurangan otomatis | 2.3 (#5)                  |
+| 6   | Nominal Doom Spending kelipatan Rp250.000                                                                   | 2.5                       |
+| 7   | Cara memutar urutan giliran tiap bulan                                                                      | 1.2                       |
+| 8   | Giliran dilewati jika tidak ada heksa tersisa                                                               | 4.1                       |
+
+**Belum diputuskan (dicatat agar tidak lupa):**
+
+- Game berakhir lebih cepat jika tinggal 1 pemain yang belum tereliminasi? Engine saat ini tetap berjalan sampai Langkah 24.
+- Pemain yang menekan Keluar saat game berjalan diperlakukan seperti koneksi putus? (usulan API Contract)
+- Ambang ikon risiko Rendah ≤15%, Sedang 16-34%, Tinggi ≥35% (usulan API Contract, sudah dipakai engine).
+- Ubah nama hanya di Lobby (usulan API Contract).
 
 ### v1.8 (keputusan ekonomi Multiplayer dan penyelarasan dengan kode)
 
