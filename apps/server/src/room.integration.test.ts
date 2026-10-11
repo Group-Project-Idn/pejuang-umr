@@ -734,3 +734,42 @@ describe("sesi game", () => {
     expect(JSON.stringify(resumed.snapshot)).not.toContain('"board"');
   });
 });
+
+describe("room:kick", () => {
+  it("host mengeluarkan tamu: room:kicked, keluar channel, pion kosong, error sesuai kontrak", async () => {
+    const { baseUrl, server } = await startServer();
+    const host = await connectGuest(baseUrl, "Host", "avatar-01");
+    const guest = await connectGuest(baseUrl, "Guest", "avatar-02");
+    const third = await connectGuest(baseUrl, "Third", "avatar-03");
+    await host.socket.emitWithAck("room:create", { requestId: requestIds[0]! });
+    await guest.socket.emitWithAck("room:join", { requestId: requestIds[1]!, roomCode: "UMR-1234" });
+    const guestPawn = player(server.rooms.get("UMR-1234")!, guest.playerId).pawn;
+
+    expect(
+      await host.socket.emitWithAck("room:kick", { requestId: requestIds[2]!, targetPlayerId: host.playerId }),
+    ).toEqual({ ok: false, error: "INVALID_TARGET" });
+    expect(
+      await host.socket.emitWithAck("room:kick", { requestId: requestIds[3]!, targetPlayerId: third.playerId }),
+    ).toEqual({ ok: false, error: "INVALID_TARGET" });
+
+    const kicked = new Promise<{ roomCode: string }>((resolve) => guest.socket.once("room:kicked", resolve));
+    const hostState = new Promise<RoomState>((resolve) => host.socket.once("room:state", resolve));
+    const guestStates: RoomState[] = [];
+    guest.socket.on("room:state", (state) => guestStates.push(state));
+    expect(
+      await host.socket.emitWithAck("room:kick", { requestId: requestIds[4]!, targetPlayerId: guest.playerId }),
+    ).toEqual({ ok: true });
+    await expect(kicked).resolves.toEqual({ roomCode: "UMR-1234" });
+    expect((await hostState).players.map((p) => p.playerId)).toEqual([host.playerId]);
+    expect(server.rooms.getByPlayer(guest.playerId)).toBeNull();
+
+    // Guest sudah keluar dari channel: perubahan room berikutnya tidak sampai ke dia.
+    const joined = await third.socket.emitWithAck("room:join", { requestId: requestIds[5]!, roomCode: "UMR-1234" });
+    expect(joined.ok).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(guestStates).toHaveLength(0);
+    // Pion yang dilepas dipakai pemain berikutnya.
+    expect(player(server.rooms.get("UMR-1234")!, third.playerId).pawn).toBe(guestPawn);
+  });
+});
+

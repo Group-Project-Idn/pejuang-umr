@@ -113,7 +113,10 @@ export class RoomRepository {
   leave(playerId: string): RoomMutationResult {
     const room = this.getByPlayerMutable(playerId);
     if (!room) return { ok: false, error: "NOT_IN_ROOM" };
-    if (room.status !== "waiting") return { ok: false, error: "ROOM_LOCKED" };
+    // Saat finished, pemain boleh keluar (Kembali ke Lobby); saat countdown/playing tidak.
+    if (room.status !== "waiting" && room.status !== "finished") {
+      return { ok: false, error: "ROOM_LOCKED" };
+    }
 
     room.players = room.players.filter((player) => player.playerId !== playerId);
     this.playerRooms.delete(playerId);
@@ -124,13 +127,22 @@ export class RoomRepository {
     }
 
     if (room.hostId === playerId) {
-      room.hostId = room.players[0]!.playerId;
-      room.players = room.players.map((player, index) => ({
-        ...player,
-        isHost: index === 0,
-      }));
+      // Pemain yang masuk paling awal (urutan array = urutan masuk).
+      this.assignHost(room, room.status === "finished" ? this.earliestConnected(room) : room.players[0]!);
     }
     return { ok: true, room: cloneRoom(this.save(room)) };
+  }
+
+  private earliestConnected(room: RoomState): RoomPlayer {
+    return room.players.find((player) => player.connected) ?? room.players[0]!;
+  }
+
+  private assignHost(room: RoomState, host: RoomPlayer): void {
+    room.hostId = host.playerId;
+    room.players = room.players.map((player) => ({
+      ...player,
+      isHost: player.playerId === host.playerId,
+    }));
   }
 
   // Keluar saat game berjalan (GDD 9.4 v1.10): diperlakukan sama seperti
@@ -230,7 +242,24 @@ export class RoomRepository {
     if (!room) return { ok: false, error: "ROOM_NOT_FOUND" };
     if (room.status !== "playing") return { ok: false, error: "ROOM_LOCKED" };
     room.status = "finished";
+    // Peran host tidak diperlukan selama game; saat selesai, host = pemain paling awal yang masih tersambung.
+    this.assignHost(room, this.earliestConnected(room));
     return { ok: true, room: cloneRoom(this.save(room)) };
+  }
+
+  /** Main Lagi (GDD 9.5): hanya host dan hanya saat finished. Pemain tidak tersambung dikeluarkan. */
+  rematch(hostId: string): RoomMutationResult & { removed?: string[] } {
+    const room = this.getByPlayerMutable(hostId);
+    if (!room) return { ok: false, error: "NOT_IN_ROOM" };
+    if (room.hostId !== hostId) return { ok: false, error: "NOT_HOST" };
+    if (room.status !== "finished") return { ok: false, error: "INVALID_PAYLOAD" };
+    const removed = room.players.filter((player) => !player.connected).map((player) => player.playerId);
+    for (const playerId of removed) this.playerRooms.delete(playerId);
+    room.players = room.players
+      .filter((player) => player.connected)
+      .map((player) => ({ ...player, ready: false }));
+    room.status = "waiting";
+    return { ok: true, room: cloneRoom(this.save(room)), removed };
   }
 
   setConnected(playerId: string, connected: boolean): RoomState | null {
@@ -240,6 +269,18 @@ export class RoomRepository {
       player.playerId === playerId ? { ...player, connected } : player,
     );
     return cloneRoom(this.save(room));
+  }
+
+  codes(): string[] {
+    return [...this.rooms.keys()];
+  }
+
+  /** Menghapus room beserta pemetaan semua anggotanya. */
+  close(code: string): void {
+    const room = this.rooms.get(code);
+    if (!room) return;
+    for (const player of room.players) this.playerRooms.delete(player.playerId);
+    this.rooms.delete(code);
   }
 
   get(code: string): RoomState | null {
