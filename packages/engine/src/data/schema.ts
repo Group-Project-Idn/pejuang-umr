@@ -33,7 +33,13 @@ export const TileDefinitionSchema = z.object({
   title: z.string().min(1),
   plan: EffectListSchema,
   baseZonkPct: z.number().int().min(0).max(80),
-  realities: z.array(RealityVariantSchema).length(6),
+  realities: z.array(RealityVariantSchema).length(6).refine(
+    (realities) =>
+      realities.filter((reality) => reality.outcome === "zonk").length === 3 &&
+      realities.filter((reality) => reality.outcome === "safe").length === 2 &&
+      realities.filter((reality) => reality.outcome === "lucky").length === 1,
+    "Tumpukan Realita harus berisi 3 Zonk, 2 Aman, dan 1 Hoki (GDD 5.2).",
+  ),
 });
 
 export const GoldTileDefinitionSchema = z.object({

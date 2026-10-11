@@ -25,6 +25,10 @@ rawan per musim (GDD 3.4: Hujan = Kerja; Kemarau = Keuangan & Sosial; Pancaroba 
 
 ## Aturan skala nilai
 
+Validasi `TileDefinitionSchema` juga menegakkan komposisi enam Realita sesuai
+GDD 5.2: tepat 3 `zonk`, 2 `safe`, dan 1 `lucky`. Enam varian dengan komposisi
+lain ditolak; panjang array saja tidak cukup.
+
 - **Petak biasa, Realita, Zonk Musim, dan Event Tanggal** disimpan dalam **nilai Solo**
   (persis tabel GDD). Engine mengali ×2 (Multiplayer) saat dipakai.
 - **Petak Emas dan Ajakan** disimpan dalam **nilai Multiplayer** dan **tidak dikali lagi**.

@@ -10,6 +10,7 @@ import { readGuestSession, writeGuestSession, clearGuestSession } from "@/lib/gu
 import { createRequestId } from "@/lib/request-id";
 import { readRoomCode, writeRoomCode } from "@/lib/room-session";
 import { connectGameSocket, disconnectSocket } from "@/lib/socket";
+import { getResumableRoomCode } from "@/lib/lobby-resume";
 
 export const LOBBY_COPY = {
   title: "RUANG RAPAT",
@@ -23,6 +24,7 @@ export const LOBBY_COPY = {
 
 export function toRoomErrorMessage(code: string): string {
   switch (code) {
+    case "UNAUTHORIZED": return "Sesi tamu berakhir. Silakan masuk kembali.";
     case "ROOM_NOT_FOUND": return "Kode room tidak ketemu.";
     case "ROOM_FULL": return "Room sudah penuh (4/4). Minta kode baru ke host.";
     case "ROOM_LOCKED": return "Room sudah mulai atau terkunci.";
@@ -55,16 +57,33 @@ export function LobbyScreen({ initialCode = "", hideHomeButton = false }: { init
         setGuestName(stored.name);
         setAvatarId(stored.avatarId);
       } else setGuestOpen(true);
-      if (lastRoom) setResumeCode(lastRoom);
     });
+    let active = true;
+    if (stored && lastRoom) {
+      lookupRoom(lastRoom, stored.token).then((room) => {
+        if (active) setResumeCode(getResumableRoomCode(room));
+      }).catch(() => {
+        // Gangguan jaringan tidak menghapus kode tersimpan; kartu belum terverifikasi.
+      });
+    }
     getHealth().then((h) => {
       setServerState("normal");
       setServerVersion(h.version);
     }).catch(() => setServerState("bermasalah"));
+    return () => { active = false; };
   }, []);
 
   const serverTrouble = serverState === "bermasalah";
   const working = busy !== "idle";
+
+  function recoverGuestSession(code: string) {
+    if (code !== "UNAUTHORIZED") return;
+    clearGuestSession();
+    disconnectSocket();
+    setSession(null);
+    setResumeCode(null);
+    setGuestOpen(true);
+  }
 
   async function submitGuest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -103,18 +122,14 @@ export function LobbyScreen({ initialCode = "", hideHomeButton = false }: { init
         });
       });
       if (!res.ok || !res.room) {
-        if (res.error === "UNAUTHORIZED") {
-          clearGuestSession();
-          disconnectSocket();
-          setSession(null);
-          setGuestOpen(true);
-        }
+        recoverGuestSession(res.error ?? "INTERNAL");
         setMessage(toRoomErrorMessage(res.error ?? "INTERNAL"));
         return;
       }
       writeRoomCode(res.room.code);
       router.push(`/room/${res.room.code}`);
     } catch (error) {
+      recoverGuestSession(error instanceof Error ? error.message : "INTERNAL");
       setMessage(toRoomErrorMessage(error instanceof Error ? error.message : "INTERNAL"));
     } finally {
       setBusy("idle");
@@ -147,12 +162,14 @@ export function LobbyScreen({ initialCode = "", hideHomeButton = false }: { init
         });
       });
       if (!res.ok) {
+        recoverGuestSession(res.error ?? "INTERNAL");
         setCodeError(toRoomErrorMessage(res.error ?? "INTERNAL"));
         return;
       }
       writeRoomCode(code);
       router.push(`/room/${code}`);
     } catch (error) {
+      recoverGuestSession(error instanceof Error ? error.message : "INTERNAL");
       setCodeError(toRoomErrorMessage(error instanceof Error ? error.message : "INTERNAL"));
     } finally {
       setBusy("idle");
@@ -169,7 +186,11 @@ export function LobbyScreen({ initialCode = "", hideHomeButton = false }: { init
   }
 
   function pasteCode() {
-    navigator.clipboard?.readText().then((text) => {
+    if (!navigator.clipboard) {
+      setMessage("Clipboard tidak tersedia. Ketik kode room secara manual.");
+      return;
+    }
+    navigator.clipboard.readText().then((text) => {
       const cleaned = text.toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 8);
       if (cleaned) setRoomCode(cleaned);
     }).catch(() => setMessage("Clipboard tidak bisa dibaca di browser ini."));

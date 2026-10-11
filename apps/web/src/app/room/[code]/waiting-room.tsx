@@ -35,9 +35,72 @@ export function getParticipantLabel(playerCount: number): string {
   return `PESERTA (${playerCount}/4)`;
 }
 
+export function getCountdownSeconds(
+  deadline: number | null,
+  serverNow: number,
+): number | null {
+  if (!deadline || serverNow >= deadline) return null;
+  return Math.ceil((deadline - serverNow) / 1_000);
+}
+
+export function getCountdownPresentation(
+  roomStatus: RoomState["status"] | undefined,
+  deadline: number | null,
+  serverNow: number,
+): { seconds: number | null; preparing: boolean } {
+  const seconds = getCountdownSeconds(deadline, serverNow);
+  return {
+    seconds,
+    preparing: roomStatus === "countdown" && seconds === null,
+  };
+}
+
 function PawnMark({ pawn }: { pawn: PawnId | null }) {
   if (!pawn) return null;
   return <span aria-label={PAWNS.find((option) => option.id === pawn)?.label} className={`room-pawn room-pawn-${pawn}`} />;
+}
+
+function CountdownProgress({
+  deadline,
+  serverClockOffsetMs,
+  connected,
+}: {
+  deadline: number;
+  serverClockOffsetMs: number;
+  connected: boolean;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const nextNow = Date.now();
+      setNow(nextNow);
+      if (nextNow + serverClockOffsetMs >= deadline) {
+        window.clearInterval(timer);
+      }
+    }, 200);
+    return () => window.clearInterval(timer);
+  }, [deadline, serverClockOffsetMs]);
+  const countdown = getCountdownPresentation(
+    "countdown",
+    deadline,
+    now + serverClockOffsetMs,
+  );
+
+  if (countdown.preparing) {
+    return (
+      <p role="status" className="room-message">
+        {connected
+          ? "Papan sedang disiapkan oleh server..."
+          : "Koneksi terputus saat menyiapkan papan. Mencoba terhubung kembali..."}
+      </p>
+    );
+  }
+
+  return countdown.seconds ? (
+    <div className="room-countdown" role="status" aria-live="assertive">
+      <strong>{countdown.seconds}</strong><span>Papan sedang disiapkan...</span>
+    </div>
+  ) : null;
 }
 
 function PlayerSlot({
@@ -120,18 +183,10 @@ export function WaitingRoom({
   onKick,
   onStart,
 }: WaitingRoomProps) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!countdownDeadline) return;
-    const timer = window.setInterval(() => setNow(Date.now()), 200);
-    return () => window.clearInterval(timer);
-  }, [countdownDeadline]);
   const roomPlayer = room?.players.find((player) => player.playerId === playerId);
   const slots = Array.from({ length: 4 }, (_, index) => room?.players[index]);
-  const countdownSeconds = countdownDeadline
-    ? Math.max(1, Math.ceil((countdownDeadline - (now + serverClockOffsetMs)) / 1_000))
-    : null;
   const connected = connectionStatus === "terhubung";
+  const preparingWithoutDeadline = room?.status === "countdown" && !countdownDeadline;
 
   return (
     <main className="room-office min-h-screen px-3 py-4 text-[#32251f] sm:px-6 sm:py-7">
@@ -214,7 +269,7 @@ export function WaitingRoom({
                         <strong className="room-participant-count">{getParticipantLabel(room.players.length)}</strong>
                         <small>{getStartHelper(room.canStart, room.startBlockReason)}</small>
                         <button type="button" onClick={onStart} disabled={busy || !room.canStart} className="lobby-comic-btn room-start-button">
-                          {countdownSeconds ? `MULAI (${countdownSeconds})` : "MULAI"}
+                          {room.status === "countdown" ? "MEMULAI..." : "MULAI"}
                         </button>
                       </div>
                     ) : (
@@ -230,14 +285,24 @@ export function WaitingRoom({
                 </div>
               </div>
             )}
+            {preparingWithoutDeadline ? (
+              <p role="status" className="room-message">
+                {connected
+                  ? "Papan sedang disiapkan oleh server..."
+                  : "Koneksi terputus saat menyiapkan papan. Mencoba terhubung kembali..."}
+              </p>
+            ) : null}
             {message ? <p role="status" className="room-message">{message}</p> : null}
           </section>
         </div>
       </section>
-      {countdownSeconds ? (
-        <div className="room-countdown" role="status" aria-live="assertive">
-          <strong>{countdownSeconds}</strong><span>Papan sedang disiapkan...</span>
-        </div>
+      {countdownDeadline ? (
+        <CountdownProgress
+          key={countdownDeadline}
+          deadline={countdownDeadline}
+          serverClockOffsetMs={serverClockOffsetMs}
+          connected={connected}
+        />
       ) : null}
     </main>
   );
