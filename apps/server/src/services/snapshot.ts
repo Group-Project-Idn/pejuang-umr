@@ -1,21 +1,23 @@
-import type { PublicGameState, RoomState, Snapshot } from "@pejuang/shared";
+import { toPublicState } from "@pejuang/engine";
+import type { RoomState, Snapshot } from "@pejuang/shared";
+import type { GameSession } from "../game/game-session";
 
 export function createSnapshot(
   room: RoomState,
   playerId: string,
-  game: PublicGameState | null,
+  session: GameSession | null,
   serverTime = Date.now(),
 ): Snapshot {
   return {
     serverTime,
     room,
-    game,
+    game: session ? structuredClone(toPublicState(session.state)) : null,
     me: {
       playerId,
-      status: null,
+      status: session ? session.statusOf(playerId) : null,
       inviteCard: null,
-      pendingTurn: null,
-      pendingCalendar: null,
+      pendingTurn: session ? session.pendingTurnFor(playerId) : null,
+      pendingCalendar: session ? session.pendingCalendarFor(playerId) : null,
       pendingInvite: null,
       isSpectator: false,
     },

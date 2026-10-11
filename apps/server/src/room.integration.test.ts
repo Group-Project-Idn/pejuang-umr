@@ -363,7 +363,7 @@ describe("room lifecycle", () => {
     });
     expect(new Set(hostPayload.startPositions.map(({ hex }) => `${hex.q}:${hex.r}`)).size).toBe(2);
     expect(server.rooms.get("UMR-1234")?.status).toBe("playing");
-    expect(server.games.get("UMR-1234")?.gameId).toBe("game-test");
+    expect(server.games.get("UMR-1234")?.state.public.gameId).toBe("game-test");
   });
 
   it("tetap hidup ketika client mengirim event tanpa ack callback", async () => {
@@ -435,7 +435,7 @@ describe("room lifecycle", () => {
     expect(hostLeave).toEqual({ ok: false, error: "ROOM_LOCKED" });
     await expect(started).resolves.toMatchObject({ gameId: "game-test" });
     expect(server.rooms.get("UMR-1234")?.players).toHaveLength(2);
-    expect(server.games.get("UMR-1234")?.pawns).toHaveLength(2);
+    expect(server.games.get("UMR-1234")?.state.public.pawns).toHaveLength(2);
   });
 
   it("mengizinkan host mulai begitu satu tamu siap", async () => {
@@ -650,7 +650,7 @@ describe("room lifecycle", () => {
     const room = server.rooms.get("UMR-1234")!;
     expect(room.status).toBe("playing");
     expect(player(room, guest.playerId).connected).toBe(false);
-    expect(server.games.get("UMR-1234")?.pawns).toHaveLength(2);
+    expect(server.games.get("UMR-1234")?.state.public.pawns).toHaveLength(2);
 
     // Pemain bisa kembali lewat session:resume.
     const resumed = await guest.socket.emitWithAck("session:resume", {
@@ -680,5 +680,57 @@ describe("room lifecycle", () => {
     expect(left).toEqual({ ok: true });
     // Saat waiting, pemain benar-benar dikeluarkan dari room.
     expect(server.rooms.get("UMR-1234")?.players).toHaveLength(1);
+  });
+});
+
+describe("sesi game", () => {
+  it("menyimpan GameState lengkap, mengirim player:status milik masing-masing, dan mengisi snapshot", async () => {
+    const { baseUrl, server } = await startServer();
+    const host = await connectGuest(baseUrl, "Host", "avatar-01");
+    const guest = await connectGuest(baseUrl, "Guest", "avatar-02");
+    await host.socket.emitWithAck("room:create", { requestId: requestIds[0]! });
+    await guest.socket.emitWithAck("room:join", {
+      requestId: requestIds[1]!,
+      roomCode: "UMR-1234",
+    });
+    await guest.socket.emitWithAck("room:ready", {
+      requestId: requestIds[2]!,
+      ready: true,
+    });
+
+    const collect = (socket: TestSocket) => {
+      const statuses: Array<Parameters<ServerToClientEvents["player:status"]>[0]> = [];
+      socket.on("player:status", (payload) => statuses.push(payload));
+      const started = new Promise<Parameters<ServerToClientEvents["game:started"]>[0]>(
+        (resolve) => socket.once("game:started", resolve),
+      );
+      return { statuses, started };
+    };
+    const hostEvents = collect(host.socket);
+    const guestEvents = collect(guest.socket);
+
+    await host.socket.emitWithAck("game:start", { requestId: requestIds[3]! });
+    const [hostStarted] = await Promise.all([hostEvents.started, guestEvents.started]);
+    // Beri waktu event player:status yang dikirim tepat setelah game:started.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(hostStarted.version).toBe(1);
+    expect(hostEvents.statuses).toHaveLength(1);
+    expect(guestEvents.statuses).toHaveLength(1);
+    const state = server.games.get("UMR-1234")!.state;
+    expect(hostEvents.statuses[0]).toEqual(state.players[host.playerId]!.status);
+    expect(guestEvents.statuses[0]).toEqual(state.players[guest.playerId]!.status);
+    expect(Object.keys(state.board.tiles).length).toBeGreaterThan(0);
+    expect(Object.keys(state.players).sort()).toEqual([host.playerId, guest.playerId].sort());
+
+    const resumed = await guest.socket.emitWithAck("session:resume", {
+      requestId: requestIds[4]!,
+      roomCode: "UMR-1234",
+    });
+    expect(resumed.ok).toBe(true);
+    if (!resumed.ok) return;
+    expect(resumed.snapshot.me.status).toEqual(state.players[guest.playerId]!.status);
+    expect(resumed.snapshot.game?.gameId).toBe("game-test");
+    expect(JSON.stringify(resumed.snapshot)).not.toContain('"board"');
   });
 });

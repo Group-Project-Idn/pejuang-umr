@@ -1,23 +1,18 @@
-import type { PublicGameState } from "@pejuang/shared";
-
-function cloneGame(game: PublicGameState): PublicGameState {
-  return structuredClone(game);
-}
+import type { GameSession } from "../game/game-session";
 
 export class GameRepository {
-  private readonly games = new Map<string, PublicGameState>();
+  private readonly sessions = new Map<string, GameSession>();
 
-  set(roomCode: string, game: PublicGameState): PublicGameState {
-    this.games.set(roomCode, cloneGame(game));
-    return cloneGame(game);
+  set(roomCode: string, session: GameSession): GameSession {
+    this.sessions.set(roomCode, session);
+    return session;
   }
 
-  get(roomCode: string): PublicGameState | null {
-    const game = this.games.get(roomCode);
-    return game ? cloneGame(game) : null;
+  get(roomCode: string): GameSession | null {
+    return this.sessions.get(roomCode) ?? null;
   }
 
   delete(roomCode: string): void {
-    this.games.delete(roomCode);
+    this.sessions.delete(roomCode);
   }
 }
