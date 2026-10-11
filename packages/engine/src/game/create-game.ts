@@ -18,6 +18,7 @@ export function createGame(
       eliminated: false,
       eliminatedAtStep: null,
       eliminatedReason: null,
+      inviteCard: null,
     };
   }
   const state: GameState = {
@@ -29,6 +30,8 @@ export function createGame(
     pendingCalendarEvent: null,
     movedThisRound: [],
     phase: "roundStart",
+    inviteUsedThisRound: false,
+    pendingInvite: null,
   };
   const events: DomainEvent[] = playerIds.map((playerId) => ({
     type: "player:status",

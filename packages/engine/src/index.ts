@@ -17,6 +17,8 @@ export * from "./game/public-view";
 export * from "./gold/placement";
 export * from "./hex/board";
 export * from "./hex/coordinates";
+export * from "./invite/deal-invite";
+export * from "./invite/invite";
 export * from "./random";
 export * from "./reality/resolve-reality";
 export * from "./reality/roll-outcome";

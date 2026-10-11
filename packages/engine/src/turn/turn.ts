@@ -242,7 +242,7 @@ function applyChoice(
     bankrupt ? "bankrupt" : isBurnout(status) ? "burnout" : null;
 
   const updatedPlayer: PlayerState = eliminatedReason
-    ? { status, eliminated: true, eliminatedAtStep: step, eliminatedReason }
+    ? { status, eliminated: true, eliminatedAtStep: step, eliminatedReason, inviteCard: null }
     : { ...player, status };
   const players = { ...state.players, [playerId]: updatedPlayer };
   if (eliminatedReason) {
@@ -303,7 +303,7 @@ function applyChoice(
   return { ok: true, state: next, events, nextAction };
 }
 
-function rankingEntries(
+export function rankingEntries(
   players: Record<string, PlayerState>,
   order: readonly string[],
 ): RankingEntry[] {

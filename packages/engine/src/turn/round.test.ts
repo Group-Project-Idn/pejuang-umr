@@ -5,6 +5,7 @@ import { createGame } from "../game/create-game";
 import type { DomainEvent } from "../game/domain-events";
 import type { GameState } from "../game/game-state";
 import { getCalendarInfo } from "../calendar/calendar";
+import { toPublicState } from "../game/public-view";
 import { answerCalendarEvent, closeCalendarEvent, startRound } from "./round";
 
 const IDS = ["a", "b", "c"];
@@ -501,5 +502,95 @@ describe("Burnout dan game selesai lebih cepat", () => {
     expect(state.phase).toBe("finished");
     const ranking = ofType(events, "game:finished")[0]!.payload.ranking;
     expect(ranking.find((row) => row.playerId === "c")?.rank).toBe(1);
+  });
+});
+
+describe("startRound: Kartu Ajakan", () => {
+  it("invite:card hanya di langkah 1, 5, 9, 13, 17, 21", () => {
+    for (let step = 1; step <= 24; step += 1) {
+      const { events } = startRound(gameAtStep(step), rand());
+      const expected = [1, 5, 9, 13, 17, 21].includes(step) ? 3 : 0;
+      expect(ofType(events, "invite:card"), `langkah ${step}`).toHaveLength(expected);
+    }
+  });
+
+  it("hanya untuk pemain yang belum tereliminasi, target privat", () => {
+    const game = gameAtStep(5);
+    const out = game.baseTurnOrder[0]!;
+    game.players[out] = {
+      ...game.players[out]!,
+      eliminated: true,
+      eliminatedAtStep: 4,
+      eliminatedReason: "bankrupt",
+    };
+    const { state, events } = startRound(game, rand());
+    const cards = ofType(events, "invite:card");
+    expect(cards).toHaveLength(2);
+    for (const e of cards) {
+      expect(e.target.kind).toBe("player");
+      expect(e.target).not.toEqual({ kind: "player", playerId: out });
+    }
+    expect(state.players[out]?.inviteCard).toBeNull();
+  });
+
+  it("kartu baru tersimpan di state dan sesuai payload", () => {
+    const { state, events } = startRound(gameAtStep(1), rand());
+    for (const e of ofType(events, "invite:card")) {
+      const playerId = e.target.kind === "player" ? e.target.playerId : "";
+      expect(state.players[playerId]?.inviteCard).toEqual(e.payload.card);
+      expect(e.payload.expiredCardId).toBeNull();
+      expect(e.payload.card?.expiresAtMonth).toBe(3);
+    }
+  });
+
+  it("kartu lama yang belum dipakai -> expiredCardId terisi", () => {
+    const first = startRound(gameAtStep(1), rand()).state;
+    const oldIds = Object.fromEntries(
+      IDS.map((id) => [id, first.players[id]!.inviteCard!.cardId]),
+    );
+    const second = startRound(
+      { ...first, public: { ...first.public, calendar: getCalendarInfo(5) } },
+      rand(),
+    );
+    for (const e of ofType(second.events, "invite:card")) {
+      const playerId = e.target.kind === "player" ? e.target.playerId : "";
+      expect(e.payload.expiredCardId).toBe(oldIds[playerId]);
+      expect(e.payload.card?.cardId).not.toBe(oldIds[playerId]);
+    }
+  });
+
+  it("urutan: Petak Emas, Kartu Ajakan, Beban Peringkat 1, Event Tanggal", () => {
+    const { events } = startRound(gameAtStep(5), rand());
+    const types = events.map((e) =>
+      e.type === "game:patch" && e.payload.ops.some((op) => op.type === "rankOneBurden")
+        ? "burden"
+        : e.type,
+    );
+    const lastGold = types.lastIndexOf("gold:spawned");
+    const firstInvite = types.indexOf("invite:card");
+    const lastInvite = types.lastIndexOf("invite:card");
+    const burden = types.indexOf("burden");
+    expect(lastGold).toBeGreaterThanOrEqual(0);
+    expect(firstInvite).toBeGreaterThan(lastGold);
+    expect(burden).toBeGreaterThan(lastInvite);
+  });
+
+  it("inviteUsedThisRound direset ke false di setiap startRound", () => {
+    for (const step of [1, 2, 5]) {
+      const game = { ...gameAtStep(step), inviteUsedThisRound: true };
+      expect(startRound(game, rand()).state.inviteUsedThisRound).toBe(false);
+    }
+  });
+
+  it("motif tidak bocor ke event room maupun state publik", () => {
+    for (const step of [1, 5, 21]) {
+      const { state, events } = startRound(gameAtStep(step), rand());
+      for (const e of events.filter((ev) => ev.target.kind === "room")) {
+        expect(JSON.stringify(e.payload)).not.toContain("motive");
+      }
+      const publicJson = JSON.stringify(toPublicState(state));
+      expect(publicJson).not.toContain("motive");
+      expect(publicJson).not.toContain("inviteCard");
+    }
   });
 });

@@ -29,6 +29,7 @@ import { isMonthChangeStep } from "../economy/schedule";
 import type { DomainEvent } from "../game/domain-events";
 import type { CalendarChoiceId, GameState } from "../game/game-state";
 import { pickGoldHex } from "../gold/placement";
+import { dealInviteCard, isInviteCardStep } from "../invite/deal-invite";
 import type { RandomSource } from "../random";
 import { checkEarlyFinish } from "./turn";
 
@@ -198,6 +199,7 @@ export function startRound(state: GameState, random: RandomSource): RoundResult 
         eliminated: result.eliminated !== null,
         eliminatedAtStep: result.eliminated ? step : null,
         eliminatedReason: result.eliminated,
+        inviteCard: result.eliminated ? null : player.inviteCard,
       };
       if (result.eliminated) {
         publicState = {
@@ -216,7 +218,13 @@ export function startRound(state: GameState, random: RandomSource): RoundResult 
     }
   }
 
-  const next: GameState = { ...state, players, public: publicState, movedThisRound: [] };
+  const next: GameState = {
+    ...state,
+    players,
+    public: publicState,
+    movedThisRound: [],
+    inviteUsedThisRound: false,
+  };
   const early = checkEarlyFinish(next);
   if (early) {
     return { state: early.state, events: [...events, ...early.events], nextAction: "finished" };
@@ -261,6 +269,22 @@ export function startRound(state: GameState, random: RandomSource): RoundResult 
     next.board = board;
   }
 
+  // GDD 4.8: Kartu Ajakan baru di Langkah 1, 5, 9, 13, 17, 21; kartu lama yang
+  // belum dipakai hangus. Motif hanya dikirim ke pemilik kartu.
+  if (isInviteCardStep(step)) {
+    for (const playerId of state.baseTurnOrder) {
+      const player = players[playerId];
+      if (!player || player.eliminated) continue;
+      const card = dealInviteCard({ step, month: calendar.month, playerId }, random);
+      players[playerId] = { ...player, inviteCard: card };
+      events.push({
+        type: "invite:card",
+        target: { kind: "player", playerId },
+        payload: { card, expiredCardId: player.inviteCard?.cardId ?? null },
+      });
+    }
+  }
+
   // GDD 4.6: Beban Peringkat 1 mulai Bulan 3 (Langkah 5). Pemain dengan Skor
   // Sementara tertinggi di antara yang belum tereliminasi menanggung beban;
   // jika seri, semua yang seri kena. Sebelum Langkah 5 beban selalu kosong.
@@ -273,8 +297,6 @@ export function startRound(state: GameState, random: RandomSource): RoundResult 
       payload: { version: 0, ops: [{ type: "rankOneBurden", playerIds: burdened }] },
     });
   }
-
-  // TODO: Kartu Ajakan (bagikan kartu di awal ronde).
 
   const def = getCalendarEventAtStep(step);
   if (def) {
@@ -353,7 +375,13 @@ export function closeCalendarEvent(state: GameState, random: RandomSource): Roun
     const status = applyEffects(player.status, effects).status;
     const burnout = isBurnout(status);
     players[playerId] = burnout
-      ? { status, eliminated: true, eliminatedAtStep: step, eliminatedReason: "burnout" }
+      ? {
+          status,
+          eliminated: true,
+          eliminatedAtStep: step,
+          eliminatedReason: "burnout",
+          inviteCard: null,
+        }
       : { ...player, status };
     const target = { kind: "player", playerId } as const;
     events.push({
