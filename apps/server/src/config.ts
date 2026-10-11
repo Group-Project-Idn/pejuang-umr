@@ -5,14 +5,23 @@ export type ServerConfig = {
   version: string;
 };
 
+const PLACEHOLDER_SECRET = "change-me";
+
 export function readServerConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): ServerConfig {
-  const guestTokenSecret = env.GUEST_TOKEN_SECRET;
-  if (!guestTokenSecret || guestTokenSecret.length < 32) {
-    throw new Error(
-      "GUEST_TOKEN_SECRET wajib diisi dengan minimal 32 karakter.",
-    );
+  const guestTokenSecret = env.GUEST_TOKEN_SECRET ?? PLACEHOLDER_SECRET;
+
+  if (env.NODE_ENV === "production") {
+    if (
+      !guestTokenSecret ||
+      guestTokenSecret === PLACEHOLDER_SECRET ||
+      guestTokenSecret.length < 32
+    ) {
+      throw new Error(
+        "GUEST_TOKEN_SECRET wajib diisi (bukan placeholder) dengan minimal 32 karakter saat production.",
+      );
+    }
   }
 
   const port = Number(env.PORT ?? 3001);

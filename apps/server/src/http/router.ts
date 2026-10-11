@@ -8,8 +8,6 @@ import { FixedWindowRateLimiter } from "../services/rate-limit";
 import { readJsonBody } from "./body";
 import { sendError, sendJson } from "./response";
 
-const guestRateLimiter = new FixedWindowRateLimiter(10, 60_000);
-
 function getBearerToken(request: IncomingMessage): string | null {
   const authorization = request.headers.authorization;
   if (!authorization?.startsWith("Bearer ")) return null;
@@ -26,8 +24,9 @@ async function handleGuest(
   request: IncomingMessage,
   response: ServerResponse,
   config: ServerConfig,
+  rateLimiter: FixedWindowRateLimiter,
 ): Promise<void> {
-  if (!guestRateLimiter.consume(getClientIp(request))) {
+  if (!rateLimiter.consume(getClientIp(request))) {
     sendError(response, 429, "RATE_LIMITED", "Pelan-pelan dulu, coba sebentar lagi.");
     return;
   }
@@ -79,6 +78,7 @@ async function handleGuest(
 }
 
 export function createHttpHandler(config: ServerConfig, rooms: RoomRepository) {
+  const rateLimiter = new FixedWindowRateLimiter(10, 60_000);
   return async (request: IncomingMessage, response: ServerResponse) => {
     const url = new URL(request.url ?? "/", "http://localhost");
     const origin = request.headers.origin;
@@ -109,7 +109,7 @@ export function createHttpHandler(config: ServerConfig, rooms: RoomRepository) {
     }
 
     if (request.method === "POST" && url.pathname === "/api/v1/guest") {
-      await handleGuest(request, response, config);
+      await handleGuest(request, response, config, rateLimiter);
       return;
     }
 
