@@ -10,7 +10,7 @@ const STEPS = [
   "Masuk sebagai tamu: isi nama 2-20 karakter lalu pilih avatar.",
   "Host tekan BUAT ROOM (HOST), bagikan kode UMR-XXXX ke 1-3 teman.",
   "Teman isi kode room lalu tekan GABUNG.",
-  "Di Room, host atur timer giliran lalu mulai saat minimal 2 pemain siap.",
+  "Di Room, host atur timer; permainan dapat dimulai setelah ada minimal 2 pemain dan semua pemain selain host sudah Siap.",
   "1 permainan = 12 bulan (24 langkah). Jaga Kekayaan, Kesehatan 0-10, dan Level Stress 0-10.",
 ] as const;
 
