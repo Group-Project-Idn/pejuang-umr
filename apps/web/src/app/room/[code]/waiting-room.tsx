@@ -31,6 +31,10 @@ export function getStartHelper(
     : ROOM_COPY.waitingReady;
 }
 
+export function getParticipantLabel(playerCount: number): string {
+  return `PESERTA (${playerCount}/4)`;
+}
+
 function PawnMark({ pawn }: { pawn: PawnId | null }) {
   if (!pawn) return null;
   return <span aria-label={PAWNS.find((option) => option.id === pawn)?.label} className={`room-pawn room-pawn-${pawn}`} />;
@@ -131,7 +135,7 @@ export function WaitingRoom({
 
   return (
     <main className="room-office min-h-screen px-3 py-4 text-[#32251f] sm:px-6 sm:py-7">
-      <section className="room-browser mx-auto w-full max-w-6xl">
+      <section className="room-browser mx-auto w-full max-w-[1440px]">
         <div className="room-browser-bar" aria-hidden="true">
           <i className="bg-[#e0614a]" /><i className="bg-[#f5a623]" /><i className="bg-[#3fb871]" />
           <span />
@@ -145,13 +149,7 @@ export function WaitingRoom({
 
         <div className="room-stage">
           <section className="room-folder" aria-labelledby="waiting-room-title">
-            <header className="room-title-row">
-              <div>
-                <p>{ROOM_COPY.subtitle}</p>
-                <h1 id="waiting-room-title">{ROOM_COPY.title}</h1>
-              </div>
-              <span>Peserta ({room?.players.length ?? 0}/4)</span>
-            </header>
+            <h1 id="waiting-room-title" className="sr-only">{ROOM_COPY.title}: {ROOM_COPY.subtitle}</h1>
 
             {!room ? (
               <p className="room-loading">Memuat state room...</p>
@@ -213,6 +211,7 @@ export function WaitingRoom({
                     </div>
                     {roomPlayer?.isHost ? (
                       <div className="room-start-area">
+                        <strong className="room-participant-count">{getParticipantLabel(room.players.length)}</strong>
                         <small>{getStartHelper(room.canStart, room.startBlockReason)}</small>
                         <button type="button" onClick={onStart} disabled={busy || !room.canStart} className="lobby-comic-btn room-start-button">
                           {countdownSeconds ? `MULAI (${countdownSeconds})` : "MULAI"}
@@ -220,6 +219,7 @@ export function WaitingRoom({
                       </div>
                     ) : (
                       <div className="room-start-area">
+                        <strong className="room-participant-count">{getParticipantLabel(room.players.length)}</strong>
                         <small>{roomPlayer?.pawn ? "Konfirmasi jika kamu sudah siap." : "Pilih pion sebelum siap."}</small>
                         <button type="button" onClick={onReady} disabled={busy || !roomPlayer?.pawn} className="lobby-comic-btn room-ready-button">
                           {roomPlayer?.ready ? "BATAL SIAP" : "SIAP"}

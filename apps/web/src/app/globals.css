@@ -252,6 +252,7 @@
 .room-pawn-picker button:disabled { cursor: not-allowed; opacity: .32; }
 .room-start-area { display: grid; justify-items: end; gap: 6px; text-align: right; }
 .room-start-area small { max-width: 280px; font-weight: 800; }
+.room-participant-count { color: #f8e7b4; background: #342a25; padding: 6px 10px; font-size: 12px; font-weight: 1000; letter-spacing: .04em; transform: rotate(-1deg); }
 .room-start-button,
 .room-ready-button { min-width: 200px; min-height: 66px; padding-inline: 30px; color: #244e13; background: linear-gradient(#a5e857,#79c33b); font-size: 29px; font-weight: 1000; }
 .room-message { margin: 14px 0 0; padding: 9px 13px; border-radius: 8px; color: #fbe6b1; background: rgba(59,42,18,.88); font-size: 13px; font-weight: 700; }

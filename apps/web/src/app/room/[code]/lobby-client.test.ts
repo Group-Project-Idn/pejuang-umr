@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getStartHelper, ROOM_COPY } from "./waiting-room";
+import { getParticipantLabel, getStartHelper, ROOM_COPY } from "./waiting-room";
 
 describe("copy ruang tunggu", () => {
   it("mengikuti teks Room pada dokumen UI", () => {
@@ -11,6 +11,10 @@ describe("copy ruang tunggu", () => {
       minimumPlayers: "Menunggu minimal 2 pemain",
       waitingReady: "Menunggu pemain siap",
     });
+  });
+
+  it("menampilkan jumlah peserta dengan format desain", () => {
+    expect(getParticipantLabel(2)).toBe("PESERTA (2/4)");
   });
 
   it("menampilkan alasan tombol mulai sesuai RoomState", () => {
