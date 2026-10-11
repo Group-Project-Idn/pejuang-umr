@@ -14,6 +14,7 @@ export * from "./game/domain-events";
 export * from "./game/game-state";
 export * from "./game/initial-state";
 export * from "./game/public-view";
+export * from "./gold/placement";
 export * from "./hex/board";
 export * from "./hex/coordinates";
 export * from "./random";

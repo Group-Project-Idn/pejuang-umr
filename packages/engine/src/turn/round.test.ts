@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { getHexDistance, hexKey } from "@pejuang/shared";
 import { SequenceRandomSource } from "../random";
 import { createGame } from "../game/create-game";
 import type { DomainEvent } from "../game/domain-events";
@@ -93,6 +94,160 @@ describe("startRound", () => {
       stat: "wealth",
       delta: -3_000_000,
     });
+  });
+});
+
+describe("Beban Peringkat 1 (GDD 4.6)", () => {
+  function withScores(
+    step: number,
+    rows: Array<{ playerId: string; provisionalScore: number; eliminated?: boolean }>,
+  ): GameState {
+    const game = gameAtStep(step);
+    return {
+      ...game,
+      public: {
+        ...game.public,
+        scores: rows.map((row, index) => ({
+          playerId: row.playerId,
+          provisionalScore: row.provisionalScore,
+          rank: index + 1,
+          eliminated: row.eliminated ?? false,
+        })),
+      },
+    };
+  }
+
+  function rankOneOps(events: DomainEvent[]) {
+    return ofType(events, "game:patch").flatMap((e) =>
+      e.payload.ops.filter((op) => op.type === "rankOneBurden"),
+    );
+  }
+
+  it("langkah 1-4: rankOneBurden selalu kosong walau ada skor tertinggi", () => {
+    for (const step of [1, 2, 3, 4]) {
+      const { state } = startRound(
+        withScores(step, [
+          { playerId: "a", provisionalScore: 100 },
+          { playerId: "b", provisionalScore: 50 },
+          { playerId: "c", provisionalScore: 10 },
+        ]),
+        rand(),
+      );
+      expect(state.public.rankOneBurden).toEqual([]);
+    }
+  });
+
+  it("langkah 5: pemain dengan skor tertinggi menanggung beban, dikirim via game:patch", () => {
+    const { state, events } = startRound(
+      withScores(5, [
+        { playerId: "a", provisionalScore: 30 },
+        { playerId: "b", provisionalScore: 90 },
+        { playerId: "c", provisionalScore: 10 },
+      ]),
+      rand(),
+    );
+    expect(state.public.rankOneBurden).toEqual(["b"]);
+    expect(rankOneOps(events)).toEqual([
+      { type: "rankOneBurden", playerIds: ["b"] },
+    ]);
+  });
+
+  it("langkah 5: dua pemain seri di puncak, keduanya menanggung beban", () => {
+    const { state } = startRound(
+      withScores(5, [
+        { playerId: "a", provisionalScore: 80 },
+        { playerId: "b", provisionalScore: 80 },
+        { playerId: "c", provisionalScore: 10 },
+      ]),
+      rand(),
+    );
+    expect(state.public.rankOneBurden).toEqual(["a", "b"]);
+  });
+
+  it("langkah 5: pemain tereliminasi tidak menanggung beban walau skornya tertinggi", () => {
+    const base = withScores(5, [
+      { playerId: "a", provisionalScore: 999, eliminated: true },
+      { playerId: "b", provisionalScore: 80 },
+      { playerId: "c", provisionalScore: 10 },
+    ]);
+    const game: GameState = {
+      ...base,
+      players: {
+        ...base.players,
+        a: {
+          ...base.players.a!,
+          eliminated: true,
+          eliminatedAtStep: 4,
+          eliminatedReason: "bankrupt",
+        },
+      },
+    };
+    const { state } = startRound(game, rand());
+    expect(state.public.rankOneBurden).toEqual(["b"]);
+  });
+});
+
+describe("Petak Emas (GDD 4.7)", () => {
+  const GOLD_STEPS = [1, 5, 9, 13, 17, 21];
+  const CENTER = { q: 0, r: 0 };
+
+  it("gold:spawned hanya di langkah 1,5,9,13,17,21; posisi >= 4 dari pusat", () => {
+    for (let step = 1; step <= 24; step += 1) {
+      const { events } = startRound(gameAtStep(step), rand());
+      const spawned = ofType(events, "gold:spawned");
+      if (GOLD_STEPS.includes(step)) {
+        expect(spawned, `langkah ${step}`).toHaveLength(1);
+        const gold = spawned[0]!.payload.gold;
+        expect(getHexDistance(CENTER, gold.hex)).toBeGreaterThanOrEqual(4);
+        expect(gold.expiresAtStep).toBe(step + 4);
+      } else {
+        expect(spawned, `langkah ${step}`).toHaveLength(0);
+      }
+    }
+  });
+
+  it("urutan Fase Kalender: Petak Emas sebelum Beban Peringkat 1", () => {
+    const { events } = startRound(gameAtStep(5), rand());
+    const spawnedAt = events.findIndex((e) => e.type === "gold:spawned");
+    const burdenAt = events.findIndex(
+      (e) =>
+        e.type === "game:patch" &&
+        e.payload.ops.some((op) => op.type === "rankOneBurden"),
+    );
+    expect(spawnedAt).toBeGreaterThanOrEqual(0);
+    expect(burdenAt).toBeGreaterThan(spawnedAt);
+  });
+
+  it("Petak Emas tak diambil -> gold:expired di langkah +4, heksa mati, lalu spawn baru", () => {
+    const opened = startRound(gameAtStep(1), rand()).state;
+    const gold1 = opened.public.gold!;
+    expect(gold1).not.toBeNull();
+    expect(gold1.expiresAtStep).toBe(5);
+
+    const at5: GameState = {
+      ...opened,
+      phase: "roundStart",
+      movedThisRound: [],
+      pendingCalendarEvent: null,
+      public: { ...opened.public, calendar: getCalendarInfo(5) },
+    };
+    const { state, events } = startRound(at5, rand());
+
+    const expired = ofType(events, "gold:expired");
+    expect(expired).toHaveLength(1);
+    expect(expired[0]!.payload).toEqual({
+      version: 0,
+      goldId: gold1.goldId,
+      hex: gold1.hex,
+    });
+    expect(state.board.deadHexKeys).toContain(hexKey(gold1.hex));
+    expect(state.public.deadHexes).toContainEqual(gold1.hex);
+
+    const spawned = ofType(events, "gold:spawned");
+    expect(spawned).toHaveLength(1);
+    const gold2 = state.public.gold!;
+    expect(gold2.expiresAtStep).toBe(9);
+    expect(hexKey(gold2.hex)).not.toBe(hexKey(gold1.hex));
   });
 });
 

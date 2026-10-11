@@ -1,17 +1,22 @@
 import {
   formatRupiah,
+  hexKey,
   type CalendarEventPayload,
   type Effect,
   type ErrorCode,
+  type GoldTile,
   type MonthSummaryPayload,
+  type ScoreRow,
   type Season,
 } from "@pejuang/shared";
+import { markHexDead } from "../board/movement";
 import {
   getCalendarEventAtStep,
   getCalendarInfo,
   getSeasonChange,
 } from "../calendar/calendar";
 import {
+  GOLD_TILES,
   VULNERABLE_CATEGORIES,
   type CalendarChoice,
   type CalendarEventDefinition,
@@ -23,6 +28,7 @@ import { isBurnout } from "../economy/elimination";
 import { isMonthChangeStep } from "../economy/schedule";
 import type { DomainEvent } from "../game/domain-events";
 import type { CalendarChoiceId, GameState } from "../game/game-state";
+import { pickGoldHex } from "../gold/placement";
 import type { RandomSource } from "../random";
 import { checkEarlyFinish } from "./turn";
 
@@ -44,6 +50,19 @@ const ZONK_FOCUS_BY_SEASON = {
 } as const satisfies Record<Season, "vehicleWash" | "vehicleBreakdown" | "sick">;
 
 const CHOICE_ORDER: readonly CalendarChoiceId[] = ["join", "joinPaylater", "skip"];
+
+/** GDD 4.6: Beban Peringkat 1 mulai berlaku di Langkah 5 (Bulan 3). */
+const RANK_ONE_BURDEN_START_STEP = 5;
+
+/** GDD 4.7: Petak Emas muncul di awal Langkah 1, 5, 9, 13, 17, 21. */
+const GOLD_SPAWN_STEPS: readonly number[] = [1, 5, 9, 13, 17, 21];
+
+/** GDD 4.7: Petak Emas bertahan 4 ronde sebelum hangus jadi Heksa Mati. */
+const GOLD_LIFETIME_STEPS = 4;
+
+function isGoldSpawnStep(step: number): boolean {
+  return GOLD_SPAWN_STEPS.includes(step);
+}
 
 function choiceLabel(eventId: string, id: CalendarChoiceId): string {
   if (id === "skip") return "Tidak ikut";
@@ -111,6 +130,21 @@ function orderForStep(state: GameState, step: number): string[] {
   return [...previous.slice(1), previous[0]!];
 }
 
+/**
+ * GDD 4.6: playerId yang menanggung Beban Peringkat 1, yaitu pemain dengan Skor
+ * Sementara (provisionalScore) tertinggi di antara yang belum tereliminasi.
+ * Jika beberapa pemain seri di puncak, semua yang seri ikut. Memakai
+ * `public.scores` terakhir; urutan hasil mengikuti urutan baris skor.
+ */
+function selectRankOneBurden(scores: readonly ScoreRow[]): string[] {
+  const alive = scores.filter((row) => !row.eliminated);
+  if (alive.length === 0) return [];
+  const top = Math.max(...alive.map((row) => row.provisionalScore));
+  return alive
+    .filter((row) => row.provisionalScore === top)
+    .map((row) => row.playerId);
+}
+
 /** GDD 2.4, 3.3, 4.2: awal ronde (kalender, musim, ganti bulan, urutan giliran, Event Tanggal). */
 export function startRound(state: GameState, random: RandomSource): RoundResult {
   const step = state.public.calendar.step;
@@ -118,6 +152,7 @@ export function startRound(state: GameState, random: RandomSource): RoundResult 
   const events: DomainEvent[] = [];
   const players = { ...state.players };
   let publicState = { ...state.public, calendar };
+  let board = state.board;
 
   events.push({
     type: "game:patch",
@@ -188,9 +223,58 @@ export function startRound(state: GameState, random: RandomSource): RoundResult 
   }
   publicState.turnOrder = orderForStep(next, step);
 
-  // TODO: Petak Emas (muncul di langkah 1, 5, 9, 13, 17, 21).
+  // GDD 4.7: Petak Emas (muncul di langkah 1, 5, 9, 13, 17, 21). Petak Emas lama
+  // yang belum diambil hangus jadi Heksa Mati, lalu Petak Emas baru muncul.
+  if (isGoldSpawnStep(step)) {
+    const expired = publicState.gold;
+    publicState.gold = null;
+    if (expired) {
+      board = markHexDead(board, expired.hex);
+      const remainingTiles = { ...board.tiles };
+      delete remainingTiles[hexKey(expired.hex)];
+      board = { ...board, tiles: remainingTiles };
+      publicState.deadHexes = [...publicState.deadHexes, expired.hex];
+      events.push({
+        type: "gold:expired",
+        target: { kind: "room" },
+        payload: { version: 0, goldId: expired.goldId, hex: expired.hex },
+      });
+    }
+    const hex = pickGoldHex({ ...next, board }, random);
+    if (hex) {
+      const def = random.pick(GOLD_TILES);
+      board = { ...board, tiles: { ...board.tiles, [hexKey(hex)]: def.id } };
+      const gold: GoldTile = {
+        goldId: def.id,
+        hex,
+        title: def.title,
+        plan: def.plan,
+        expiresAtStep: step + GOLD_LIFETIME_STEPS,
+      };
+      publicState.gold = gold;
+      events.push({
+        type: "gold:spawned",
+        target: { kind: "room" },
+        payload: { version: 0, gold },
+      });
+    }
+    next.board = board;
+  }
+
+  // GDD 4.6: Beban Peringkat 1 mulai Bulan 3 (Langkah 5). Pemain dengan Skor
+  // Sementara tertinggi di antara yang belum tereliminasi menanggung beban;
+  // jika seri, semua yang seri kena. Sebelum Langkah 5 beban selalu kosong.
+  if (step >= RANK_ONE_BURDEN_START_STEP) {
+    const burdened = selectRankOneBurden(publicState.scores);
+    publicState.rankOneBurden = burdened;
+    events.push({
+      type: "game:patch",
+      target: { kind: "room" },
+      payload: { version: 0, ops: [{ type: "rankOneBurden", playerIds: burdened }] },
+    });
+  }
+
   // TODO: Kartu Ajakan (bagikan kartu di awal ronde).
-  // TODO: Beban Peringkat 1 (game:patch rankOneBurden).
 
   const def = getCalendarEventAtStep(step);
   if (def) {
