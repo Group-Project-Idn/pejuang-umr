@@ -13,6 +13,8 @@ import { createHttpHandler } from "./http/router";
 import { GameRepository } from "./repositories/game-repository";
 import { IdempotencyRepository } from "./repositories/idempotency-repository";
 import { RoomRepository } from "./repositories/room-repository";
+import { broadcastConnection } from "./services/connection";
+import { FixedWindowRateLimiter } from "./services/rate-limit";
 import { verifyGuestToken } from "./services/guest-token";
 import { registerGameHandlers } from "./socket/register-game-handlers";
 import { registerRoomHandlers } from "./socket/register-room-handlers";
@@ -27,6 +29,7 @@ export function createPejuangServer(
     countdownMs?: number;
     createGameId?: () => string;
     clock?: Clock;
+    socketRateLimit?: { max: number; windowMs: number };
   } = {},
 ) {
   const rooms = dependencies.rooms ?? new RoomRepository();
@@ -81,6 +84,17 @@ export function createPejuangServer(
       io.to(currentRoom.code).emit("room:state", currentRoom);
     }
 
+    // M7: batas per socket untuk semua event C->S. Melebihi batas: ack RATE_LIMITED, koneksi tetap.
+    const limiter = new FixedWindowRateLimiter(
+      dependencies.socketRateLimit?.max ?? 20,
+      dependencies.socketRateLimit?.windowMs ?? 5_000,
+    );
+    socket.use((packet, next) => {
+      if (limiter.consume("socket")) return next();
+      const ack = packet[packet.length - 1];
+      if (typeof ack === "function") ack({ ok: false, error: "RATE_LIMITED" });
+    });
+
     socket.on("ping:test", (payload, unsafeAck) => {
       executeWithAck<{ message: string }>(unsafeAck, (ack) => {
         const parsed = PingSchema.safeParse(payload);
@@ -105,8 +119,17 @@ export function createPejuangServer(
     socket.on("disconnect", () => {
       if (activeSockets.get(socket.data.playerId) === socket.id) {
         activeSockets.delete(socket.data.playerId);
+        const before = rooms.getByPlayer(socket.data.playerId);
+        const wasConnected = before?.players.find(
+          (player) => player.playerId === socket.data.playerId,
+        )?.connected;
         const room = rooms.setConnected(socket.data.playerId, false);
-        if (room) io.to(room.code).emit("room:state", room);
+        if (room) {
+          io.to(room.code).emit("room:state", room);
+          if (wasConnected && room.status === "playing") {
+            broadcastConnection(io, games, room.code, socket.data.playerId, false);
+          }
+        }
       }
     });
   });

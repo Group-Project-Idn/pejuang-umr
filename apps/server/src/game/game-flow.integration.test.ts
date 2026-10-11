@@ -76,7 +76,7 @@ async function setup() {
   await once(server.httpServer, "listening");
   const baseUrl = `http://127.0.0.1:${(server.httpServer.address() as AddressInfo).port}`;
 
-  const players = [] as Array<{ socket: TestSocket; playerId: string; log: Received[] }>;
+  const players = [] as Array<{ socket: TestSocket; playerId: string; token: string; log: Received[] }>;
   for (const [name, avatar] of [["Host", "avatar-01"], ["Guest", "avatar-02"]] as const) {
     const guest = createGuestToken({ name, avatarId: avatar }, secret);
     const socket: TestSocket = createClient(baseUrl, {
@@ -88,7 +88,7 @@ async function setup() {
     const log: Received[] = [];
     socket.onAny((type, payload) => log.push({ type, payload }));
     await new Promise<void>((resolve) => socket.once("connect", resolve));
-    players.push({ socket, playerId: guest.identity.playerId, log });
+    players.push({ socket, playerId: guest.identity.playerId, token: guest.token, log });
   }
   const [host, guest] = players as [(typeof players)[0], (typeof players)[0]];
   await host.socket.emitWithAck("room:create", { requestId: rid() });
@@ -97,7 +97,7 @@ async function setup() {
   await host.socket.emitWithAck("game:start", { requestId: rid() });
   const find = (p: { log: Received[] }, type: string) => p.log.filter((e) => e.type === type);
   await until(() => find(host, "calendar:event").length > 0 && find(guest, "calendar:event").length > 0, "calendar:event");
-  return { clock, server, host, guest, find };
+  return { clock, server, host, guest, find, baseUrl };
 }
 
 type Ctx = Awaited<ReturnType<typeof setup>>;
@@ -198,5 +198,61 @@ describe("alur ronde", () => {
     await until(() => ctx.find(ctx.host, "game:finished").length === 1, "game:finished");
     const ranking = ctx.find(ctx.host, "game:finished")[0]!.payload.ranking;
     expect(ranking.map((row: { name: string }) => row.name).sort()).toEqual(["Guest", "Host"]);
+  });
+
+  it("pemain putus di tengah giliran lalu resume -> pendingTurn dengan deadline asli", async () => {
+    const ctx = await setup();
+    await answerAll(ctx);
+    const turn = ctx.find(ctx.host, "turn:start")[0]!.payload;
+    const active = turn.playerId === ctx.host.playerId ? ctx.host : ctx.guest;
+    const other = active === ctx.host ? ctx.guest : ctx.host;
+    await until(() => ctx.find(active, "turn:options").length > 0, "turn:options");
+
+    active.socket.disconnect();
+    await until(
+      () => ctx.find(other, "player:connection").some((e) => e.payload.connected === false),
+      "player:connection false",
+    );
+    expect(ctx.find(other, "player:connection")[0]!.payload.playerId).toBe(active.playerId);
+
+    ctx.clock.advance(10_000);
+    const socket: TestSocket = createClient(ctx.baseUrl, {
+      transports: ["websocket"],
+      auth: { token: active.token },
+      reconnection: false,
+    });
+    openSockets.push(socket);
+    await new Promise<void>((resolve) => socket.once("connect", resolve));
+    const resumed = await socket.emitWithAck("session:resume", {
+      requestId: rid(),
+      roomCode: "UMR-1234",
+    });
+    expect(resumed.ok).toBe(true);
+    if (!resumed.ok) return;
+    expect(resumed.snapshot.me.pendingTurn?.turnId).toBe(turn.turnId);
+    expect(resumed.snapshot.game?.turnDeadline).toBe(turn.deadline);
+    expect(resumed.snapshot.game?.activePlayerId).toBe(active.playerId);
+    await until(
+      () => ctx.find(other, "player:connection").some((e) => e.payload.connected === true),
+      "player:connection true",
+    );
+  });
+
+  it("event ke-21 dalam 5 detik -> RATE_LIMITED tanpa memutus koneksi", async () => {
+    const ctx = await setup();
+    const guest = createGuestToken({ name: "Spam", avatarId: "avatar-03" }, secret);
+    const socket: TestSocket = createClient(ctx.baseUrl, {
+      transports: ["websocket"],
+      auth: { token: guest.token },
+      reconnection: false,
+    });
+    openSockets.push(socket);
+    await new Promise<void>((resolve) => socket.once("connect", resolve));
+    const acks = await Promise.all(
+      Array.from({ length: 21 }, () => socket.emitWithAck("ping:test", { name: "x" })),
+    );
+    expect(acks.slice(0, 20).every((ack) => ack.ok)).toBe(true);
+    expect(acks[20]).toEqual({ ok: false, error: "RATE_LIMITED" });
+    expect(socket.connected).toBe(true);
   });
 });

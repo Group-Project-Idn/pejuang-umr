@@ -1,4 +1,3 @@
-import { toPublicState } from "@pejuang/engine";
 import type { RoomState, Snapshot } from "@pejuang/shared";
 import type { GameSession } from "../game/game-session";
 
@@ -11,7 +10,7 @@ export function createSnapshot(
   return {
     serverTime,
     room,
-    game: session ? structuredClone(toPublicState(session.state)) : null,
+    game: session ? session.publicState() : null,
     me: {
       playerId,
       status: session ? session.statusOf(playerId) : null,

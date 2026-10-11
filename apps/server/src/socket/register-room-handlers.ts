@@ -23,6 +23,7 @@ import {
 } from "@pejuang/engine";
 import { randomUUID } from "node:crypto";
 import type { Server, Socket } from "socket.io";
+import { broadcastConnection } from "../services/connection";
 import { systemClock, type Clock } from "../game/clock";
 import { dispatch } from "../game/event-dispatcher";
 import { GameSession, identitiesFromRoom } from "../game/game-session";
@@ -145,11 +146,7 @@ export function registerRoomHandlers(
     if (result.response.ok && !result.replayed && roomBefore) {
       void socket.leave(roomBefore.code);
       if (playing) {
-        io.to(roomBefore.code).emit("player:connection", {
-          playerId: socket.data.playerId,
-          connected: false,
-          at: Date.now(),
-        });
+        broadcastConnection(io, games, roomBefore.code, socket.data.playerId, false);
       } else {
         const remaining = rooms.get(roomBefore.code);
         if (remaining) emitRoomState(io, remaining);
@@ -363,6 +360,7 @@ export function registerRoomHandlers(
     const connectedRoom = rooms.get(parsed.data.roomCode)!;
     void socket.join(connectedRoom.code);
     emitRoomState(io, connectedRoom);
+    broadcastConnection(io, games, connectedRoom.code, socket.data.playerId, true);
     ack({
       ok: true,
       snapshot: createSnapshot(

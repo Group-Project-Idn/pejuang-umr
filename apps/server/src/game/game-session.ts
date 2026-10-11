@@ -16,8 +16,9 @@ import {
   type RandomSource,
   type RoundResult,
   type TurnResult,
+  toPublicState,
 } from "@pejuang/engine";
-import type { Ack, HexCoord } from "@pejuang/shared";
+import type { Ack, HexCoord, PublicGameState } from "@pejuang/shared";
 import { systemClock, type Clock, type TimerHandle } from "./clock";
 
 export const CALENDAR_SECONDS = 15;
@@ -61,6 +62,7 @@ export class GameSession {
   private calendarTimer: TimerHandle | null = null;
   private turnTimer: TimerHandle | null = null;
   finished = false;
+  private turnDeadline: number | null = null;
 
   /** Memulai ronde pertama. */
   start(): void {
@@ -130,9 +132,11 @@ export class GameSession {
 
   private runTurn(): void {
     const result = startTurn(this.state, this.random);
-    this.applyRoundResult(result);
+    const now = this.runtime.clock.now();
+    this.applyRoundResult(result, now);
     const pending = this.state.pendingTurn;
     if (!pending) return this.nextRound();
+    this.turnDeadline = now + this.turnSeconds * 1000;
     this.turnTimer = this.runtime.clock.setTimeout(
       () => this.onTurnTimeout(pending.turnId),
       this.turnSeconds * 1000,
@@ -140,7 +144,7 @@ export class GameSession {
   }
 
   private onTurnTimeout(turnId: string): void {
-    this.turnTimer = null;
+    this.clearTurnTimer();
     if (this.finished) return;
     const result = timeoutTurn(this.state, turnId, this.random);
     if (result.ok) this.applyTurnResult(result);
@@ -172,14 +176,13 @@ export class GameSession {
     this.runtime.onFinished();
   }
 
-  private applyRoundResult(result: RoundResult): void {
+  private applyRoundResult(result: RoundResult, now?: number): void {
     this.state = result.state;
-    this.emit(result.events);
+    this.emit(result.events, now);
   }
 
   /** Mengisi deadline lalu mengirim. game:finished dikirim hanya oleh finish() (memakai identitas). */
-  private emit(events: DomainEvent[]): void {
-    const now = this.runtime.clock.now();
+  private emit(events: DomainEvent[], now = this.runtime.clock.now()): void {
     const filled = events
       .filter((event) => event.type !== "game:finished")
       .map((event): DomainEvent => {
@@ -212,6 +215,16 @@ export class GameSession {
   private clearTurnTimer(): void {
     if (this.turnTimer !== null) this.runtime.clock.clearTimeout(this.turnTimer);
     this.turnTimer = null;
+    this.turnDeadline = null;
+  }
+
+  /** State publik untuk snapshot: version dan turnDeadline asli (timer tidak di-reset saat resume). */
+  publicState(): PublicGameState {
+    return structuredClone({
+      ...toPublicState(this.state),
+      version: this.version,
+      turnDeadline: this.turnDeadline,
+    });
   }
 
   nextVersion(): number {
