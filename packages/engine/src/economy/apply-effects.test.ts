@@ -85,3 +85,29 @@ describe("applyEffects (GDD 1.4, 2.2, 2.3)", () => {
     expect(input).toEqual(makeStatus(300_000, 0, 10, 0));
   });
 });
+
+describe("Bayar Hutang dibatasi Kekayaan (GDD 2.3 #3a)", () => {
+  const payDebt = (wealth: number, debt: number) =>
+    applyEffects(makeStatus(wealth, debt, 10, 5), [
+      { stat: "wealth", delta: -5_000_000 },
+      { stat: "debt", delta: -5_000_000 },
+      { stat: "stress", delta: -2 },
+    ]);
+
+  it("Kekayaan 0, Hutang 5jt: Hutang tetap, Kekayaan 0, Level Stress -2", () => {
+    const result = payDebt(0, 5_000_000);
+    expect(result.status).toEqual(makeStatus(0, 5_000_000, 10, 3));
+    expect(result.debtAdded).toBe(0);
+    expect(result.debtStress).toBe(0);
+  });
+
+  it("Kekayaan 2jt, Hutang 5jt: Hutang 3jt, Kekayaan 0", () => {
+    const result = payDebt(2_000_000, 5_000_000);
+    expect(result.status).toEqual(makeStatus(0, 3_000_000, 10, 3));
+    expect(result.debtAdded).toBe(0);
+  });
+
+  it("Kekayaan 10jt, Hutang 1jt: Hutang 0, Kekayaan 9jt", () => {
+    expect(payDebt(10_000_000, 1_000_000).status).toEqual(makeStatus(9_000_000, 0, 10, 3));
+  });
+});

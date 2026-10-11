@@ -131,6 +131,12 @@ describe("Imunitas Sakit (GDD 3.4, 4.5)", () => {
     ]);
   });
 
+  it("kategori selain health tidak pernah immune, meski Pancaroba dan Kesehatan >= 8", () => {
+    const result = chanceOf("Lembur Proyek", "transition", { health: 10 });
+    expect(result.immune).toBe(false);
+    expect(getRiskTags(result).some((tag) => tag.type === "immune")).toBe(false);
+  });
+
   it("imunitas hanya berlaku di Pancaroba, bukan di musim lain", () => {
     const result = chanceOf("Beli Vitamin", "rainy", { health: 10 });
     expect(result.immune).toBe(false);

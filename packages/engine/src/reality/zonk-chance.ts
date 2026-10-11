@@ -77,7 +77,7 @@ export function calculateZonkChance({
   health = 0,
 }: ZonkChanceInput): ZonkChanceResult {
   const immune =
-    season === SICK_SEASON && health >= IMMUNITY_HEALTH_MIN;
+    category === "health" && season === SICK_SEASON && health >= IMMUNITY_HEALTH_MIN;
 
   const vulnerableCategories: readonly TileCategory[] =
     VULNERABLE_CATEGORIES[season];

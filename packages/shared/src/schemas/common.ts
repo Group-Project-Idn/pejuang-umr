@@ -24,8 +24,8 @@ export const EffectSchema = z.object({
 });
 
 export const PrivateStatusSchema = z.object({
-  wealth: z.number().int(),
-  debt: z.number().int().nonnegative(),
+  wealth: z.number().int().nonnegative(),
+  debt: z.number().int().nonnegative().max(25_000_000),
   debtLimit: z.literal(25_000_000),
   health: z.number().int().min(0).max(10),
   stress: z.number().int().min(0).max(10),
