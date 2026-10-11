@@ -21,18 +21,32 @@ function cloneRoom(room: RoomState): RoomState {
   return { ...room, players: room.players.map((player) => ({ ...player })) };
 }
 
+const PAWN_ORDER: readonly PawnId[] = [
+  "cream-circle",
+  "iceblue-square",
+  "mint-triangle",
+  "salmon-diamond",
+];
+
+function firstFreePawn(players: RoomPlayer[]): PawnId {
+  const taken = new Set(players.map((player) => player.pawn));
+  return PAWN_ORDER.find((pawn) => !taken.has(pawn)) ?? PAWN_ORDER[0]!;
+}
+
+function guestsReady(players: RoomPlayer[]): boolean {
+  return players.filter((player) => !player.isHost).every((player) => player.ready);
+}
+
 function withDerivedState(room: RoomState): RoomState {
   const enoughPlayers = room.players.length >= 2;
-  const playersReady = room.players.every(
-    (player) => player.ready && player.pawn !== null,
-  );
+  const ready = guestsReady(room.players);
 
   return {
     ...room,
-    canStart: room.status === "waiting" && enoughPlayers && playersReady,
+    canStart: room.status === "waiting" && enoughPlayers && ready,
     startBlockReason: !enoughPlayers
       ? "NEED_MIN_PLAYERS"
-      : playersReady
+      : ready
         ? null
         : "WAITING_READY",
   };
@@ -60,7 +74,7 @@ export class RoomRepository {
       status: "waiting",
       hostId: identity.playerId,
       turnSeconds: 30,
-      players: [this.createPlayer(identity, true, now)],
+      players: [this.createPlayer(identity, true, now, firstFreePawn([]))],
       maxPlayers: 4,
       canStart: false,
       startBlockReason: "NEED_MIN_PLAYERS",
@@ -89,7 +103,9 @@ export class RoomRepository {
       return { ok: false, error: "ROOM_FULL" };
     }
 
-    room.players.push(this.createPlayer(identity, false, now));
+    room.players.push(
+      this.createPlayer(identity, false, now, firstFreePawn(room.players)),
+    );
     this.playerRooms.set(identity.playerId, code);
     return { ok: true, room: cloneRoom(this.save(room)) };
   }
@@ -117,7 +133,22 @@ export class RoomRepository {
     return { ok: true, room: cloneRoom(this.save(room)) };
   }
 
+  // Keluar saat game berjalan (GDD 9.4 v1.10): diperlakukan sama seperti
+  // koneksi putus. Pemain TETAP terdaftar di room dan game, hanya ditandai
+  // terputus (connected: false) agar bisa kembali lewat session:resume.
+  markDisconnected(playerId: string): RoomMutationResult {
+    const room = this.getByPlayerMutable(playerId);
+    if (!room) return { ok: false, error: "NOT_IN_ROOM" };
+    room.players = room.players.map((player) =>
+      player.playerId === playerId ? { ...player, connected: false } : player,
+    );
+    return { ok: true, room: cloneRoom(this.save(room)) };
+  }
+
   setReady(playerId: string, ready: boolean): RoomMutationResult {
+    const room = this.getByPlayerMutable(playerId);
+    if (!room) return { ok: false, error: "NOT_IN_ROOM" };
+    if (room.hostId === playerId) return { ok: false, error: "INVALID_PAYLOAD" };
     return this.updatePlayer(playerId, (player) => ({ ...player, ready }));
   }
 
@@ -173,7 +204,7 @@ export class RoomRepository {
     if (room.players.length < 2) {
       return { ok: false, error: "NOT_ENOUGH_PLAYERS" };
     }
-    if (!room.players.every((player) => player.ready && player.pawn !== null)) {
+    if (!guestsReady(room.players)) {
       return { ok: false, error: "PLAYERS_NOT_READY" };
     }
     room.status = "countdown";
@@ -187,7 +218,7 @@ export class RoomRepository {
     if (room.players.length < 2) {
       return { ok: false, error: "NOT_ENOUGH_PLAYERS" };
     }
-    if (!room.players.every((player) => player.ready && player.pawn !== null)) {
+    if (!guestsReady(room.players)) {
       return { ok: false, error: "PLAYERS_NOT_READY" };
     }
     room.status = "playing";
@@ -241,10 +272,11 @@ export class RoomRepository {
     identity: SocketData,
     isHost: boolean,
     joinedAt: number,
+    pawn: PawnId,
   ): RoomPlayer {
     return {
       ...identity,
-      pawn: null,
+      pawn,
       connected: true,
       isHost,
       ready: false,

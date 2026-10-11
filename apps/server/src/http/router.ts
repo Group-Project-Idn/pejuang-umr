@@ -1,5 +1,9 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { GuestRequestSchema } from "@pejuang/shared";
+import {
+  GuestRequestSchema,
+  RoomCodeSchema,
+  type RoomLookupResponse,
+} from "@pejuang/shared";
 import type { ServerConfig } from "../config";
 import type { RoomRepository } from "../repositories/room-repository";
 import { createGuestToken, verifyGuestToken } from "../services/guest-token";
@@ -14,9 +18,14 @@ function getBearerToken(request: IncomingMessage): string | null {
   return authorization.slice("Bearer ".length).trim() || null;
 }
 
-function getClientIp(request: IncomingMessage): string {
-  const forwarded = request.headers["x-forwarded-for"];
-  if (typeof forwarded === "string") return forwarded.split(",")[0]!.trim();
+function getClientIp(request: IncomingMessage, trustProxy: boolean): string {
+  if (trustProxy) {
+    const forwarded = request.headers["x-forwarded-for"];
+    if (typeof forwarded === "string") {
+      const first = forwarded.split(",")[0]?.trim();
+      if (first) return first;
+    }
+  }
   return request.socket.remoteAddress ?? "unknown";
 }
 
@@ -24,9 +33,10 @@ async function handleGuest(
   request: IncomingMessage,
   response: ServerResponse,
   config: ServerConfig,
+  rooms: RoomRepository,
   rateLimiter: FixedWindowRateLimiter,
 ): Promise<void> {
-  if (!rateLimiter.consume(getClientIp(request))) {
+  if (!rateLimiter.consume(getClientIp(request, config.trustProxy))) {
     sendError(response, 429, "RATE_LIMITED", "Pelan-pelan dulu, coba sebentar lagi.");
     return;
   }
@@ -60,6 +70,13 @@ async function handleGuest(
     return;
   }
 
+  // Ubah nama hanya di Lobby (API_CONTRACT §4.1). Token valid yang pemainnya
+  // masih tercatat di Room atau game tidak boleh ganti nama.
+  if (existingIdentity && rooms.getByPlayer(existingIdentity.playerId)) {
+    sendError(response, 409, "ALREADY_IN_ROOM", "Ubah nama hanya bisa di Lobby.");
+    return;
+  }
+
   const created = createGuestToken(
     {
       playerId: existingIdentity?.playerId,
@@ -75,6 +92,58 @@ async function handleGuest(
     token: created.token,
     expiresAt: created.expiresAt,
   });
+}
+
+function handleRoomLookup(
+  request: IncomingMessage,
+  response: ServerResponse,
+  config: ServerConfig,
+  rooms: RoomRepository,
+  code: string,
+): void {
+  const normalized = code.toUpperCase();
+  if (!RoomCodeSchema.safeParse(normalized).success) {
+    sendError(response, 400, "INVALID_PAYLOAD", "Kode room tidak valid.");
+    return;
+  }
+
+  const room = rooms.get(normalized);
+  if (!room) {
+    sendError(response, 404, "ROOM_NOT_FOUND", "Kode room tidak ketemu.");
+    return;
+  }
+
+  const playerCount = room.players.length;
+  const joinable = room.status === "waiting" && playerCount < room.maxPlayers;
+  const reason = room.status !== "waiting"
+    ? "ROOM_LOCKED"
+    : playerCount >= room.maxPlayers
+      ? "ROOM_FULL"
+      : null;
+
+  const bearerToken = getBearerToken(request);
+  const identity = bearerToken
+    ? verifyGuestToken(bearerToken, config.guestTokenSecret)
+    : null;
+
+  const body: RoomLookupResponse = {
+    ok: true,
+    code: room.code,
+    status: room.status,
+    playerCount,
+    maxPlayers: room.maxPlayers,
+    joinable,
+    reason,
+    ...(identity
+      ? {
+          isMember: room.players.some(
+            (player) => player.playerId === identity.playerId,
+          ),
+        }
+      : {}),
+  };
+
+  sendJson(response, 200, body);
 }
 
 export function createHttpHandler(config: ServerConfig, rooms: RoomRepository) {
@@ -109,21 +178,16 @@ export function createHttpHandler(config: ServerConfig, rooms: RoomRepository) {
     }
 
     if (request.method === "POST" && url.pathname === "/api/v1/guest") {
-      await handleGuest(request, response, config, rateLimiter);
+      await handleGuest(request, response, config, rooms, rateLimiter);
       return;
     }
 
-    const roomMatch = url.pathname.match(/^\/api\/v1\/rooms\/(UMR-\d{4})$/);
+    const roomMatch = url.pathname.match(/^\/api\/v1\/rooms\/([^/]+)$/);
     if (request.method === "GET" && roomMatch) {
-      const room = rooms.get(roomMatch[1]!);
-      if (!room) {
-        sendError(response, 404, "ROOM_NOT_FOUND", "Room tidak ditemukan.");
-        return;
-      }
-      sendJson(response, 200, { ok: true, room });
+      handleRoomLookup(request, response, config, rooms, roomMatch[1]!);
       return;
     }
 
-    sendJson(response, 404, { ok: false, error: "ROOM_NOT_FOUND" });
+    sendError(response, 404, "INVALID_PAYLOAD", "Rute tidak dikenal.");
   };
 }

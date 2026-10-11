@@ -3,6 +3,7 @@ export type ServerConfig = {
   webOrigin: string;
   guestTokenSecret: string;
   version: string;
+  trustProxy: boolean;
 };
 
 const PLACEHOLDER_SECRET = "change-me";
@@ -24,7 +25,7 @@ export function readServerConfig(
     }
   }
 
-  const port = Number(env.PORT ?? 3001);
+  const port = Number(env.PORT ?? 3002);
   if (!Number.isInteger(port) || port < 0 || port > 65_535) {
     throw new Error("PORT harus berupa integer antara 0 dan 65535.");
   }
@@ -34,5 +35,6 @@ export function readServerConfig(
     webOrigin: env.WEB_ORIGIN ?? "http://localhost:3000",
     guestTokenSecret,
     version: env.npm_package_version ?? "0.0.0",
+    trustProxy: env.TRUST_PROXY === "true",
   };
 }

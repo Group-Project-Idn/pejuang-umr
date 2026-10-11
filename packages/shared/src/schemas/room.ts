@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AvatarIdSchema, PawnIdSchema } from "./common";
+import { AvatarIdSchema, PawnIdSchema, RoomCodeSchema } from "./common";
 
 export const PublicPlayerSchema = z.strictObject({
   playerId: z.string().min(1),
@@ -25,3 +25,20 @@ export const RoomStateSchema = z.object({
   canStart: z.boolean(),
   startBlockReason: z.enum(["NEED_MIN_PLAYERS", "WAITING_READY"]).nullable(),
 });
+
+// GET /api/v1/rooms/:code (API_CONTRACT §4.2). Hanya data pengecekan,
+// tidak pernah memuat daftar pemain, nama, playerId, atau avatar.
+export const RoomLookupResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    code: RoomCodeSchema,
+    status: z.enum(["waiting", "countdown", "playing", "finished"]),
+    playerCount: z.number().int().nonnegative(),
+    maxPlayers: z.literal(4),
+    joinable: z.boolean(),
+    reason: z.enum(["ROOM_FULL", "ROOM_LOCKED"]).nullable(),
+    isMember: z.boolean().optional(),
+  })
+  .strict();
+
+export type RoomLookupResponse = z.infer<typeof RoomLookupResponseSchema>;

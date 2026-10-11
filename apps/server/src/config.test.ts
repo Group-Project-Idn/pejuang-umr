@@ -32,4 +32,10 @@ describe("readServerConfig", () => {
     });
     expect(config.guestTokenSecret).toBe(valid);
   });
+
+  it("S1: port default 3002, sama dengan .env.example dan CI", () => {
+    const config = readServerConfig({ GUEST_TOKEN_SECRET: "change-me" });
+    expect(config.port).toBe(3002);
+    expect(readServerConfig({ PORT: "8080" }).port).toBe(8080);
+  });
 });
