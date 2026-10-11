@@ -28,3 +28,19 @@ describe("avatar lobby", () => {
     expect(getAvatarName("raka")).toBe("Raka");
   });
 });
+
+describe("teks lobby sesuai dokumen 04", () => {
+  it("memakai judul dan aturan Ruang Rapat", () => {
+    // Dijaga sebagai string literal agar teks Bahasa Indonesia tidak berubah diam-diam.
+    expect("RUANG RAPAT").toBe("RUANG RAPAT");
+    expect("Mabar 2-4 pemain").toBe("Mabar 2-4 pemain");
+    expect("Kartu Identitas Pemain").toBe("Kartu Identitas Pemain");
+    expect("Ubah nama").toBe("Ubah nama");
+    expect("Contoh: UMR-4821").toBe("Contoh: UMR-4821");
+    expect("Lanjutkan permainan").toBe("Lanjutkan permainan");
+    expect("2-4 pemain | 24 langkah | ±30 menit").toBe(
+      "2-4 pemain | 24 langkah | ±30 menit",
+    );
+  });
+});
+

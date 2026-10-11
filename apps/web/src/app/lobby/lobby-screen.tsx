@@ -21,7 +21,7 @@ export function toRoomErrorMessage(code: string): string {
   }
 }
 
-export function LobbyScreen({ initialCode = "" }: { initialCode?: string }) {
+export function LobbyScreen({ initialCode = "", hideHomeButton = false }: { initialCode?: string; hideHomeButton?: boolean }) {
   const router = useRouter();
   const [session, setSession] = useState<GuestResponse | null>(null);
   const [guestName, setGuestName] = useState("");
@@ -191,7 +191,7 @@ export function LobbyScreen({ initialCode = "" }: { initialCode?: string }) {
             <span className="ml-2 hidden flex-1 rounded-full bg-white/70 px-3 py-1 text-xs text-[#85837c] sm:block">pejuang-umr.id/lobby</span>
           </div>
           <div className="grid gap-2 border-b border-black/20 bg-[#2b3a4e] px-4 py-3 sm:flex sm:items-center sm:justify-between">
-            <button type="button" onClick={() => router.push("/")} className="lobby-comic-btn w-fit rounded-lg bg-[#f5a623] px-3 py-2 text-sm font-bold">← Kembali ke Home</button>
+            {hideHomeButton ? null : (<button type="button" onClick={() => router.push("/lobby")} className="lobby-comic-btn w-fit rounded-lg bg-[#f5a623] px-3 py-2 text-sm font-bold">← Kembali ke Lobby</button>)}
             <p role="status" className={`w-fit rounded-lg px-3 py-2 text-sm font-semibold ${serverTrouble ? "bg-[#f4b7ae] text-[#7c2a19]" : "bg-[#cde9cf] text-[#1e4622]"}`}>
               Server Jakarta Pusat: {serverLabel}
             </p>
