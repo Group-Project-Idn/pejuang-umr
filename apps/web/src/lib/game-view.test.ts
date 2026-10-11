@@ -3,9 +3,25 @@ import { describe, expect, it } from "vitest";
 import {
   acceptSnapshot,
   applyGamePatch,
+  applyGameStarted,
+  applyGoldExpired,
+  applyGoldSpawned,
+  applyPlayerConnection,
+  applyPlayerEliminated,
+  applyPublicGameEvent,
   applyRealtimeTurnTimer,
+  applyTileOpened,
+  applyTileResolved,
   applyTurnTimer,
+  applyTurnStart,
   getTurnSecondsLeft,
+  type GameFinished,
+  type GameStarted,
+  type GoldSpawned,
+  type PlayerEliminated,
+  type TileOpened,
+  type TileResolved,
+  type TurnStart,
 } from "./game-view";
 
 function snapshot(version: number): Snapshot {
@@ -61,6 +77,26 @@ function snapshot(version: number): Snapshot {
 }
 
 describe("acceptSnapshot", () => {
+  it("menerima room waiting tanpa game setelah rematch", () => {
+    const next = snapshot(0);
+    next.room.status = "waiting";
+    next.game = null;
+    expect(acceptSnapshot(snapshot(100), next)).toBe(next);
+  });
+
+  it("menerima versi awal game baru di room yang sama", () => {
+    const next = snapshot(1);
+    next.game!.gameId = "game-2";
+    expect(acceptSnapshot(snapshot(100), next)).toBe(next);
+  });
+
+  it("menerima snapshot room berbeda dan snapshot pertama", () => {
+    const next = snapshot(1);
+    next.room.code = "UMR-5678";
+    expect(acceptSnapshot(snapshot(100), next)).toBe(next);
+    expect(acceptSnapshot(null, next)).toBe(next);
+  });
+
   it("mengabaikan snapshot dengan version game yang lebih lama", () => {
     const current = snapshot(3);
     expect(acceptSnapshot(current, snapshot(2))).toBe(current);
@@ -134,6 +170,237 @@ describe("acceptSnapshot", () => {
         remainingMs: 5_000,
       }),
     ).toBe(current);
+  });
+});
+
+describe("reducer event publik (B01)", () => {
+  const started: GameStarted = {
+    version: 1,
+    serverTime: 1_000,
+    gameId: "game-1",
+    boardRadius: 4,
+    turnSeconds: 30,
+    turnOrder: ["p1", "p2"],
+    startPositions: [
+      { playerId: "p1", hex: { q: 0, r: 0 } },
+      { playerId: "p2", hex: { q: 0, r: 1 } },
+    ],
+    calendar: {
+      step: 1,
+      totalSteps: 24,
+      round: 1,
+      month: 1,
+      dateLabel: "Januari · Pekan 1",
+      season: "rainy",
+      nextEvent: null,
+    },
+  };
+
+  const turnStart: TurnStart = {
+    version: 2,
+    turnId: "turn-1",
+    playerId: "p1",
+    deadline: 31_000,
+    turnSeconds: 30,
+  };
+
+  const tileOpened: TileOpened = {
+    version: 3,
+    turnId: "turn-1",
+    playerId: "p1",
+    from: { q: 0, r: 0 },
+    to: { q: 1, r: 0 },
+    category: "work",
+    title: "Lembur",
+    plan: [{ stat: "wealth", delta: 1_000_000 }],
+    isGold: false,
+    viaJump: false,
+    autoPicked: false,
+  };
+
+  const resolved: TileResolved = {
+    version: 4,
+    turnId: "turn-1",
+    playerId: "p1",
+    hex: { q: 1, r: 0 },
+    outcome: "safe",
+    text: "Aman",
+    effects: [],
+    seasonal: false,
+  };
+
+  function baseGame() {
+    return applyGameStarted(null, started)!;
+  }
+
+  it("membangun state awal dari game:started dan menolak event lebih lama", () => {
+    const game = baseGame();
+    expect(game.pawns).toHaveLength(2);
+    expect(game.pawns[0]).toEqual({ playerId: "p1", hex: { q: 0, r: 0 } });
+    expect(game.activePlayerId).toBeNull();
+    expect(game.openedHexes).toEqual([]);
+    expect(applyGameStarted(game, { ...started, version: 0 })).toBe(game);
+  });
+
+  it("mengabaikan semua event publik bila belum ada game", () => {
+    expect(applyTurnStart(null, turnStart)).toBeNull();
+    expect(applyTileOpened(null, tileOpened)).toBeNull();
+    expect(applyTileResolved(null, resolved)).toBeNull();
+    expect(
+      applyPublicGameEvent(null, { type: "turn:start", payload: turnStart }),
+    ).toBeNull();
+  });
+
+  it("memindahkan pion dan mencatat heksa terbuka satu kali", () => {
+    const game = applyTileOpened(baseGame(), tileOpened)!;
+    expect(game.pawns.find((pawn) => pawn.playerId === "p1")?.hex).toEqual({
+      q: 1,
+      r: 0,
+    });
+    expect(game.openedHexes).toHaveLength(1);
+    expect(game.openedHexes[0]).toMatchObject({
+      category: "work",
+      title: "Lembur",
+      outcome: null,
+      byPlayerId: "p1",
+      step: 1,
+    });
+
+    const repeated = applyTileOpened(game, {
+      ...tileOpened,
+      version: 3,
+      playerId: "p2",
+    })!;
+    expect(repeated.openedHexes).toHaveLength(1);
+    expect(repeated.openedHexes[0]?.byPlayerId).toBe("p2");
+  });
+
+  it("menolak event versi lebih lama dan tidak mengulang efek", () => {
+    const game = applyTurnStart(baseGame(), turnStart)!;
+    expect(game.activePlayerId).toBe("p1");
+    expect(game.turnDeadline).toBe(31_000);
+    expect(
+      applyTurnStart(game, { ...turnStart, version: 1, playerId: "p2" }),
+    ).toBe(game);
+    expect(applyTileOpened(game, { ...tileOpened, version: 1 })).toBe(game);
+    expect(
+      applyTileOpened(game, { ...tileOpened, version: 1, playerId: "p2" })
+        ?.openedHexes,
+    ).toEqual([]);
+  });
+
+  it("menyelesaikan heksa, mengklaim emas, lalu menghanguskannya", () => {
+    const game = applyTileResolved(
+      applyTileOpened(baseGame(), tileOpened)!,
+      resolved,
+    )!;
+    expect(game.openedHexes[0]?.outcome).toBe("safe");
+
+    const spawned = applyGoldSpawned(game, {
+      version: 5,
+      gold: {
+        goldId: "gold-1",
+        hex: { q: 2, r: 0 },
+        title: "Petak Emas",
+        plan: [{ stat: "wealth", delta: 2_000_000 }],
+        expiresAtStep: 6,
+      },
+    } satisfies GoldSpawned)!;
+    expect(spawned.gold?.goldId).toBe("gold-1");
+
+    const expired = applyGoldExpired(spawned, {
+      version: 6,
+      goldId: "gold-1",
+      hex: { q: 2, r: 0 },
+    })!;
+    expect(expired.gold).toBeNull();
+    expect(expired.deadHexes).toEqual([{ q: 2, r: 0 }]);
+    expect(
+      applyGoldExpired(expired, {
+        version: 7,
+        goldId: "gold-lain",
+        hex: { q: 3, r: 0 },
+      }),
+    ).toBe(expired);
+  });
+
+  it("menandai eliminasi, membersihkan giliran aktif, dan menyelesaikan game", () => {
+    let game = applyTurnStart(baseGame(), turnStart)!;
+    game = {
+      ...game,
+      scores: [
+        { playerId: "p1", provisionalScore: 10, rank: 1, eliminated: false },
+        { playerId: "p2", provisionalScore: 8, rank: 2, eliminated: false },
+      ],
+    };
+    game = applyPlayerEliminated(game, {
+      version: 5,
+      playerId: "p1",
+      reason: "bankrupt",
+      step: 12,
+    } satisfies PlayerEliminated)!;
+    expect(game.eliminated).toEqual(["p1"]);
+    expect(game.scores[0]?.eliminated).toBe(true);
+    expect(game.activePlayerId).toBeNull();
+    expect(game.turnDeadline).toBeNull();
+    expect(
+      applyPlayerEliminated(game, {
+        version: 6,
+        playerId: "p1",
+        reason: "bankrupt",
+        step: 13,
+      }),
+    ).toBe(game);
+
+    const finished = applyPublicGameEvent(game, {
+      type: "game:finished",
+      payload: { version: 9, ranking: [] } satisfies GameFinished,
+    })!;
+    expect(finished.turnPaused).toBe(true);
+    expect(finished.version).toBe(9);
+  });
+
+  it("mengubah musim tanpa menyentuh langkah kalender", () => {
+    const game = applyPublicGameEvent(baseGame(), {
+      type: "season:changed",
+      payload: {
+        version: 4,
+        season: "dry",
+        vulnerableCategories: ["work"],
+        zonkFocus: "sick",
+      },
+    })!;
+    expect(game.calendar.season).toBe("dry");
+    expect(game.calendar.step).toBe(1);
+  });
+
+  it("memperbarui status koneksi pemain pada room state", () => {
+    const room = snapshot(1).room;
+    room.players = [
+      {
+        playerId: "p1",
+        name: "Rina",
+        avatarId: "avatar-01",
+        pawn: null,
+        connected: true,
+        isHost: true,
+        ready: false,
+        joinedAt: 1,
+      },
+    ];
+    const offline = applyPlayerConnection(room, {
+      playerId: "p1",
+      connected: false,
+      at: 2,
+    });
+    expect(offline.players[0]?.connected).toBe(false);
+    expect(
+      applyPlayerConnection(offline, {
+        playerId: "p2",
+        connected: false,
+        at: 3,
+      }),
+    ).toBe(offline);
   });
 
   it("menghitung timer dari clock server dan membekukan remaining time saat pause", () => {

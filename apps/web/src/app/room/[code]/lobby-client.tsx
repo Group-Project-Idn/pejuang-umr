@@ -10,17 +10,31 @@ import type {
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import GameInterface from "@/app/components/game/GameInterface";
-import { readGuestSession } from "@/lib/guest-session";
+import { copyTextToClipboard } from "@/lib/clipboard";
+import { clearGuestSession, readGuestSession } from "@/lib/guest-session";
 import {
   acceptSnapshot,
   applyGamePatch,
+  applyPlayerConnection,
+  applyPublicGameEvent,
   applyRealtimeTurnTimer,
+  type GameFinished,
   type GamePatch,
+  type GameStarted,
+  type GoldExpired,
+  type GoldSpawned,
+  type PlayerConnection,
+  type PlayerEliminated,
+  type PublicGameEvent,
+  type SeasonChanged,
+  type TileOpened,
+  type TileResolved,
+  type TurnStart,
   type TurnTimer,
 } from "@/lib/game-view";
 import { createRequestId } from "@/lib/request-id";
 import { clearRoomCode, writeRoomCode } from "@/lib/room-session";
-import { getSocket, type GameSocket } from "@/lib/socket";
+import { disconnectSocket, getSocket, type GameSocket } from "@/lib/socket";
 import { WaitingRoom } from "./waiting-room";
 
 export { getStartHelper, ROOM_COPY } from "./waiting-room";
@@ -77,6 +91,7 @@ export function LobbyClient({ code }: { code: string }) {
             if (
               currentGame &&
               response.snapshot.game &&
+              currentGame.gameId === response.snapshot.game.gameId &&
               currentGame.version > response.snapshot.game.version
             ) {
               return { ...currentView, timerRemainingMs: null };
@@ -90,8 +105,14 @@ export function LobbyClient({ code }: { code: string }) {
         },
       );
     };
-    const onRoomState = (nextRoom: RoomState) => setRoom(nextRoom);
-    const onDisconnect = () => setStatus("terputus · mencoba kembali");
+    const onRoomState = (nextRoom: RoomState) => {
+      setRoom(nextRoom);
+      if (nextRoom.status !== "countdown") setCountdown(null);
+    };
+    const onDisconnect = () => {
+      setStatus("terputus · mencoba kembali");
+      setCountdown(null);
+    };
     const onCountdown = ({ deadline }: { deadline: number; seconds: 3 }) => {
       setCountdown(deadline);
     };
@@ -122,6 +143,35 @@ export function LobbyClient({ code }: { code: string }) {
         currentMe ? { ...currentMe, status: nextStatus } : currentMe,
       );
     };
+    const onPublicGameEvent = (event: PublicGameEvent) => {
+      setGameView((currentView) => ({
+        ...currentView,
+        game: applyPublicGameEvent(currentView.game, event),
+      }));
+    };
+    const onGameStarted = (payload: GameStarted) =>
+      onPublicGameEvent({ type: "game:started", payload });
+    const onTurnStart = (payload: TurnStart) =>
+      onPublicGameEvent({ type: "turn:start", payload });
+    const onTileOpened = (payload: TileOpened) =>
+      onPublicGameEvent({ type: "tile:opened", payload });
+    const onTileResolved = (payload: TileResolved) =>
+      onPublicGameEvent({ type: "tile:resolved", payload });
+    const onGoldSpawned = (payload: GoldSpawned) =>
+      onPublicGameEvent({ type: "gold:spawned", payload });
+    const onGoldExpired = (payload: GoldExpired) =>
+      onPublicGameEvent({ type: "gold:expired", payload });
+    const onSeasonChanged = (payload: SeasonChanged) =>
+      onPublicGameEvent({ type: "season:changed", payload });
+    const onPlayerEliminated = (payload: PlayerEliminated) =>
+      onPublicGameEvent({ type: "player:eliminated", payload });
+    const onGameFinished = (payload: GameFinished) =>
+      onPublicGameEvent({ type: "game:finished", payload });
+    const onConnection = (payload: PlayerConnection) => {
+      setRoom((currentRoom) =>
+        currentRoom ? applyPlayerConnection(currentRoom, payload) : currentRoom,
+      );
+    };
     const onTurnTimer = (timer: TurnTimer) => {
       setGameView((currentView) =>
         applyRealtimeTurnTimer(currentView, timer),
@@ -131,6 +181,18 @@ export function LobbyClient({ code }: { code: string }) {
       clearRoomCode();
       router.replace("/lobby");
     };
+    const onConnectError = (error: Error) => {
+      setCountdown(null);
+      if (error.message === "UNAUTHORIZED") {
+        clearGuestSession();
+        disconnectSocket();
+        router.replace("/lobby");
+        return;
+      }
+      setStatus("gagal terhubung");
+      setMessage("Server bermasalah. Periksa koneksi internet kamu.");
+    };
+    gameSocket.on("connect_error", onConnectError);
     gameSocket.on("connect", resume);
     gameSocket.on("room:state", onRoomState);
     gameSocket.on("disconnect", onDisconnect);
@@ -139,10 +201,21 @@ export function LobbyClient({ code }: { code: string }) {
     gameSocket.on("game:patch", onGamePatch);
     gameSocket.on("player:status", onPlayerStatus);
     gameSocket.on("turn:timer", onTurnTimer);
+    gameSocket.on("player:connection", onConnection);
+    gameSocket.on("game:started", onGameStarted);
+    gameSocket.on("turn:start", onTurnStart);
+    gameSocket.on("tile:opened", onTileOpened);
+    gameSocket.on("tile:resolved", onTileResolved);
+    gameSocket.on("gold:spawned", onGoldSpawned);
+    gameSocket.on("gold:expired", onGoldExpired);
+    gameSocket.on("season:changed", onSeasonChanged);
+    gameSocket.on("player:eliminated", onPlayerEliminated);
+    gameSocket.on("game:finished", onGameFinished);
     gameSocket.on("room:kicked", onKicked);
     if (gameSocket.connected) resume();
     else gameSocket.connect();
     return () => {
+      gameSocket.off("connect_error", onConnectError);
       gameSocket.off("connect", resume);
       gameSocket.off("room:state", onRoomState);
       gameSocket.off("disconnect", onDisconnect);
@@ -151,6 +224,16 @@ export function LobbyClient({ code }: { code: string }) {
       gameSocket.off("game:patch", onGamePatch);
       gameSocket.off("player:status", onPlayerStatus);
       gameSocket.off("turn:timer", onTurnTimer);
+      gameSocket.off("player:connection", onConnection);
+      gameSocket.off("game:started", onGameStarted);
+      gameSocket.off("turn:start", onTurnStart);
+      gameSocket.off("tile:opened", onTileOpened);
+      gameSocket.off("tile:resolved", onTileResolved);
+      gameSocket.off("gold:spawned", onGoldSpawned);
+      gameSocket.off("gold:expired", onGoldExpired);
+      gameSocket.off("season:changed", onSeasonChanged);
+      gameSocket.off("player:eliminated", onPlayerEliminated);
+      gameSocket.off("game:finished", onGameFinished);
       gameSocket.off("room:kicked", onKicked);
     };
   }, [code, router]);
@@ -186,10 +269,11 @@ export function LobbyClient({ code }: { code: string }) {
     emit(socket);
   }
 
-  function copyRoomCode() {
-    navigator.clipboard?.writeText(code)
-      .then(() => setMessage("Kode room berhasil disalin."))
-      .catch(() => setMessage("Kode room tidak bisa disalin di browser ini."));
+  async function copyRoomCode() {
+    const copied = await copyTextToClipboard(code, navigator.clipboard);
+    setMessage(copied
+      ? "Kode room berhasil disalin."
+      : "Clipboard tidak tersedia. Salin kode room secara manual.");
   }
 
   const roomPlayer = room?.players.find(

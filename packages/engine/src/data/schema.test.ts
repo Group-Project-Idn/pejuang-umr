@@ -35,12 +35,18 @@ describe("skema data konten", () => {
       baseZonkPct: 30,
       realities: Array.from({ length: 6 }, (_, index) => ({
         id: `overtime-reality-${index}`,
-        outcome: "zonk",
+        outcome: index < 3 ? "zonk" : index < 5 ? "safe" : "lucky",
         text: "Realita datang tanpa permisi.",
         effects: [{ stat: "stress", delta: 1 }],
       })),
     };
     expect(TileDefinitionSchema.safeParse(tile).success).toBe(true);
+    for (const outcome of ["zonk", "safe", "lucky"]) {
+      expect(TileDefinitionSchema.safeParse({
+        ...tile,
+        realities: tile.realities.map((reality) => ({ ...reality, outcome })),
+      }).success).toBe(false);
+    }
   });
 
   it("TileDefinitionSchema menolak baseZonkPct di luar 0-80 dan realities ≠ 6", () => {
@@ -52,7 +58,7 @@ describe("skema data konten", () => {
       baseZonkPct: 30,
       realities: Array.from({ length: 6 }, (_, index) => ({
         id: `r-${index}`,
-        outcome: "safe",
+        outcome: index < 3 ? "zonk" : index < 5 ? "safe" : "lucky",
         text: "Aman.",
         effects: [],
       })),

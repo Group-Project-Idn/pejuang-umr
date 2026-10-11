@@ -55,9 +55,9 @@ export function waitForSocketConnection<T extends ConnectionSocket>(
       cleanup();
       resolve(gameSocket);
     };
-    const onConnectError = () => {
+    const onConnectError = (error: Error) => {
       cleanup();
-      reject(new Error("HEALTH_CHECK_FAILED"));
+      reject(new Error(error?.message === "UNAUTHORIZED" ? "UNAUTHORIZED" : "HEALTH_CHECK_FAILED"));
     };
     const timeout = globalThis.setTimeout(() => {
       cleanup();
