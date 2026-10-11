@@ -50,7 +50,7 @@ export function LobbyClient({ code }: { code: string }) {
   useEffect(() => {
     const session = readGuestSession();
     if (!session) {
-      router.replace("/");
+      router.replace("/lobby");
       return;
     }
     queueMicrotask(() => setPlayerId(session.playerId));
@@ -71,7 +71,7 @@ export function LobbyClient({ code }: { code: string }) {
           if (!response.ok) {
             clearRoomCode();
             setMessage(`Gagal: ${response.error}`);
-            router.replace("/");
+            router.replace("/lobby");
             return;
           }
           setRoom(response.snapshot.room);
@@ -134,7 +134,7 @@ export function LobbyClient({ code }: { code: string }) {
     };
     const onKicked = () => {
       clearRoomCode();
-      router.replace("/");
+      router.replace("/lobby");
     };
     gameSocket.on("connect", resume);
     gameSocket.on("room:state", onRoomState);
@@ -175,7 +175,7 @@ export function LobbyClient({ code }: { code: string }) {
         if (error) return handleResponse("Keluar room", { ok: false, error: "INTERNAL" });
         if (response.ok) {
           clearRoomCode();
-          router.replace("/");
+          router.replace("/lobby");
         }
         handleResponse("Keluar room", response);
       },

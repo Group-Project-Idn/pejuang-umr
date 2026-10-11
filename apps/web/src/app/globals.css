@@ -74,7 +74,7 @@
 :root { --ink: #32251f; --paper: #f5df9d; }
 * { box-sizing: border-box; }
 html, body { min-height: 100%; }
-body { margin: 0; background: #e9e2d7; color: var(--ink); font-family: var(--font-geist-sans), Arial, sans-serif; }
+body { margin: 0; background: #e9e2d7; color: var(--ink); font-family: var(--font-jakarta), ui-sans-serif, system-ui, Arial, sans-serif; }
 button { font: inherit; }
 .game-page { position: relative; min-height: 100vh; display: grid; place-items: center; overflow: hidden; padding: 34px; background: radial-gradient(circle at 50% 15%, rgba(255,255,255,.96), transparent 42%), linear-gradient(135deg, #f4f0e8, #d8d0c2); }
 .ambient { position: absolute; border-radius: 999px; filter: blur(80px); opacity: .36; }.ambient-one { width: 400px; height: 400px; background: #e8a64e; left: -150px; bottom: -120px; }.ambient-two { width: 360px; height: 360px; background: #7080a8; right: -140px; top: -80px; }

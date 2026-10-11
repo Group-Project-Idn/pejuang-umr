@@ -11,6 +11,16 @@ import { createRequestId } from "@/lib/request-id";
 import { readRoomCode, writeRoomCode } from "@/lib/room-session";
 import { disconnectSocket, getSocket } from "@/lib/socket";
 
+export const LOBBY_COPY = {
+  title: "RUANG RAPAT",
+  playerCount: "Mabar 2-4 pemain",
+  identityCardTitle: "Kartu Identitas Pemain",
+  editName: "Ubah nama",
+  roomCodePlaceholder: "Contoh: UMR-4821",
+  resumeTitle: "Lanjutkan permainan",
+  gameSummary: "2-4 pemain | 24 langkah | ±30 menit",
+} as const;
+
 export function toRoomErrorMessage(code: string): string {
   switch (code) {
     case "ROOM_NOT_FOUND": return "Kode room tidak ketemu.";
@@ -21,7 +31,7 @@ export function toRoomErrorMessage(code: string): string {
   }
 }
 
-export function LobbyScreen({ initialCode = "" }: { initialCode?: string }) {
+export function LobbyScreen({ initialCode = "", hideHomeButton = false }: { initialCode?: string; hideHomeButton?: boolean }) {
   const router = useRouter();
   const [session, setSession] = useState<GuestResponse | null>(null);
   const [guestName, setGuestName] = useState("");
@@ -191,7 +201,7 @@ export function LobbyScreen({ initialCode = "" }: { initialCode?: string }) {
             <span className="ml-2 hidden flex-1 rounded-full bg-white/70 px-3 py-1 text-xs text-[#85837c] sm:block">pejuang-umr.id/lobby</span>
           </div>
           <div className="grid gap-2 border-b border-black/20 bg-[#2b3a4e] px-4 py-3 sm:flex sm:items-center sm:justify-between">
-            <button type="button" onClick={() => router.push("/")} className="lobby-comic-btn w-fit rounded-lg bg-[#f5a623] px-3 py-2 text-sm font-bold">← Kembali ke Home</button>
+            {hideHomeButton ? null : (<button type="button" onClick={() => router.push("/lobby")} className="lobby-comic-btn w-fit rounded-lg bg-[#f5a623] px-3 py-2 text-sm font-bold">← Kembali ke Lobby</button>)}
             <p role="status" className={`w-fit rounded-lg px-3 py-2 text-sm font-semibold ${serverTrouble ? "bg-[#f4b7ae] text-[#7c2a19]" : "bg-[#cde9cf] text-[#1e4622]"}`}>
               Server Jakarta Pusat: {serverLabel}
             </p>
@@ -200,9 +210,9 @@ export function LobbyScreen({ initialCode = "" }: { initialCode?: string }) {
             <div aria-hidden="true" className="lobby-folder-tab absolute -top-1 left-6 h-7 w-44" />
             {/* RESUME-DI-SINI */}
             {resumeCode ? (
-              <section aria-label="Lanjutkan permainan" className="lobby-paper-card mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl p-3">
+              <section aria-label={LOBBY_COPY.resumeTitle} className="lobby-paper-card mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl p-3">
                 <div>
-                  <h2 className="text-lg font-extrabold">Lanjutkan permainan</h2>
+                  <h2 className="text-lg font-extrabold">{LOBBY_COPY.resumeTitle}</h2>
                   <p className="text-sm">Room terakhir kamu: <strong>{resumeCode}</strong></p>
                 </div>
                 <button type="button" onClick={() => router.push(`/room/${resumeCode}`)} className="lobby-comic-btn rounded-lg bg-[#7fb0f5] px-4 py-2 font-bold text-[#1f3f73]">Lanjutkan</button>
@@ -210,11 +220,11 @@ export function LobbyScreen({ initialCode = "" }: { initialCode?: string }) {
             ) : null}
             <div className="lobby-folder relative grid gap-5 rounded-xl border-2 border-[#3b2a12]/70 p-4 sm:p-6 lg:grid-cols-[1.05fr_1fr]">
               <section aria-labelledby="ruang-rapat-title" className="grid content-start gap-3 pl-6">
-                <h1 id="ruang-rapat-title" className="text-4xl font-black leading-[1.05] sm:text-5xl">RUANG RAPAT</h1>
-                <p className="text-base font-semibold">Mabar 2-4 pemain</p>
+                <h1 id="ruang-rapat-title" className="text-4xl font-black leading-[1.05] sm:text-5xl">{LOBBY_COPY.title}</h1>
+                <p className="text-base font-semibold">{LOBBY_COPY.playerCount}</p>
                 <p className="lobby-stamp w-fit rounded px-3 py-1 text-xl font-black">CONFIDENTIAL</p>
                 <div className="lobby-paper-card grid gap-2 rounded-xl p-3 text-sm font-medium">
-                  <p>2-4 pemain | 24 langkah | ±30 menit</p>
+                  <p>{LOBBY_COPY.gameSummary}</p>
                   <p>1 permainan = 12 bulan. Timer giliran diatur host di Room.</p>
                 </div>
               </section>
@@ -225,10 +235,10 @@ export function LobbyScreen({ initialCode = "" }: { initialCode?: string }) {
                       {session ? (<Image src={getAvatarSrc(session.avatarId)} alt={`Avatar ${session.name}`} fill sizes="80px" className="object-cover" />) : (<span className="grid h-full w-full place-items-center text-2xl" aria-hidden="true">🙂</span>)}
                     </span>
                     <div className="min-w-0">
-                      <h2 className="text-base font-extrabold">Kartu Identitas Pemain</h2>
+                      <h2 className="text-base font-extrabold">{LOBBY_COPY.identityCardTitle}</h2>
                       <p className="truncate text-lg font-bold leading-tight">{session?.name ?? "Belum masuk"}</p>
                       <p className="text-sm">Pegawai Biasa</p>
-                      <button type="button" onClick={() => setGuestOpen(true)} className="lobby-comic-btn mt-2 min-h-11 rounded-lg bg-[#7fb0f5] px-4 py-2 text-sm font-bold text-[#1f3f73]">Ubah nama</button>
+                      <button type="button" onClick={() => setGuestOpen(true)} className="lobby-comic-btn mt-2 min-h-11 rounded-lg bg-[#7fb0f5] px-4 py-2 text-sm font-bold text-[#1f3f73]">{LOBBY_COPY.editName}</button>
                     </div>
                   </div>
                 </div>
@@ -236,7 +246,7 @@ export function LobbyScreen({ initialCode = "" }: { initialCode?: string }) {
                 <form onSubmit={joinRoom} className="lobby-paper-card grid gap-2 rounded-xl p-3">
                   <label htmlFor="kode-room" className="text-lg font-extrabold tracking-wide">KODE ROOM</label>
                   <div className="flex gap-2">
-                    <input id="kode-room" value={roomCode} onChange={(e) => setRoomCode(e.target.value.toUpperCase())} placeholder="Contoh: UMR-4821" maxLength={8} autoComplete="off" aria-invalid={codeError ? true : undefined} aria-describedby={codeError ? "kode-room-error" : undefined} className="min-h-12 flex-1 rounded-lg border-2 border-[#3b2a12]/70 bg-[#fbf3dd] px-3 py-2 text-xl font-bold uppercase tracking-wider placeholder:text-sm placeholder:font-medium placeholder:normal-case placeholder:text-[#85837c]" />
+                    <input id="kode-room" value={roomCode} onChange={(e) => setRoomCode(e.target.value.toUpperCase())} placeholder={LOBBY_COPY.roomCodePlaceholder} maxLength={8} autoComplete="off" aria-invalid={codeError ? true : undefined} aria-describedby={codeError ? "kode-room-error" : undefined} className="min-h-12 flex-1 rounded-lg border-2 border-[#3b2a12]/70 bg-[#fbf3dd] px-3 py-2 text-xl font-bold uppercase tracking-wider placeholder:text-sm placeholder:font-medium placeholder:normal-case placeholder:text-[#85837c]" />
                     <button type="button" onClick={pasteCode} className="lobby-comic-btn min-h-12 rounded-lg bg-[#efe0b8] px-3 text-sm font-bold">Tempel</button>
                     <button type="submit" disabled={!session || working || serverTrouble} className="lobby-comic-btn min-h-12 rounded-lg bg-[#7fb0f5] px-4 text-lg font-black text-[#1f3f73]">{busy === "cek" || busy === "gabung" ? "..." : "GABUNG"}</button>
                   </div>
@@ -256,7 +266,7 @@ export function LobbyScreen({ initialCode = "" }: { initialCode?: string }) {
       {guestOpen ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" role="presentation" onClick={() => session && setGuestOpen(false)}>
           <section role="dialog" aria-modal="true" aria-labelledby="guest-title" onClick={(e) => e.stopPropagation()} className="lobby-folder grid w-full max-w-md gap-3 rounded-2xl border-2 border-[#3b2a12] p-5">
-            <h2 id="guest-title" className="text-2xl font-black">{session ? "Ubah nama" : "Masuk sebagai tamu"}</h2>
+            <h2 id="guest-title" className="text-2xl font-black">{session ? LOBBY_COPY.editName : "Masuk sebagai tamu"}</h2>
             <form onSubmit={submitGuest} className="grid gap-3">
               <label className="grid gap-1 text-sm font-bold">Nama (2-20 karakter)
                 <input value={guestName} onChange={(e) => setGuestName(e.target.value)} maxLength={20} minLength={2} autoComplete="nickname" placeholder="Nama panggilan kamu" className="min-h-12 rounded-lg border-2 border-[#3b2a12]/70 bg-[#fbf3dd] px-3 py-2 text-lg font-semibold" />

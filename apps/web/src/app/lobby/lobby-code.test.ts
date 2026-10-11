@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { RoomCodeSchema } from "@pejuang/shared";
 import { getAvatarName, getAvatarSrc } from "@/lib/avatars";
-import { toRoomErrorMessage } from "./lobby-screen";
+import { LOBBY_COPY, toRoomErrorMessage } from "./lobby-screen";
 
 describe("aturan kode lobby", () => {
   it("menerima format UMR-1234", () => {
@@ -28,3 +28,18 @@ describe("avatar lobby", () => {
     expect(getAvatarName("raka")).toBe("Raka");
   });
 });
+
+describe("teks lobby sesuai dokumen 04", () => {
+  it("menjaga copy yang dipakai LobbyScreen", () => {
+    expect(LOBBY_COPY).toEqual({
+      title: "RUANG RAPAT",
+      playerCount: "Mabar 2-4 pemain",
+      identityCardTitle: "Kartu Identitas Pemain",
+      editName: "Ubah nama",
+      roomCodePlaceholder: "Contoh: UMR-4821",
+      resumeTitle: "Lanjutkan permainan",
+      gameSummary: "2-4 pemain | 24 langkah | ±30 menit",
+    });
+  });
+});
+
