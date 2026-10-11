@@ -10,7 +10,10 @@ const IDS = ["a", "b", "c"];
 
 function gameAtStep(step: number): GameState {
   const { state } = createGame(IDS, "g", new SequenceRandomSource([0.1, 0.5, 0.9, 0.3, 0.7]));
-  return { ...state, public: { ...state.public, calendar: getCalendarInfo(step) } };
+  return {
+    ...state,
+    public: { ...state.public, calendar: getCalendarInfo(step) },
+  };
 }
 
 const rand = () => new SequenceRandomSource([0.5]);
@@ -27,7 +30,10 @@ describe("startRound", () => {
     expect(ofType(events, "month:summary")).toHaveLength(0);
     expect(ofType(events, "game:patch")).toHaveLength(1);
     expect(state.phase).toBe("calendarEvent");
-    expect(state.pendingCalendarEvent).toEqual({ eventId: "new-year", answers: {} });
+    expect(state.pendingCalendarEvent).toEqual({
+      eventId: "new-year",
+      answers: {},
+    });
   });
 
   it("langkah 2 tanpa event: phase turn", () => {
@@ -83,7 +89,10 @@ describe("startRound", () => {
     const { events } = startRound(gameAtStep(21), rand());
     const choices = ofType(events, "calendar:event")[0]!.payload.choices;
     expect(choices.map((c) => c.id)).toEqual(["join", "joinPaylater", "skip"]);
-    expect(choices[0]?.effects).toContainEqual({ stat: "wealth", delta: -3_000_000 });
+    expect(choices[0]?.effects).toContainEqual({
+      stat: "wealth",
+      delta: -3_000_000,
+    });
   });
 });
 
@@ -162,5 +171,180 @@ describe("Event Tanggal", () => {
     const out = { ...opened, players: { ...opened.players } };
     out.players.a = { ...out.players.a!, eliminated: true };
     expect(code(answerCalendarEvent(out, "a", "new-year", "join"))).toBe("INVALID_PAYLOAD");
+  });
+});
+
+describe("rotasi urutan giliran lintas bulan (GDD 1.2)", () => {
+  const ORDER = ["a", "b", "c", "d"];
+
+  function newGame(): GameState {
+    const { state } = createGame(ORDER, "g", new SequenceRandomSource([0.1, 0.5, 0.9, 0.3, 0.7]));
+    return { ...state, baseTurnOrder: [...ORDER] };
+  }
+
+  function eliminate(state: GameState, id: string, step: number): GameState {
+    return {
+      ...state,
+      players: {
+        ...state.players,
+        [id]: {
+          ...state.players[id]!,
+          eliminated: true,
+          eliminatedAtStep: step,
+          eliminatedReason: "bankrupt",
+        },
+      },
+    };
+  }
+
+  /** Jalankan startRound untuk langkah 1..lastStep, melewati phase seperti server. */
+  function playRounds(
+    initial: GameState,
+    lastStep: number,
+    onStep?: (state: GameState, step: number) => GameState,
+  ): string[][] {
+    const orders: string[][] = [];
+    let state = initial;
+    for (let step = 1; step <= lastStep; step++) {
+      state = {
+        ...state,
+        public: { ...state.public, calendar: getCalendarInfo(step) },
+      };
+      if (onStep) state = onStep(state, step);
+      state = startRound(state, rand()).state;
+      orders.push(state.public.turnOrder);
+    }
+    return orders;
+  }
+
+  it("contoh audit: C tereliminasi di Bulan 2 -> Bulan 3 [D,A,B], 4 [A,B,D], 5 [B,D,A]", () => {
+    const orders = playRounds(newGame(), 9, (state, step) =>
+      step === 3 ? eliminate(state, "c", 3) : state,
+    );
+    expect(orders[0]).toEqual(["a", "b", "c", "d"]); // Bulan 1
+    expect(orders[2]).toEqual(["b", "d", "a"]); // Bulan 2 (langkah 3), C dibuang
+    expect(orders[3]).toEqual(["b", "d", "a"]); // langkah genap: urutan tetap
+    expect(orders[4]).toEqual(["d", "a", "b"]); // Bulan 3
+    expect(orders[6]).toEqual(["a", "b", "d"]); // Bulan 4
+    expect(orders[8]).toEqual(["b", "d", "a"]); // Bulan 5
+  });
+
+  it("12 bulan: pemain pertama tidak sama di dua bulan berturut-turut", () => {
+    const orders = playRounds(newGame(), 24, (state, step) =>
+      step === 7 ? eliminate(state, "b", 7) : state,
+    );
+    const firsts: string[] = [];
+    for (let month = 1; month <= 12; month++) {
+      const order = orders[month * 2 - 2]!;
+      expect(order.length).toBeGreaterThanOrEqual(2);
+      firsts.push(order[0]!);
+    }
+    for (let i = 1; i < firsts.length; i++) {
+      expect(firsts[i]).not.toBe(firsts[i - 1]);
+    }
+  });
+
+  it("tanpa eliminasi sama dengan rotasi biasa", () => {
+    const orders = playRounds(newGame(), 24);
+    for (let month = 1; month <= 12; month++) {
+      const shift = (month - 1) % ORDER.length;
+      const expected = [...ORDER.slice(shift), ...ORDER.slice(0, shift)];
+      expect(orders[month * 2 - 2]).toEqual(expected);
+      expect(orders[month * 2 - 1]).toEqual(expected);
+    }
+  });
+});
+
+describe("Burnout dan game selesai lebih cepat", () => {
+  function withHealth(state: GameState, id: string, health: number): GameState {
+    return {
+      ...state,
+      players: {
+        ...state.players,
+        [id]: {
+          ...state.players[id]!,
+          status: { ...state.players[id]!.status, health },
+        },
+      },
+    };
+  }
+
+  function twoPlayers(step: number): GameState {
+    const { state } = createGame(["a", "b"], "g", new SequenceRandomSource([0.1, 0.5, 0.9]));
+    return {
+      ...state,
+      public: { ...state.public, calendar: getCalendarInfo(step) },
+    };
+  }
+
+  // Data: "Tidak ikut" Libur Hari Buruh = Kesehatan -1 (Solo), dikali 2 di Multiplayer = -2.
+  it("Libur Hari Buruh 'Tidak ikut' menurunkan Kesehatan ke 0 -> burnout", () => {
+    const opened = startRound(withHealth(twoPlayers(9), "a", 2), rand()).state;
+    const answered = answerCalendarEvent(opened, "a", "labour-day", "skip");
+    if (!answered.ok) throw new Error("jawaban ditolak");
+    const closed = closeCalendarEvent(withHealth(answered.state, "b", 10), rand());
+    const player = closed.state.players.a!;
+    expect(player.status.health).toBe(0);
+    expect(player.eliminated).toBe(true);
+    expect(player.eliminatedReason).toBe("burnout");
+    expect(player.eliminatedAtStep).toBe(9);
+    expect(closed.state.public.eliminated).toContain("a");
+    expect(ofType(closed.events, "player:eliminated")[0]?.payload).toMatchObject({
+      playerId: "a",
+      reason: "burnout",
+      step: 9,
+    });
+  });
+
+  it("Kekurangan Kekayaan dari Event Tanggal tidak menyebabkan Bangkrut", () => {
+    const base = startRound(twoPlayers(1), rand()).state;
+    const poor = {
+      ...base,
+      players: {
+        ...base.players,
+        a: {
+          ...base.players.a!,
+          status: { ...base.players.a!.status, wealth: 0, debt: 25_000_000 },
+        },
+      },
+    };
+    const answered = answerCalendarEvent(poor, "a", "new-year", "join");
+    if (!answered.ok) throw new Error("jawaban ditolak");
+    const closed = closeCalendarEvent(answered.state, rand());
+    expect(closed.state.players.a?.eliminated).toBe(false);
+    expect(closed.nextAction).toBeUndefined();
+  });
+
+  it("2 pemain, satu Burnout di Event Tanggal -> game:finished, pemain lain rank 1", () => {
+    const opened = startRound(withHealth(twoPlayers(9), "a", 2), rand()).state;
+    const answered = answerCalendarEvent(opened, "a", "labour-day", "skip");
+    if (!answered.ok) throw new Error("jawaban ditolak");
+    const closed = closeCalendarEvent(answered.state, rand());
+    expect(closed.nextAction).toBe("finished");
+    expect(closed.state.phase).toBe("finished");
+    const ranking = ofType(closed.events, "game:finished")[0]!.payload.ranking;
+    expect(ranking.find((row) => row.playerId === "b")?.rank).toBe(1);
+    expect(ranking.find((row) => row.playerId === "a")?.rank).toBe(2);
+  });
+
+  it("semua pemain tereliminasi sekaligus saat ganti bulan -> game selesai", () => {
+    const game = gameAtStep(3);
+    for (const id of IDS) game.players[id] = withHealth(game, id, 0).players[id]!;
+    const { state, events, nextAction } = startRound(game, rand());
+    expect(nextAction).toBe("finished");
+    expect(state.phase).toBe("finished");
+    expect(ofType(events, "player:eliminated")).toHaveLength(3);
+    expect(ofType(events, "game:finished")).toHaveLength(1);
+  });
+
+  it("ganti bulan: tersisa satu pemain -> game selesai, pemain itu rank 1", () => {
+    const game = gameAtStep(3);
+    game.players.a = withHealth(game, "a", 0).players.a!;
+    game.players.b = withHealth(game, "b", 0).players.b!;
+    const { state, events, nextAction } = startRound(game, rand());
+    expect(nextAction).toBe("finished");
+    expect(state.phase).toBe("finished");
+    const ranking = ofType(events, "game:finished")[0]!.payload.ranking;
+    expect(ranking.find((row) => row.playerId === "c")?.rank).toBe(1);
   });
 });
