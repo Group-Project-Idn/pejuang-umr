@@ -2,12 +2,18 @@ import { createBoard } from "@pejuang/shared";
 import { describe, expect, it } from "vitest";
 import {
   getBoardDeskSize,
+  getBoardZoom,
   getBoardWorldBounds,
   hexToWorld,
   PAWN_DETAILS,
 } from "./game";
 
 describe("game view data", () => {
+  it("menyesuaikan kamera dengan layar dan radius tanpa mengubah koordinat", () => {
+    expect(getBoardZoom(360, 400, 4)).toBeLessThan(getBoardZoom(800, 600, 4));
+    expect(getBoardZoom(800, 600, 6)).toBeLessThan(getBoardZoom(800, 600, 4));
+    expect(getBoardZoom(0, 0, 4)).toBe(1);
+  });
   it("memetakan pawn ke sprite karakter yang tersedia", () => {
     expect(Object.keys(PAWN_DETAILS)).toEqual([
       "cream-circle",

@@ -2,6 +2,12 @@ import type { Category, HexCoord, PawnId } from "@pejuang/shared";
 
 export const HEX_TILE_RADIUS = 0.88;
 
+// Presentation only: leave room for sprites above the outermost hexes.
+export function getBoardZoom(width: number, height: number, radius: number) {
+  const diameter = (radius * 2 + 2) * HEX_TILE_RADIUS * Math.sqrt(3);
+  return Math.max(1, Math.min(width / diameter, height / (diameter * 0.8 + 2)) * 0.9);
+}
+
 export const TILE_DETAILS: Record<
   Category,
   { label: string; icon: string; color: string }

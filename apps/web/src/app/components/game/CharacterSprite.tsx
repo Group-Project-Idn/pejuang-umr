@@ -147,8 +147,7 @@ export default function CharacterSprite({
       <Html
         position={[0, 0.02, HEX_TILE_RADIUS * 0.52]}
         center
-        transform
-        distanceFactor={9}
+        zIndexRange={[5, 0]}
         style={{ pointerEvents: "none" }}
       >
         <span className="player-name">{name}</span>

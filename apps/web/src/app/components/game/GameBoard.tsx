@@ -3,11 +3,12 @@
 import { createBoard, hexKey } from "@pejuang/shared";
 import type { PublicGameState, RoomState } from "@pejuang/shared";
 import { Html, OrbitControls, RoundedBox } from "@react-three/drei";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useThree } from "@react-three/fiber";
 import { Suspense, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import {
   getBoardDeskSize,
+  getBoardZoom,
   HEX_TILE_RADIUS,
   hexToWorld,
   TILE_DETAILS,
@@ -24,6 +25,19 @@ const HEX_TILE_SURFACE_OFFSET = 0.02;
 const HEX_TILE_OUTLINE_COLOR = "#111318";
 const FOG_HIDDEN_COLOR = "#343941";
 const DEAD_TILE_COLOR = "#231f20";
+
+function BoardCamera({ radius }: { radius: number }) {
+  const { get, size } = useThree();
+  useEffect(() => {
+    const { camera } = get();
+    if (camera instanceof THREE.OrthographicCamera) {
+      camera.zoom = getBoardZoom(size.width, size.height, radius);
+      camera.lookAt(0, 0, 0);
+      camera.updateProjectionMatrix();
+    }
+  }, [get, size.width, size.height, radius]);
+  return null;
+}
 
 function HexTiles({ game }: { game: PublicGameState }) {
   const outlineMesh = useRef<THREE.InstancedMesh>(null);
@@ -143,9 +157,8 @@ function DeskScene({
   const desk = useMemo(() => getBoardDeskSize(board), [board]);
   return (
     <>
-      <color attach="background" args={["#8f4f2f"]} />
-      <fog attach="fog" args={["#8f4f2f", 16, 30]} />
-      <ambientLight intensity={1.5} />
+      <BoardCamera radius={game.boardRadius} />
+      <ambientLight intensity={1.2} />
       <directionalLight
         position={[-4, 9, 5]}
         intensity={2.8}
@@ -153,6 +166,11 @@ function DeskScene({
         castShadow
         shadow-mapSize-width={1024}
         shadow-mapSize-height={1024}
+        shadow-camera-left={-14}
+        shadow-camera-right={14}
+        shadow-camera-top={14}
+        shadow-camera-bottom={-14}
+        shadow-normalBias={0.04}
       />
       <pointLight
         position={[5, 5, -4]}
@@ -170,6 +188,15 @@ function DeskScene({
         <meshStandardMaterial color="#61331f" roughness={0.86} />
       </RoundedBox>
       <HexTiles game={game} />
+      {game.pawns.filter((pawn) => pawn.playerId === game.activePlayerId).map((pawn) => {
+        const { x, z } = hexToWorld(pawn.hex.q, pawn.hex.r);
+        return (
+          <mesh key={pawn.playerId} position={[x, 0.155, z]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[HEX_TILE_RADIUS * 0.78, HEX_TILE_RADIUS * 0.91, 6]} />
+            <meshBasicMaterial color="#ffe391" transparent opacity={0.85} depthWrite={false} />
+          </mesh>
+        );
+      })}
       <Suspense fallback={null}>
         <GameCharacters
           game={game}
@@ -179,10 +206,9 @@ function DeskScene({
       </Suspense>
       <OrbitControls
         enablePan={false}
-        minPolarAngle={0.45}
-        maxPolarAngle={1.15}
-        minDistance={10}
-        maxDistance={22}
+        enableRotate={false}
+        minZoom={8}
+        maxZoom={100}
         target={[0, 0, 0]}
       />
     </>
@@ -196,14 +222,14 @@ export default function GameBoard({
   game: PublicGameState;
   room: RoomState;
 }) {
-  const cameraDistance = 8 + game.boardRadius * 1.2;
   return (
     <div className="board-canvas" aria-label="Papan permainan heksagonal 3D">
       <Canvas
         shadows
+        orthographic
         dpr={[1, 1.6]}
-        camera={{ position: [0, cameraDistance, cameraDistance * 0.84], fov: 42 }}
-        gl={{ antialias: true, powerPreference: "high-performance" }}
+        camera={{ position: [10, 14.14, 10], zoom: 25, near: 0.1, far: 100 }}
+        gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }}
       >
         <DeskScene game={game} room={room} />
       </Canvas>

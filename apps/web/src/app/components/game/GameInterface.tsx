@@ -58,7 +58,7 @@ export default function GameInterface({
     [game.activePlayerId, room.players],
   );
   const eventMessage = game.openedHexes.at(-1)?.title ??
-    "Papan mengikuti snapshot authoritative dari server.";
+    "Setiap langkah punya cerita. Tentukan langkahmu berikutnya.";
 
   return (
     <main className="game-page">
@@ -67,8 +67,8 @@ export default function GameInterface({
       <section className="game-shell">
         <header className="top-hud">
           <div className="brand-mark">
-            <span>PU</span>
-            <div><strong>Pejuang UMR</strong><small>Life strategy game</small></div>
+            <span>S</span>
+            <div><strong>Selangkah</strong><small>Strategi menjalani hidup</small></div>
           </div>
           <div className="calendar-card">
             <span className="binder binder-left" />
@@ -123,7 +123,7 @@ export default function GameInterface({
           </div>
         </footer>
       </section>
-      <p className="game-tip">Papan read-only · drag untuk memutar · scroll untuk zoom</p>
+      <p className="game-tip">Papan isometrik · scroll atau cubit untuk zoom</p>
     </main>
   );
 }
