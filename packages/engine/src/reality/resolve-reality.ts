@@ -1,0 +1,126 @@
+import type { Effect, Outcome, Season } from "@pejuang/shared";
+import {
+  GOLD_TILES,
+  SEASON_ZONKS,
+  TILES,
+  type RealityVariant,
+  type SeasonZonkDefinition,
+} from "../data";
+import { toMultiplayerEffects } from "../data/multiplier";
+import type { RandomSource } from "../random";
+import { rollOutcome } from "./roll-outcome";
+import { calculateZonkChance } from "./zonk-chance";
+
+/** GDD 4.5: peluang memakai Zonk Musim bila Zonk muncul di petak kategori rawan. */
+const SEASONAL_ZONK_PCT = 50;
+
+/** Kondisi pemain dan musim yang menentukan Realita (GDD 3.4, 4.4, 4.5). */
+export interface RealityContext {
+  season: Season;
+  isRankOneBurden: boolean;
+  health: number;
+}
+
+/** Hasil {@link resolveReality}, sudah dalam nilai Multiplayer. */
+export interface ResolvedReality {
+  outcome: Outcome;
+  text: string;
+  effects: Effect[];
+  seasonal: boolean;
+  variantId: string;
+  zonkPct: number;
+}
+
+const GOLD_TILE_IDS = new Set(GOLD_TILES.map((tile) => tile.id));
+
+function requireRegularTile(tileId: string) {
+  const tile = TILES.find((candidate) => candidate.id === tileId);
+  if (!tile) {
+    if (GOLD_TILE_IDS.has(tileId)) {
+      throw new Error(
+        `Petak Emas "${tileId}" tidak punya Realita (GDD 4.7), tidak bisa diresolve.`,
+      );
+    }
+    throw new Error(`Petak "${tileId}" tidak ada di katalog TILES.`);
+  }
+  return tile;
+}
+
+function seasonZonksFor(season: Season): SeasonZonkDefinition[] {
+  return SEASON_ZONKS.filter((zonk) => zonk.season === season);
+}
+
+function variantsOfOutcome(
+  realities: readonly RealityVariant[],
+  outcome: Outcome,
+): RealityVariant[] {
+  return realities.filter((reality) => reality.outcome === outcome);
+}
+
+/**
+ * Menentukan Realita yang diambil pemain di sebuah petak (GDD 4.4).
+ *
+ * 1. Peluang Zonk dihitung lewat {@link calculateZonkChance} (GDD 4.5), lalu
+ *    jenis hasil digelempar lewat {@link rollOutcome} (GDD 4.4 langkah 1).
+ * 2. Satu varian acak diambil dari jenis tersebut di Tumpukan Realita petak.
+ * 3. Khusus Zonk di petak kategori rawan: 50% memakai Zonk Musim acak sesuai
+ *    Fokus Zonk musim itu (GDD 3.4), sisanya memakai varian Zonk bawaan petak.
+ *
+ * Imunitas Sakit (GDD 3.4) sudah tertanam di {@link calculateZonkChance}: saat
+ * `seasonApplied` false, cabang Zonk Musim tidak pernah terpilih, jadi pemain
+ * Pancaroba dengan Kesehatan >= 8 tidak akan melihat Zonk Musim Sakit.
+ *
+ * Semua efek dikali ke nilai Multiplayer memakai `toMultiplayerEffects`.
+ */
+export function resolveReality(
+  tileId: string,
+  context: RealityContext,
+  random: RandomSource,
+): ResolvedReality {
+  const tile = requireRegularTile(tileId);
+
+  const chance = calculateZonkChance({
+    baseZonkPct: tile.baseZonkPct,
+    category: tile.category,
+    season: context.season,
+    isRankOneBurden: context.isRankOneBurden,
+    health: context.health,
+  });
+
+  const outcome = rollOutcome(chance.pct, random);
+
+  const canUseSeasonZonk =
+    outcome === "zonk" &&
+    chance.seasonApplied &&
+    seasonZonksFor(context.season).length > 0;
+
+  if (canUseSeasonZonk && random.chance(SEASONAL_ZONK_PCT)) {
+    const seasonal = random.pick(seasonZonksFor(context.season));
+    return {
+      outcome,
+      text: seasonal.title,
+      effects: toMultiplayerEffects(seasonal.effects),
+      seasonal: true,
+      variantId: seasonal.id,
+      zonkPct: chance.pct,
+    };
+  }
+
+  const variants = variantsOfOutcome(tile.realities, outcome);
+  if (variants.length === 0) {
+    // Skema data menjamin 3 zonk, 2 safe, 1 lucky per petak (CONTENT_SCHEMA).
+    throw new Error(
+      `Petak "${tileId}" tidak punya varian Realita "${outcome}".`,
+    );
+  }
+  const variant = random.pick(variants);
+
+  return {
+    outcome,
+    text: variant.text,
+    effects: toMultiplayerEffects(variant.effects),
+    seasonal: false,
+    variantId: variant.id,
+    zonkPct: chance.pct,
+  };
+}
