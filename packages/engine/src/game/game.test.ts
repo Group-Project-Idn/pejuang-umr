@@ -31,6 +31,7 @@ describe("createGame", () => {
         eliminated: false,
         eliminatedAtStep: null,
         eliminatedReason: null,
+        inviteCard: null,
       });
     }
   });

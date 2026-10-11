@@ -13,6 +13,17 @@ function ofType<T extends DomainEvent["type"]>(events: readonly DomainEvent[], t
 }
 
 const finalScores: number[] = [];
+const inviteCounts: number[] = [];
+let inviteJoin = 0;
+let inviteDecline = 0;
+let inviteAuto = 0;
+let inviteLimitRejections = 0;
+const senderDeltas: number[] = [];
+const targetDeltas: number[] = [];
+
+const mean = (values: readonly number[]) =>
+  values.length === 0 ? 0 : values.reduce((sum, v) => sum + v, 0) / values.length;
+const rupiah = (value: number) => Math.round(value).toLocaleString("id-ID");
 const reasons: Record<string, number> = {};
 let totalPlayers = 0;
 let eliminatedPlayers = 0;
@@ -27,6 +38,9 @@ afterAll(() => {
       `- pemain tereliminasi: ${((eliminatedPlayers / totalPlayers) * 100).toFixed(1)}%`,
       `- alasan eliminasi terbanyak: ${topReason ? `${topReason[0]} (${topReason[1]})` : "tidak ada"}`,
       `- rincian: ${JSON.stringify(reasons)}`,
+      `Ajakan: ${mean(inviteCounts).toFixed(2)} per game (${inviteJoin + inviteDecline} total, ${inviteLimitRejections} ditolak INVITE_LIMIT)`,
+      `- Ikut ${((inviteJoin / (inviteJoin + inviteDecline || 1)) * 100).toFixed(1)}%, Tolak ${((inviteDecline / (inviteJoin + inviteDecline || 1)) * 100).toFixed(1)}% (termasuk habis waktu ${inviteAuto})`,
+      `- dampak rata-rata ke Skor Sementara sesaat setelah dijawab: pengirim ${rupiah(mean(senderDeltas))}, target ${rupiah(mean(targetDeltas))}`,
     ].join("\n"),
   );
 });
@@ -42,7 +56,8 @@ describe("simulasi game penuh", () => {
       const fail = (message: string) => violations.push(`${label}: ${message}`);
       const eliminatedSoFar = new Set<string>();
 
-      const { state, events, initialUsedHexKeys, playerIds } = playRandomGame(
+      const { state, events, initialUsedHexKeys, playerIds, inviteLog, inviteLimitRejections: limited } =
+        playRandomGame(
         playerCount,
         seed,
         (current, produced) => {
@@ -75,6 +90,13 @@ describe("simulasi game penuh", () => {
             }
           }
           for (const event of produced) {
+            // Motif rahasia: tidak boleh ada di event room maupun invite:incoming.
+            if (
+              (event.target.kind === "room" || event.type === "invite:incoming") &&
+              JSON.stringify(event.payload).includes("motive")
+            ) {
+              fail(`event ${event.type} memuat motive`);
+            }
             if (event.type === "turn:start" && eliminatedSoFar.has(event.payload.playerId)) {
               fail(`pemain tereliminasi ${event.payload.playerId} mendapat giliran`);
             }
@@ -89,6 +111,25 @@ describe("simulasi game penuh", () => {
           }
         },
       );
+
+      // Maksimal 1 Ajakan sukses per ronde (langkah).
+      const perStep = new Map<number, number>();
+      for (const entry of inviteLog) perStep.set(entry.step, (perStep.get(entry.step) ?? 0) + 1);
+      for (const [step, count] of perStep) {
+        if (count > 1) fail(`${count} Ajakan sukses di langkah ${step}`);
+      }
+      if (ofType(events, "invite:incoming").length !== inviteLog.length) {
+        fail("jumlah invite:incoming tidak sama dengan Ajakan sukses");
+      }
+      inviteCounts.push(inviteLog.length);
+      inviteLimitRejections += limited;
+      for (const entry of inviteLog) {
+        if (entry.answer === "join") inviteJoin += 1;
+        else inviteDecline += 1;
+        if (entry.autoDeclined) inviteAuto += 1;
+        senderDeltas.push(entry.senderScoreDelta);
+        targetDeltas.push(entry.targetScoreDelta);
+      }
 
       // Selesai dengan satu game:finished.
       if (state.phase !== "finished") fail(`phase ${state.phase}`);
