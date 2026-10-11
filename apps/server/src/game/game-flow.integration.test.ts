@@ -255,4 +255,39 @@ describe("alur ronde", () => {
     expect(acks[20]).toEqual({ ok: false, error: "RATE_LIMITED" });
     expect(socket.connected).toBe(true);
   });
+
+  it("pemain putus sebelum game:finished lalu resume setelah selesai -> snapshot memuat result", async () => {
+    const ctx = await setup();
+    ctx.host.socket.disconnect();
+    await until(
+      () => ctx.find(ctx.guest, "player:connection").some((e) => e.payload.connected === false),
+      "player:connection false",
+    );
+    for (let i = 0; i < 500 && !ctx.server.games.get("UMR-1234")!.finished; i += 1) {
+      ctx.clock.advance(15_000);
+    }
+    expect(ctx.server.games.get("UMR-1234")!.finished).toBe(true);
+    await until(() => ctx.find(ctx.guest, "game:finished").length === 1, "game:finished");
+    expect(ctx.find(ctx.host, "game:finished")).toHaveLength(0);
+
+    const socket: TestSocket = createClient(ctx.baseUrl, {
+      transports: ["websocket"],
+      auth: { token: ctx.host.token },
+      reconnection: false,
+    });
+    openSockets.push(socket);
+    await new Promise<void>((resolve) => socket.once("connect", resolve));
+    const resumed = await socket.emitWithAck("session:resume", {
+      requestId: rid(),
+      roomCode: "UMR-1234",
+    });
+    expect(resumed.ok).toBe(true);
+    if (!resumed.ok) return;
+    const result = resumed.snapshot.result;
+    expect(result?.ranking.map((row) => row.playerId).sort()).toEqual(
+      [ctx.host.playerId, ctx.guest.playerId].sort(),
+    );
+    expect(result).toEqual(ctx.find(ctx.guest, "game:finished")[0]!.payload);
+    expect(resumed.snapshot.me.pendingTurn).toBeNull();
+  });
 });

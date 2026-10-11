@@ -33,6 +33,7 @@ export interface SessionRuntime {
 
 type PendingTurnPayload = NonNullable<Snapshot["me"]["pendingTurn"]>;
 type PendingCalendarPayload = NonNullable<Snapshot["me"]["pendingCalendar"]>;
+type FinishedPayload = NonNullable<Snapshot["result"]>;
 
 /**
  * Sesi game satu room. Menyimpan GameState lengkap (papan rahasia, status pemain);
@@ -62,6 +63,8 @@ export class GameSession {
   private calendarTimer: TimerHandle | null = null;
   private turnTimer: TimerHandle | null = null;
   finished = false;
+  /** Payload game:finished persis seperti yang dikirim (dengan version), untuk snapshot. */
+  result: FinishedPayload | null = null;
   private turnDeadline: number | null = null;
 
   /** Memulai ronde pertama. */
@@ -241,6 +244,8 @@ export class GameSession {
           payload: payload as PendingTurnPayload,
         };
       }
+    } else if (event.type === "game:finished") {
+      this.result = payload as FinishedPayload;
     } else if (event.type === "calendar:event") {
       this.lastCalendar = payload as PendingCalendarPayload;
     }

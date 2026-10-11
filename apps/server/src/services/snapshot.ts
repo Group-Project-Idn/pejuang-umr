@@ -20,6 +20,6 @@ export function createSnapshot(
       pendingInvite: null,
       isSpectator: false,
     },
-    result: null,
+    result: session ? session.result : null,
   };
 }

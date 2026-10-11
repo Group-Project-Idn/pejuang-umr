@@ -111,7 +111,8 @@ describe("game penuh 3 bot", () => {
     await once(server.httpServer, "listening");
     const baseUrl = `http://127.0.0.1:${(server.httpServer.address() as AddressInfo).port}`;
 
-    // Bot ke-3 (indeks 2) sengaja tidak pernah menjawab Event Tanggal.
+    // Bot ke-3 (indeks 2) tidak pernah menjawab Event Tanggal dan tidak pernah memilih heksa,
+    // sehingga timeout Event Tanggal dan timeoutTurn ikut teruji.
     const bots: Array<{ socket: TestSocket; playerId: string; name: string; log: Received[] }> = [];
     for (const [index, name] of ["Host", "Bot Dua", "Bot Tiga"].entries()) {
       const guest = createGuestToken({ name, avatarId: `avatar-0${index + 1}` }, secret);
@@ -134,6 +135,7 @@ describe("game penuh 3 bot", () => {
         });
       });
       socket.on("turn:options", (payload) => {
+        if (index === 2) return;
         void socket.emitWithAck("turn:choose", {
           requestId: rid(),
           turnId: payload.turnId,
@@ -141,6 +143,7 @@ describe("game penuh 3 bot", () => {
         });
       });
       socket.on("turn:dead-end", (payload) => {
+        if (index === 2) return;
         void socket.emitWithAck("turn:jump", {
           requestId: rid(),
           turnId: payload.turnId,
@@ -190,6 +193,18 @@ describe("game penuh 3 bot", () => {
     expect(
       bots[2]!.log.some((e) => e.type === "calendar:result" && e.payload.autoChosen === true),
     ).toBe(true);
+
+    // Bot pasif tetap di ranking dan gilirannya dipilihkan otomatis oleh timeoutTurn.
+    const idle = bots[2]!;
+    expect(
+      bots[0]!.log.some((e) => e.type === "game:finished" && e.payload.ranking.some((r: { playerId: string }) => r.playerId === idle.playerId)),
+    ).toBe(true);
+    expect(
+      idle.log.some(
+        (e) => e.type === "tile:opened" && e.payload.playerId === idle.playerId && e.payload.autoPicked === true,
+      ),
+    ).toBe(true);
+    expect(idle.log.some((e) => e.type === "turn:options" || e.type === "turn:dead-end")).toBe(true);
 
     // 2. version event room naik tepat 1, tanpa lompatan, per klien.
     for (const bot of bots) {
