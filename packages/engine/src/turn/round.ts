@@ -4,6 +4,7 @@ import {
   type Effect,
   type ErrorCode,
   type MonthSummaryPayload,
+  type ScoreRow,
   type Season,
 } from "@pejuang/shared";
 import {
@@ -44,6 +45,9 @@ const ZONK_FOCUS_BY_SEASON = {
 } as const satisfies Record<Season, "vehicleWash" | "vehicleBreakdown" | "sick">;
 
 const CHOICE_ORDER: readonly CalendarChoiceId[] = ["join", "joinPaylater", "skip"];
+
+/** GDD 4.6: Beban Peringkat 1 mulai berlaku di Langkah 5 (Bulan 3). */
+const RANK_ONE_BURDEN_START_STEP = 5;
 
 function choiceLabel(eventId: string, id: CalendarChoiceId): string {
   if (id === "skip") return "Tidak ikut";
@@ -109,6 +113,21 @@ function orderForStep(state: GameState, step: number): string[] {
   const previous = state.public.turnOrder.filter(alive);
   if (!isMonthChangeStep(step) || previous.length === 0) return previous;
   return [...previous.slice(1), previous[0]!];
+}
+
+/**
+ * GDD 4.6: playerId yang menanggung Beban Peringkat 1, yaitu pemain dengan Skor
+ * Sementara (provisionalScore) tertinggi di antara yang belum tereliminasi.
+ * Jika beberapa pemain seri di puncak, semua yang seri ikut. Memakai
+ * `public.scores` terakhir; urutan hasil mengikuti urutan baris skor.
+ */
+function selectRankOneBurden(scores: readonly ScoreRow[]): string[] {
+  const alive = scores.filter((row) => !row.eliminated);
+  if (alive.length === 0) return [];
+  const top = Math.max(...alive.map((row) => row.provisionalScore));
+  return alive
+    .filter((row) => row.provisionalScore === top)
+    .map((row) => row.playerId);
 }
 
 /** GDD 2.4, 3.3, 4.2: awal ronde (kalender, musim, ganti bulan, urutan giliran, Event Tanggal). */
@@ -188,9 +207,21 @@ export function startRound(state: GameState, random: RandomSource): RoundResult 
   }
   publicState.turnOrder = orderForStep(next, step);
 
+  // GDD 4.6: Beban Peringkat 1 mulai Bulan 3 (Langkah 5). Pemain dengan Skor
+  // Sementara tertinggi di antara yang belum tereliminasi menanggung beban;
+  // jika seri, semua yang seri kena. Sebelum Langkah 5 beban selalu kosong.
+  if (step >= RANK_ONE_BURDEN_START_STEP) {
+    const burdened = selectRankOneBurden(publicState.scores);
+    publicState.rankOneBurden = burdened;
+    events.push({
+      type: "game:patch",
+      target: { kind: "room" },
+      payload: { version: 0, ops: [{ type: "rankOneBurden", playerIds: burdened }] },
+    });
+  }
+
   // TODO: Petak Emas (muncul di langkah 1, 5, 9, 13, 17, 21).
   // TODO: Kartu Ajakan (bagikan kartu di awal ronde).
-  // TODO: Beban Peringkat 1 (game:patch rankOneBurden).
 
   const def = getCalendarEventAtStep(step);
   if (def) {

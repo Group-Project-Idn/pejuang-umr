@@ -155,6 +155,38 @@ describe("startTurn", () => {
     // Rencana quick-freelance tidak mengubah stress, Realita safe tanpa efek.
     expect(result.state.players[playerId]!.status.stress).toBe(1);
   });
+
+  it("turn:options pemain dengan Beban Peringkat 1 membawa riskTags rankOne (GDD 4.6)", () => {
+    const base = makeGame(5);
+    const order = base.public.turnOrder;
+    // startRound di langkah 5 (ganti bulan) memutar urutan, jadi yang jalan
+    // pertama adalah order[1]. Beri dia skor tertinggi agar menanggung beban.
+    const firstToMove = order[1]!;
+    const game: GameState = {
+      ...base,
+      public: {
+        ...base.public,
+        scores: order.map((id, index) => ({
+          playerId: id,
+          provisionalScore: index === 1 ? 100 : 10,
+          rank: index + 1,
+          eliminated: false,
+        })),
+      },
+    };
+
+    const started = startRound(game, seeded()).state;
+    expect(started.public.rankOneBurden).toEqual([firstToMove]);
+
+    const turn = startTurn(started, seeded());
+    expect(turn.state.pendingTurn!.playerId).toBe(firstToMove);
+    const options = ofType(turn.events, "turn:options")[0]!;
+    expect(options.target).toEqual({ kind: "player", playerId: firstToMove });
+    expect(options.payload.options.length).toBeGreaterThan(0);
+    for (const option of options.payload.options) {
+      expect(option.riskTags).toContainEqual({ type: "rankOne", plusPct: 15 });
+    }
+  });
 });
 
 describe("chooseHex", () => {

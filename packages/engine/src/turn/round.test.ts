@@ -96,6 +96,96 @@ describe("startRound", () => {
   });
 });
 
+describe("Beban Peringkat 1 (GDD 4.6)", () => {
+  function withScores(
+    step: number,
+    rows: Array<{ playerId: string; provisionalScore: number; eliminated?: boolean }>,
+  ): GameState {
+    const game = gameAtStep(step);
+    return {
+      ...game,
+      public: {
+        ...game.public,
+        scores: rows.map((row, index) => ({
+          playerId: row.playerId,
+          provisionalScore: row.provisionalScore,
+          rank: index + 1,
+          eliminated: row.eliminated ?? false,
+        })),
+      },
+    };
+  }
+
+  function rankOneOps(events: DomainEvent[]) {
+    return ofType(events, "game:patch").flatMap((e) =>
+      e.payload.ops.filter((op) => op.type === "rankOneBurden"),
+    );
+  }
+
+  it("langkah 1-4: rankOneBurden selalu kosong walau ada skor tertinggi", () => {
+    for (const step of [1, 2, 3, 4]) {
+      const { state } = startRound(
+        withScores(step, [
+          { playerId: "a", provisionalScore: 100 },
+          { playerId: "b", provisionalScore: 50 },
+          { playerId: "c", provisionalScore: 10 },
+        ]),
+        rand(),
+      );
+      expect(state.public.rankOneBurden).toEqual([]);
+    }
+  });
+
+  it("langkah 5: pemain dengan skor tertinggi menanggung beban, dikirim via game:patch", () => {
+    const { state, events } = startRound(
+      withScores(5, [
+        { playerId: "a", provisionalScore: 30 },
+        { playerId: "b", provisionalScore: 90 },
+        { playerId: "c", provisionalScore: 10 },
+      ]),
+      rand(),
+    );
+    expect(state.public.rankOneBurden).toEqual(["b"]);
+    expect(rankOneOps(events)).toEqual([
+      { type: "rankOneBurden", playerIds: ["b"] },
+    ]);
+  });
+
+  it("langkah 5: dua pemain seri di puncak, keduanya menanggung beban", () => {
+    const { state } = startRound(
+      withScores(5, [
+        { playerId: "a", provisionalScore: 80 },
+        { playerId: "b", provisionalScore: 80 },
+        { playerId: "c", provisionalScore: 10 },
+      ]),
+      rand(),
+    );
+    expect(state.public.rankOneBurden).toEqual(["a", "b"]);
+  });
+
+  it("langkah 5: pemain tereliminasi tidak menanggung beban walau skornya tertinggi", () => {
+    const base = withScores(5, [
+      { playerId: "a", provisionalScore: 999, eliminated: true },
+      { playerId: "b", provisionalScore: 80 },
+      { playerId: "c", provisionalScore: 10 },
+    ]);
+    const game: GameState = {
+      ...base,
+      players: {
+        ...base.players,
+        a: {
+          ...base.players.a!,
+          eliminated: true,
+          eliminatedAtStep: 4,
+          eliminatedReason: "bankrupt",
+        },
+      },
+    };
+    const { state } = startRound(game, rand());
+    expect(state.public.rankOneBurden).toEqual(["b"]);
+  });
+});
+
 describe("Event Tanggal", () => {
   function status(state: GameState, id: string) {
     return state.players[id]!.status;
