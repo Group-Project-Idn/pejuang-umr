@@ -47,6 +47,7 @@ async function startServer(countdownMs = 5) {
       webOrigin: "http://localhost:3000",
       guestTokenSecret: secret,
       version: "test",
+      trustProxy: false,
     },
     { rooms, countdownMs, createGameId: () => "game-test" },
   );
@@ -107,10 +108,31 @@ describe("room lifecycle", () => {
 
     const response = await fetch(`${baseUrl}/api/v1/rooms/UMR-1234`);
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
+    const body = (await response.json()) as {
+      ok: boolean;
+      code: string;
+      status: string;
+      playerCount: number;
+      maxPlayers: number;
+      joinable: boolean;
+      reason: string | null;
+      isMember?: boolean;
+      players?: unknown;
+      room?: unknown;
+    };
+    expect(body).toMatchObject({
       ok: true,
-      room: { code: "UMR-1234", players: expect.any(Array) },
+      code: "UMR-1234",
+      status: "waiting",
+      playerCount: 2,
+      maxPlayers: 4,
+      joinable: true,
+      reason: null,
     });
+    // Tanpa token: tidak ada isMember, dan tidak ada kebocoran daftar pemain.
+    expect(body).not.toHaveProperty("isMember");
+    expect(body).not.toHaveProperty("players");
+    expect(body).not.toHaveProperty("room");
   });
 
   it("menegakkan pawn unik, otorisasi host, dan readiness tamu", async () => {
