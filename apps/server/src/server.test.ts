@@ -133,3 +133,168 @@ describe("server foundation", () => {
     });
   });
 });
+
+describe("guest endpoint validation", () => {
+  it("menolak nama 1 karakter dengan INVALID_PAYLOAD", async () => {
+    const { baseUrl } = await startServer();
+    const response = await fetch(`${baseUrl}/api/v1/guest`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "A", avatarId: "avatar-01" }),
+    });
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: false,
+      error: "INVALID_PAYLOAD",
+    });
+  });
+
+  it("menolak karakter terlarang pada nama dengan INVALID_PAYLOAD", async () => {
+    const { baseUrl } = await startServer();
+    const response = await fetch(`${baseUrl}/api/v1/guest`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Raka@123", avatarId: "avatar-01" }),
+    });
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: false,
+      error: "INVALID_PAYLOAD",
+    });
+  });
+
+  it("menolak kata kasar dengan NAME_REJECTED", async () => {
+    const { baseUrl } = await startServer();
+    const response = await fetch(`${baseUrl}/api/v1/guest`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "bangsat", avatarId: "avatar-01" }),
+    });
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: false,
+      error: "NAME_REJECTED",
+    });
+  });
+
+  it("membatasi 10 request per menit per IP dan mengembalikan RATE_LIMITED pada request ke-11", async () => {
+    const { baseUrl } = await startServer();
+    const statuses: number[] = [];
+    for (let index = 0; index < 11; index += 1) {
+      const response = await fetch(`${baseUrl}/api/v1/guest`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: `Pejuang${index}`,
+          avatarId: "avatar-01",
+        }),
+      });
+      statuses.push(response.status);
+    }
+    expect(statuses.slice(0, 10).every((status) => status === 201)).toBe(true);
+    expect(statuses[10]).toBe(429);
+  });
+
+  it("menolak token palsu pada Authorization dengan UNAUTHORIZED", async () => {
+    const { baseUrl } = await startServer();
+    const response = await fetch(`${baseUrl}/api/v1/guest`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: "Bearer token.palsu.123",
+      },
+      body: JSON.stringify({ name: "Raka", avatarId: "avatar-01" }),
+    });
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: false,
+      error: "UNAUTHORIZED",
+    });
+  });
+
+  it("menolak token kedaluwarsa pada Authorization dengan UNAUTHORIZED", async () => {
+    const { baseUrl } = await startServer();
+    const expired = createGuestToken(
+      { name: "Raka", avatarId: "avatar-01" },
+      secret,
+      Date.now() - 8 * 24 * 60 * 60 * 1000,
+    );
+    const response = await fetch(`${baseUrl}/api/v1/guest`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${expired.token}`,
+      },
+      body: JSON.stringify({ name: "Raka Baru", avatarId: "avatar-02" }),
+    });
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: false,
+      error: "UNAUTHORIZED",
+    });
+  });
+
+  it("mengembalikan kontrak 201 lengkap saat sesi dibuat", async () => {
+    const { baseUrl } = await startServer();
+    const response = await fetch(`${baseUrl}/api/v1/guest`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Raka", avatarId: "avatar-01" }),
+    });
+    expect(response.status).toBe(201);
+    const body = (await response.json()) as {
+      ok: boolean;
+      playerId: string;
+      name: string;
+      avatarId: string;
+      token: string;
+      expiresAt: number;
+    };
+    expect(body.ok).toBe(true);
+    expect(body.name).toBe("Raka");
+    expect(body.avatarId).toBe("avatar-01");
+    expect(typeof body.playerId).toBe("string");
+    expect(body.playerId.length).toBeGreaterThan(0);
+    expect(typeof body.token).toBe("string");
+    expect(body.expiresAt).toBeGreaterThan(Date.now());
+  });
+});
+
+describe("socket handshake auth", () => {
+  it("menolak token palsu saat handshake dengan connect_error UNAUTHORIZED", async () => {
+    const { baseUrl } = await startServer();
+    const socket: Socket<ServerToClientEvents, ClientToServerEvents> =
+      createClient(baseUrl, {
+        transports: ["websocket"],
+        auth: { token: "token.palsu.123" },
+        reconnection: false,
+      });
+    openSockets.push(socket);
+    const connectError = await waitForSocketEvent<Error>(
+      socket,
+      "connect_error",
+    );
+    expect(connectError.message).toBe("UNAUTHORIZED");
+  });
+
+  it("menolak token kedaluwarsa saat handshake dengan connect_error UNAUTHORIZED", async () => {
+    const { baseUrl } = await startServer();
+    const expired = createGuestToken(
+      { name: "Sinta", avatarId: "avatar-03" },
+      secret,
+      Date.now() - 8 * 24 * 60 * 60 * 1000,
+    );
+    const socket: Socket<ServerToClientEvents, ClientToServerEvents> =
+      createClient(baseUrl, {
+        transports: ["websocket"],
+        auth: { token: expired.token },
+        reconnection: false,
+      });
+    openSockets.push(socket);
+    const connectError = await waitForSocketEvent<Error>(
+      socket,
+      "connect_error",
+    );
+    expect(connectError.message).toBe("UNAUTHORIZED");
+  });
+});
