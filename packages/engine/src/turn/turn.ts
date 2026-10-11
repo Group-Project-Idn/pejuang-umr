@@ -303,7 +303,7 @@ function applyChoice(
   return { ok: true, state: next, events, nextAction };
 }
 
-function rankingEntries(
+export function rankingEntries(
   players: Record<string, PlayerState>,
   order: readonly string[],
 ): RankingEntry[] {

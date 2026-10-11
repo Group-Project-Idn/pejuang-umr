@@ -1,4 +1,4 @@
-import type { HexCoord, InviteCard, PrivateStatus, PublicGameState } from "@pejuang/shared";
+import type { Effect, HexCoord, InviteCard, InviteMotive, InvitePlan, PrivateStatus, PublicGameState } from "@pejuang/shared";
 import type { BoardState } from "../board/board-state";
 import type { EliminationReason } from "../economy/elimination";
 
@@ -25,6 +25,16 @@ export interface PendingCalendarEvent {
   answers: Record<string, CalendarChoiceId>;
 }
 
+/** Ajakan yang menunggu jawaban target. Memuat motif, jadi tidak boleh keluar dari server. */
+export interface PendingInvite {
+  inviteId: string;
+  senderId: string;
+  targetId: string;
+  plan: InvitePlan;
+  planEffects: Effect[];
+  motive: InviteMotive;
+}
+
 export type GamePhase = "roundStart" | "calendarEvent" | "turn" | "finished";
 
 /** State lengkap game. Hanya ada di engine/server; klien hanya menerima `public`. */
@@ -40,6 +50,5 @@ export interface GameState {
   phase: GamePhase;
   /** GDD 4.8: 1 Ajakan per ronde; direset di setiap startRound. */
   inviteUsedThisRound: boolean;
-  /** Diisi di J2 (alur kirim/jawab Ajakan). */
-  pendingInvite: null;
+  pendingInvite: PendingInvite | null;
 }
