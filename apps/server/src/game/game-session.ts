@@ -66,6 +66,8 @@ export class GameSession {
   /** Payload game:finished persis seperti yang dikirim (dengan version), untuk snapshot. */
   result: FinishedPayload | null = null;
   private turnDeadline: number | null = null;
+  /** Pemain tereliminasi yang memilih jadi penonton (public.spectators). */
+  private readonly spectators = new Set<string>();
 
   /** Memulai ronde pertama. */
   start(): void {
@@ -225,9 +227,23 @@ export class GameSession {
   publicState(): PublicGameState {
     return structuredClone({
       ...toPublicState(this.state),
+      spectators: [...this.spectators],
       version: this.version,
       turnDeadline: this.turnDeadline,
     });
+  }
+
+  /** spectate:enter (GDD 9.4): hanya pemain yang sudah tereliminasi. Aman dipanggil ulang. */
+  enterSpectate(playerId: string): Ack {
+    if (!this.state.players[playerId]?.eliminated) {
+      return { ok: false, error: "NOT_ELIMINATED" };
+    }
+    this.spectators.add(playerId);
+    return { ok: true };
+  }
+
+  isSpectator(playerId: string): boolean {
+    return this.spectators.has(playerId);
   }
 
   nextVersion(): number {
