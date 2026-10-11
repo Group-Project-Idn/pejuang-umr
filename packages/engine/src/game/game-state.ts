@@ -1,4 +1,4 @@
-import type { HexCoord, PrivateStatus, PublicGameState } from "@pejuang/shared";
+import type { HexCoord, InviteCard, PrivateStatus, PublicGameState } from "@pejuang/shared";
 import type { BoardState } from "../board/board-state";
 import type { EliminationReason } from "../economy/elimination";
 
@@ -9,6 +9,8 @@ export interface PlayerState {
   eliminated: boolean;
   eliminatedAtStep: number | null;
   eliminatedReason: EliminationReason | null;
+  /** Kartu Ajakan yang dipegang (motif rahasia, jangan masuk state publik). */
+  inviteCard: InviteCard | null;
 }
 
 export interface PendingTurn {
@@ -36,4 +38,8 @@ export interface GameState {
   /** Pemain yang sudah melangkah di ronde ini; dikosongkan di awal ronde baru. */
   movedThisRound: string[];
   phase: GamePhase;
+  /** GDD 4.8: 1 Ajakan per ronde; direset di setiap startRound. */
+  inviteUsedThisRound: boolean;
+  /** Diisi di J2 (alur kirim/jawab Ajakan). */
+  pendingInvite: null;
 }

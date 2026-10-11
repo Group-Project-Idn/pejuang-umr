@@ -242,7 +242,7 @@ function applyChoice(
     bankrupt ? "bankrupt" : isBurnout(status) ? "burnout" : null;
 
   const updatedPlayer: PlayerState = eliminatedReason
-    ? { status, eliminated: true, eliminatedAtStep: step, eliminatedReason }
+    ? { status, eliminated: true, eliminatedAtStep: step, eliminatedReason, inviteCard: null }
     : { ...player, status };
   const players = { ...state.players, [playerId]: updatedPlayer };
   if (eliminatedReason) {
