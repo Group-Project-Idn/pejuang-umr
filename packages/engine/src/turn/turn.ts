@@ -8,7 +8,8 @@ import {
   type PrivateStatus,
   type TileOption,
 } from "@pejuang/shared";
-import { findDeadEndOptions, markHexUsed, pickLitHexes } from "../board/movement";
+import { findDeadEndOptions, getEnterableHexes, LIT_HEX_COUNT, markHexUsed, pickLitHexes } from "../board/movement";
+import type { BoardState } from "../board/board-state";
 import { getCalendarInfo } from "../calendar/calendar";
 import { applyEffects } from "../economy/apply-effects";
 import { applyDoomSpending } from "../economy/doom";
@@ -58,6 +59,25 @@ function remainingPlayers(state: GameState): string[] {
   );
 }
 
+/**
+ * GDD 4.7: Petak Emas aktif yang bersebelahan dengan pion dan bisa dimasuki
+ * SELALU menyala (mengisi satu dari maksimal {@link LIT_HEX_COUNT} slot); slot
+ * lain diundi seperti biasa. Opsi Jalan Buntu dibiarkan apa adanya (Petak Emas
+ * masuk hanya bila memang termasuk heksa tertutup terdekat).
+ */
+function withGoldLit(
+  board: BoardState,
+  origin: HexCoord,
+  goldHex: HexCoord | null,
+  lit: HexCoord[],
+): HexCoord[] {
+  if (!goldHex) return lit;
+  if (lit.some((hex) => hexKey(hex) === hexKey(goldHex))) return lit;
+  const enterable = getEnterableHexes(board, origin);
+  if (!enterable.some((hex) => hexKey(hex) === hexKey(goldHex))) return lit;
+  return [goldHex, ...lit].slice(0, LIT_HEX_COUNT);
+}
+
 /** GDD 4.2: Fase Pilihan untuk pemain berikutnya yang belum melangkah di ronde ini. */
 export function startTurn(state: GameState, random: RandomSource): RoundResult {
   const step = state.public.calendar.step;
@@ -69,6 +89,7 @@ export function startTurn(state: GameState, random: RandomSource): RoundResult {
 
     let mode: "normal" | "deadEnd" = "normal";
     let hexes: HexCoord[] = pickLitHexes(state.board, pawn.hex, random);
+    hexes = withGoldLit(state.board, pawn.hex, state.public.gold?.hex ?? null, hexes);
     let distances: number[] = [];
     if (hexes.length === 0) {
       const deadEnd = findDeadEndOptions(state.board, pawn.hex, random);
@@ -184,7 +205,6 @@ function applyChoice(
   });
 
   // Fase Realita. Petak Emas tidak punya Realita (GDD 4.7).
-  // TODO: Petak Emas (public.gold belum dikelola di sini).
   let outcome: OpenedHex["outcome"] = null;
   if (!option.isGold) {
     const reality = resolveReality(tileId, context, random);
@@ -263,6 +283,7 @@ function applyChoice(
       pawns: state.public.pawns.map((p) => (p.playerId === playerId ? { ...p, hex } : p)),
       openedHexes,
       scores,
+      gold: option.isGold ? null : state.public.gold,
       eliminated: eliminatedReason
         ? [...state.public.eliminated, playerId]
         : state.public.eliminated,

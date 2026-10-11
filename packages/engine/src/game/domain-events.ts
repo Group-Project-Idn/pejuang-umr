@@ -16,6 +16,8 @@ export type DomainEventType =
   | "turn:dead-end"
   | "tile:opened"
   | "tile:resolved"
+  | "gold:spawned"
+  | "gold:expired"
   | "game:finished";
 
 type PayloadOf<K extends DomainEventType> = Parameters<ServerToClientEvents[K]>[0];

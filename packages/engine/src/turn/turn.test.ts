@@ -7,9 +7,11 @@ import {
   type PrivateStatus,
 } from "@pejuang/shared";
 import { getCalendarInfo } from "../calendar/calendar";
+import { GOLD_TILES } from "../data";
 import { createGame } from "../game/create-game";
 import type { DomainEvent } from "../game/domain-events";
 import type { GameState } from "../game/game-state";
+import { getEnterableHexes } from "../board/movement";
 import { SequenceRandomSource } from "../random";
 import { startRound } from "./round";
 import { checkEarlyFinish, chooseHex, endRound, startTurn, timeoutTurn } from "./turn";
@@ -76,6 +78,34 @@ function closeAllNeighbors(state: GameState, playerId: string): GameState {
     board: {
       ...state.board,
       usedHexKeys: [...state.board.usedHexKeys, ...keys],
+    },
+  };
+}
+
+/** Menempatkan Petak Emas di tetangga pion yang bisa dimasuki (untest keputusan Langkah A). */
+function placeGoldNear(
+  state: GameState,
+  playerId: string,
+  goldId = "full-scholarship",
+): { state: GameState; goldHex: HexCoord } {
+  const pawn = state.public.pawns.find((p) => p.playerId === playerId)!;
+  const goldHex = getEnterableHexes(state.board, pawn.hex)[0]!;
+  const def = GOLD_TILES.find((tile) => tile.id === goldId)!;
+  return {
+    goldHex,
+    state: {
+      ...state,
+      board: { ...state.board, tiles: { ...state.board.tiles, [hexKey(goldHex)]: goldId } },
+      public: {
+        ...state.public,
+        gold: {
+          goldId,
+          hex: goldHex,
+          title: def.title,
+          plan: def.plan,
+          expiresAtStep: state.public.calendar.step + 4,
+        },
+      },
     },
   };
 }
@@ -154,6 +184,51 @@ describe("startTurn", () => {
     expect(ofType(result.events, "tile:opened")[0]!.payload.viaJump).toBe(true);
     // Rencana quick-freelance tidak mengubah stress, Realita safe tanpa efek.
     expect(result.state.players[playerId]!.status.stress).toBe(1);
+  });
+
+  it("turn:options pemain dengan Beban Peringkat 1 membawa riskTags rankOne (GDD 4.6)", () => {
+    const base = makeGame(5);
+    const order = base.public.turnOrder;
+    // startRound di langkah 5 (ganti bulan) memutar urutan, jadi yang jalan
+    // pertama adalah order[1]. Beri dia skor tertinggi agar menanggung beban.
+    const firstToMove = order[1]!;
+    const game: GameState = {
+      ...base,
+      public: {
+        ...base.public,
+        scores: order.map((id, index) => ({
+          playerId: id,
+          provisionalScore: index === 1 ? 100 : 10,
+          rank: index + 1,
+          eliminated: false,
+        })),
+      },
+    };
+
+    const started = startRound(game, seeded()).state;
+    expect(started.public.rankOneBurden).toEqual([firstToMove]);
+
+    const turn = startTurn(started, seeded());
+    expect(turn.state.pendingTurn!.playerId).toBe(firstToMove);
+    const options = ofType(turn.events, "turn:options")[0]!;
+    expect(options.target).toEqual({ kind: "player", playerId: firstToMove });
+    expect(options.payload.options.length).toBeGreaterThan(0);
+    for (const option of options.payload.options) {
+      expect(option.riskTags).toContainEqual({ type: "rankOne", plusPct: 15 });
+    }
+  });
+
+  it("Petak Emas bersebelahan dengan pion selalu ada di turn:options (100 seed)", () => {
+    const base = makeGame(5);
+    const first = base.public.turnOrder[0]!;
+    const { state, goldHex } = placeGoldNear(base, first);
+    for (let seed = 0; seed < 100; seed += 1) {
+      const { events } = startTurn(state, new SequenceRandomSource([seed / 100]));
+      const options = ofType(events, "turn:options")[0]!;
+      const keys = options.payload.options.map((option) => hexKey(option.hex));
+      expect(keys).toContain(hexKey(goldHex));
+      expect(keys.length).toBeLessThanOrEqual(3);
+    }
   });
 });
 
@@ -294,6 +369,43 @@ describe("chooseHex", () => {
     expect(player.status.health).toBe(0);
     expect(player.eliminatedReason).toBe("burnout");
     expect(ofType(result.events, "player:eliminated")[0]!.payload.reason).toBe("burnout");
+  });
+
+  it("mengambil Petak Emas: Rencana apa adanya (tak dikali), tanpa Realita, gold kosong", () => {
+    // Beasiswa Penuh: Kekayaan +7.500.000, Level Stress -2 (nilai Multiplayer, tak dikali).
+    const base = makeGame(5);
+    const first = base.public.turnOrder[0]!;
+    const { state: withGold, goldHex } = placeGoldNear(base, first);
+    const { state: begun, playerId, turnId } = begin(withGold);
+    const before = begun.players[playerId]!.status;
+    const state: GameState = {
+      ...begun,
+      players: {
+        ...begun.players,
+        [playerId]: { ...begun.players[playerId]!, status: { ...before, stress: 5 } },
+      },
+    };
+
+    const result = chooseHex(state, playerId, turnId, goldHex, safeRandom());
+    if (!result.ok) throw new Error(result.message);
+
+    // Rencana diterapkan apa adanya: +7.500.000 (bukan 15.000.000), Stress -2.
+    const status = result.state.players[playerId]!.status;
+    expect(status.wealth).toBe(before.wealth + 7_500_000);
+    expect(status.stress).toBe(3);
+
+    // Petak Emas tak punya Realita.
+    expect(ofType(result.events, "tile:resolved")).toHaveLength(0);
+    const opened = ofType(result.events, "tile:opened")[0]!.payload;
+    expect(opened.isGold).toBe(true);
+    expect(opened.title).toBe("Beasiswa Penuh");
+
+    // Petak Emas terambil: public.gold kosong, heksa masuk openedHexes & dipakai.
+    expect(result.state.public.gold).toBeNull();
+    expect(result.state.board.usedHexKeys).toContain(hexKey(goldHex));
+    expect(pawnOf(result.state, playerId)).toEqual(goldHex);
+    // Tak ada gold:expired untuk Petak Emas yang diambil.
+    expect(ofType(result.events, "gold:expired")).toHaveLength(0);
   });
 });
 

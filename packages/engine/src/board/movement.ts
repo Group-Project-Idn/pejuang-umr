@@ -10,7 +10,7 @@ import {
 import type { RandomSource } from "../random";
 import type { BoardState } from "./board-state";
 
-const LIT_HEX_COUNT = 3;
+export const LIT_HEX_COUNT = 3;
 const DEAD_END_OPTION_COUNT = 3;
 
 export interface DeadEndOption {
