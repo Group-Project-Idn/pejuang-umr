@@ -90,6 +90,11 @@ function collectKeys(value: unknown, keys = new Set<string>()): Set<string> {
   return keys;
 }
 
+/** Urutan deterministik (tanpa Math.random): peluang kirim Ajakan 3 dari 4 kartu, jawaban bergantian. */
+const SEND_PATTERN = [true, true, false, true];
+
+const MOTIVE_ALLOWED_TYPES = new Set(["invite:card", "invite:resolved"]);
+
 describe("game penuh 3 bot", () => {
   it("berjalan sampai game:finished tanpa kebocoran dan tanpa lompatan version", async () => {
     const startedAt = Date.now();
@@ -133,6 +138,27 @@ describe("game penuh 3 bot", () => {
           eventId: event.eventId,
           choice: choice.id,
         });
+      });
+      // Bot menerima kartu -> mengajak bot lain (bergantian bot aktif dan bot pasif).
+      let cardsSeen = 0;
+      socket.on("invite:card", ({ card }) => {
+        if (!card || index === 2) return;
+        const k = cardsSeen++;
+        if (!SEND_PATTERN[k % SEND_PATTERN.length]) return;
+        const target = bots[(index + 1 + (k % 2)) % 3];
+        if (!target) return;
+        void socket.emitWithAck("invite:send", {
+          requestId: rid(),
+          cardId: card.cardId,
+          targetPlayerId: target.playerId,
+        });
+      });
+      // Target menjawab bergantian Ikut/Tolak; bot pasif tidak pernah menjawab (timeout 10 detik).
+      let incomingSeen = 0;
+      socket.on("invite:incoming", (payload) => {
+        if (index === 2) return;
+        const answer = incomingSeen++ % 2 === 0 ? "join" : "decline";
+        void socket.emitWithAck("invite:respond", { requestId: rid(), inviteId: payload.inviteId, answer });
       });
       socket.on("turn:options", (payload) => {
         if (index === 2) return;
@@ -239,7 +265,10 @@ describe("game penuh 3 bot", () => {
     for (const bot of bots) {
       for (const entry of bot.log) {
         const keys = collectKeys(entry.payload);
-        expect(keys.has("motive"), `motive di ${entry.type}`).toBe(false);
+        // Motif hanya milik pemilik kartu (invite:card) dan hasil Ajakan per pemain (invite:resolved).
+        if (!MOTIVE_ALLOWED_TYPES.has(entry.type)) {
+          expect(keys.has("motive"), `motive di ${entry.type}`).toBe(false);
+        }
         if ([...keys].some((key) => PRIVATE_STAT_KEYS.has(key))) {
           expect(STAT_ALLOWED_TYPES.has(entry.type), `field status di ${entry.type}`).toBe(true);
         }
@@ -253,6 +282,48 @@ describe("game penuh 3 bot", () => {
     for (const bot of bots) {
       for (const entry of bot.log.filter((e) => e.type === "session:snapshot")) {
         expect(entry.payload.me.playerId).toBe(bot.playerId);
+      }
+    }
+
+    // 5. Ajakan: pemain ketiga tidak pernah menerima Ajakan orang lain, dan motif hanya ada di pesan miliknya.
+    const resolvedAll = bots.flatMap((bot) => bot.log.filter((e) => e.type === "invite:resolved"));
+    expect(resolvedAll.length).toBeGreaterThan(0);
+    for (const bot of bots) {
+      for (const e of bot.log.filter((x) => x.type === "invite:incoming")) {
+        expect(e.payload.fromPlayerId).not.toBe(bot.playerId);
+        expect(e.payload.fromName).not.toBe(e.payload.fromPlayerId);
+        expect(e.payload.deadline).toBeGreaterThan(0);
+        expect(JSON.stringify(e.payload)).not.toContain("motive");
+      }
+      for (const e of bot.log.filter((x) => x.type === "invite:resolved")) {
+        expect([e.payload.fromPlayerId, e.payload.targetPlayerId]).toContain(bot.playerId);
+      }
+      for (const e of bot.log.filter((x) => x.type === "game:patch")) {
+        expect(JSON.stringify(e.payload)).not.toContain("motive");
+      }
+    }
+    // Bot pasif tidak menjawab: Ajakan ke dia habis waktu.
+    expect(resolvedAll.some((e) => e.payload.autoDeclined === true)).toBe(true);
+
+    // 6. Setiap turn:timer paused true diikuti paused false (turnId sama) sebelum turn:start berikutnya.
+    for (const bot of bots) {
+      let open: string | null = null;
+      for (const e of bot.log) {
+        if (e.type === "turn:timer") {
+          if (e.payload.paused) {
+            expect(open, `jeda ganda di ${bot.name}`).toBeNull();
+            open = e.payload.turnId;
+          } else {
+            expect(e.payload.turnId).toBe(open);
+            expect(e.payload.remainingMs).toBeGreaterThan(0);
+            open = null;
+          }
+        } else if (e.type === "player:eliminated" && open?.includes(e.payload.playerId)) {
+          open = null; // Burnout saat dijeda: giliran dibatalkan, tidak ada paused false
+        } else if (e.type === "turn:start" || e.type === "game:finished") {
+          if (e.type === "turn:start") expect(open, `turn:start saat masih dijeda di ${bot.name}`).toBeNull();
+          open = null;
+        }
       }
     }
 
