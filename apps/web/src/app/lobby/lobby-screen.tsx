@@ -9,7 +9,7 @@ import { createOrUpdateGuest, getHealth, lookupRoom } from "@/lib/api-client";
 import { readGuestSession, writeGuestSession, clearGuestSession } from "@/lib/guest-session";
 import { createRequestId } from "@/lib/request-id";
 import { readRoomCode, writeRoomCode } from "@/lib/room-session";
-import { disconnectSocket, getSocket } from "@/lib/socket";
+import { connectGameSocket, disconnectSocket } from "@/lib/socket";
 
 export const LOBBY_COPY = {
   title: "RUANG RAPAT",
@@ -90,22 +90,12 @@ export function LobbyScreen({ initialCode = "", hideHomeButton = false }: { init
     }
   }
 
-  async function connectSocket(token: string) {
-    const socket = getSocket(token);
-    if (!socket.connected) socket.connect();
-    if (socket.connected) return socket;
-    await new Promise<void>((resolve) => {
-      socket.once("connect", () => resolve());
-    });
-    return socket;
-  }
-
   async function createRoom() {
     if (!session || working || serverTrouble) return;
     setMessage("");
     setBusy("buat");
     try {
-      const socket = await connectSocket(session.token);
+      const socket = await connectGameSocket(session.token);
       const res = await new Promise<{ ok: boolean; error?: string; room?: { code: string } }>((resolve) => {
         socket.timeout(5000).emit("room:create", { requestId: createRequestId() }, (err, ack) => {
           if (err) return resolve({ ok: false, error: "HEALTH_CHECK_FAILED" });
@@ -124,6 +114,8 @@ export function LobbyScreen({ initialCode = "", hideHomeButton = false }: { init
       }
       writeRoomCode(res.room.code);
       router.push(`/room/${res.room.code}`);
+    } catch (error) {
+      setMessage(toRoomErrorMessage(error instanceof Error ? error.message : "INTERNAL"));
     } finally {
       setBusy("idle");
     }
@@ -147,7 +139,7 @@ export function LobbyScreen({ initialCode = "", hideHomeButton = false }: { init
         return;
       }
       setBusy("gabung");
-      const socket = await connectSocket(session.token);
+      const socket = await connectGameSocket(session.token);
       const res = await new Promise<{ ok: boolean; error?: string }>((resolve) => {
         socket.timeout(5000).emit("room:join", { requestId: createRequestId(), roomCode: code }, (err, ack) => {
           if (err) return resolve({ ok: false, error: "HEALTH_CHECK_FAILED" });
