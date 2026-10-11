@@ -17,11 +17,16 @@ import {
 } from "@pejuang/shared";
 import {
   MathRandomSource,
-  createInitialGameState,
+  createGame,
+  toPublicState,
   type RandomSource,
 } from "@pejuang/engine";
 import { randomUUID } from "node:crypto";
 import type { Server, Socket } from "socket.io";
+import { broadcastConnection } from "../services/connection";
+import { systemClock, type Clock } from "../game/clock";
+import { dispatch } from "../game/event-dispatcher";
+import { GameSession, identitiesFromRoom } from "../game/game-session";
 import type { GameRepository } from "../repositories/game-repository";
 import type { IdempotencyRepository } from "../repositories/idempotency-repository";
 import type { RoomRepository } from "../repositories/room-repository";
@@ -78,11 +83,13 @@ export function registerRoomHandlers(
     countdownMs?: number;
     random?: RandomSource;
     createGameId?: () => string;
+    clock?: Clock;
   } = {},
 ): void {
   const countdownMs = options.countdownMs ?? 3_000;
   const random = options.random ?? new MathRandomSource();
   const createGameId = options.createGameId ?? randomUUID;
+  const clock = options.clock ?? systemClock;
   socket.on("room:create", (payload, unsafeAck) => executeWithAck<RoomResult>(unsafeAck, (ack) => {
     const parsed = RoomCreateRequestSchema.safeParse(payload);
     if (!parsed.success) return ack(invalidPayload<RoomResult>());
@@ -139,11 +146,7 @@ export function registerRoomHandlers(
     if (result.response.ok && !result.replayed && roomBefore) {
       void socket.leave(roomBefore.code);
       if (playing) {
-        io.to(roomBefore.code).emit("player:connection", {
-          playerId: socket.data.playerId,
-          connected: false,
-          at: Date.now(),
-        });
+        broadcastConnection(io, games, roomBefore.code, socket.data.playerId, false);
       } else {
         const remaining = rooms.get(roomBefore.code);
         if (remaining) emitRoomState(io, remaining);
@@ -269,7 +272,7 @@ export function registerRoomHandlers(
         try {
           const countdownRoom = rooms.get(room.code);
           if (!countdownRoom || countdownRoom.status !== "countdown") return;
-          const pendingGame = createInitialGameState(
+          const created = createGame(
             countdownRoom.players.map((player) => player.playerId),
             createGameId(),
             random,
@@ -284,10 +287,28 @@ export function registerRoomHandlers(
             return;
           }
           const playingRoom = transition.room;
-          const game = games.set(room.code, pendingGame);
+          const session: GameSession = games.set(
+            room.code,
+            new GameSession(
+              room.code,
+              created.state,
+              random,
+              playingRoom.turnSeconds,
+              identitiesFromRoom(playingRoom.players),
+              {
+                clock,
+                send: (events) => dispatch(io, session, events),
+                onFinished: () => {
+                  const finished = rooms.markFinished(room.code);
+                  if (finished.ok) emitRoomState(io, finished.room);
+                },
+              },
+            ),
+          );
+          const game = toPublicState(session.state);
           emitRoomState(io, playingRoom);
           io.to(room.code).emit("game:started", {
-            version: game.version,
+            version: session.nextVersion(),
             serverTime: Date.now(),
             gameId: game.gameId,
             boardRadius: game.boardRadius,
@@ -296,6 +317,7 @@ export function registerRoomHandlers(
             startPositions: game.pawns,
             calendar: game.calendar,
           });
+          dispatch(io, session, created.events);
           for (const candidate of io.sockets.sockets.values()) {
             if (candidate.rooms.has(room.code)) {
               candidate.emit(
@@ -303,11 +325,12 @@ export function registerRoomHandlers(
                 createSnapshot(
                   playingRoom,
                   candidate.data.playerId,
-                  game,
+                  session,
                 ),
               );
             }
           }
+          session.start();
         } catch {
           io.to(room.code).emit("error", {
             code: "INTERNAL",
@@ -337,6 +360,7 @@ export function registerRoomHandlers(
     const connectedRoom = rooms.get(parsed.data.roomCode)!;
     void socket.join(connectedRoom.code);
     emitRoomState(io, connectedRoom);
+    broadcastConnection(io, games, connectedRoom.code, socket.data.playerId, true);
     ack({
       ok: true,
       snapshot: createSnapshot(

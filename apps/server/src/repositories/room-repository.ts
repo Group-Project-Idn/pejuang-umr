@@ -225,6 +225,14 @@ export class RoomRepository {
     return { ok: true, room: cloneRoom(this.save(room)) };
   }
 
+  markFinished(code: string): RoomMutationResult {
+    const room = this.rooms.get(code);
+    if (!room) return { ok: false, error: "ROOM_NOT_FOUND" };
+    if (room.status !== "playing") return { ok: false, error: "ROOM_LOCKED" };
+    room.status = "finished";
+    return { ok: true, room: cloneRoom(this.save(room)) };
+  }
+
   setConnected(playerId: string, connected: boolean): RoomState | null {
     const room = this.getByPlayerMutable(playerId);
     if (!room) return null;
