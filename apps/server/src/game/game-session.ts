@@ -119,6 +119,10 @@ export class GameSession {
   move(playerId: string, turnId: string, hex: HexCoord, kind: "choose" | "jump"): Ack {
     if (this.finished) return { ok: false, error: "GAME_FINISHED" };
     const pending = this.state.pendingTurn;
+    if (this.pausedTurn && pending?.playerId === playerId) {
+      // Timer dijeda selama pemain aktif menjawab Ajakan; giliran baru berjalan setelah timer dilanjutkan.
+      return { ok: false, error: "NOT_YOUR_TURN", message: "Jawab Ajakan dulu." };
+    }
     if (pending && pending.playerId === playerId && pending.turnId === turnId) {
       const expected = kind === "choose" ? "normal" : "deadEnd";
       if (pending.mode !== expected) return { ok: false, error: "INVALID_PAYLOAD" };

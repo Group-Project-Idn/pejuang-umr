@@ -195,6 +195,22 @@ describe("invite lewat socket", () => {
     expect(ctx.session().publicState().turnDeadline).toBe(ctx.clock.now() + 20_000);
   });
 
+  it("pemain aktif tidak bisa memilih heksa saat timer dijeda untuk Ajakan", async () => {
+    const ctx = await setup();
+    const { active, others } = await startTurns(ctx);
+    const sender = others[0];
+    const cardId = giveCard(ctx, sender.playerId, "commission");
+    const ack = await send(sender, cardId, active);
+    if (!ack.ok) throw new Error("send gagal");
+    const options = ctx.find(active, "turn:options")[0]!.payload;
+    const blocked = await active.socket.emitWithAck("turn:choose", {
+      requestId: rid(),
+      turnId: options.turnId,
+      hex: options.options[0].hex,
+    });
+    expect(blocked).toMatchObject({ ok: false, error: "NOT_YOUR_TURN" });
+  });
+
   it("Ajakan kedua di ronde yang sama -> INVITE_LIMIT", async () => {
     const ctx = await setup();
     const { others } = await startTurns(ctx);
