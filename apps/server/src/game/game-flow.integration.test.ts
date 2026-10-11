@@ -290,4 +290,92 @@ describe("alur ronde", () => {
     expect(result).toEqual(ctx.find(ctx.guest, "game:finished")[0]!.payload);
     expect(resumed.snapshot.me.pendingTurn).toBeNull();
   });
+
+});
+
+function runToFinish(ctx: Ctx) {
+  for (let i = 0; i < 500 && !ctx.server.games.get("UMR-1234")!.finished; i += 1) {
+    ctx.clock.advance(15_000);
+  }
+  expect(ctx.server.games.get("UMR-1234")!.finished).toBe(true);
+}
+
+describe("host dan main lagi", () => {
+  it("host keluar saat playing: game jalan terus; saat finished host = pemain tersambung paling awal", async () => {
+    const ctx = await setup();
+    expect(await ctx.host.socket.emitWithAck("room:leave", { requestId: rid() })).toEqual({ ok: true });
+    const during = ctx.server.rooms.get("UMR-1234")!;
+    expect(during.hostId).toBe(ctx.host.playerId);
+    expect(ctx.server.games.get("UMR-1234")!.finished).toBe(false);
+
+    runToFinish(ctx);
+    const after = ctx.server.rooms.get("UMR-1234")!;
+    expect(after.status).toBe("finished");
+    expect(after.hostId).toBe(ctx.guest.playerId);
+    expect(after.players.filter((p) => p.isHost).map((p) => p.playerId)).toEqual([ctx.guest.playerId]);
+  });
+
+  it("room:rematch: hanya host dan hanya saat finished", async () => {
+    const ctx = await setup();
+    expect(await ctx.host.socket.emitWithAck("room:rematch", { requestId: rid() })).toEqual({
+      ok: false,
+      error: "INVALID_PAYLOAD",
+    });
+    runToFinish(ctx);
+    expect(await ctx.guest.socket.emitWithAck("room:rematch", { requestId: rid() })).toEqual({
+      ok: false,
+      error: "NOT_HOST",
+    });
+  });
+
+  it("rematch: sesi dihapus, room waiting, ready false, pion tetap, lalu game baru mulai dengan version 1", async () => {
+    const ctx = await setup();
+    runToFinish(ctx);
+    const pawnsBefore = ctx.server.rooms.get("UMR-1234")!.players.map((p) => [p.playerId, p.pawn]);
+    const stateSeen = () =>
+      ctx.find(ctx.guest, "room:state").filter((e) => e.payload.status === "waiting").length;
+    const waitingBefore = stateSeen();
+
+    const ack = await ctx.host.socket.emitWithAck("room:rematch", { requestId: rid() });
+    expect(ack.ok).toBe(true);
+    if (!ack.ok) return;
+    expect(ack.room.status).toBe("waiting");
+    expect(ack.room.players.every((p) => p.ready === false)).toBe(true);
+    expect(ack.room.players.map((p) => [p.playerId, p.pawn])).toEqual(pawnsBefore);
+    expect(ctx.server.games.get("UMR-1234")).toBeNull();
+    await until(() => stateSeen() > waitingBefore, "room:state waiting");
+
+    const startedBefore = ctx.find(ctx.host, "game:started").length;
+    expect(await ctx.guest.socket.emitWithAck("room:ready", { requestId: rid(), ready: true })).toEqual({ ok: true });
+    expect(await ctx.host.socket.emitWithAck("game:start", { requestId: rid() })).toEqual({ ok: true });
+    await until(() => ctx.find(ctx.host, "game:started").length > startedBefore, "game:started kedua");
+    expect(ctx.find(ctx.host, "game:started")[startedBefore]!.payload.version).toBe(1);
+    await until(() => ctx.find(ctx.host, "calendar:event").length > 1, "calendar:event game baru");
+    expect(ctx.server.games.get("UMR-1234")!.finished).toBe(false);
+  });
+
+  it("rematch mengeluarkan pemain yang tidak tersambung", async () => {
+    const ctx = await setup();
+    ctx.guest.socket.disconnect();
+    await until(
+      () => ctx.find(ctx.host, "player:connection").some((e) => e.payload.connected === false),
+      "player:connection false",
+    );
+    runToFinish(ctx);
+    const ack = await ctx.host.socket.emitWithAck("room:rematch", { requestId: rid() });
+    expect(ack.ok).toBe(true);
+    if (!ack.ok) return;
+    expect(ack.room.players.map((p) => p.playerId)).toEqual([ctx.host.playerId]);
+    expect(ctx.server.rooms.getByPlayer(ctx.guest.playerId)).toBeNull();
+  });
+
+  it("room:leave saat finished diizinkan; room kosong ditutup bersama sesinya", async () => {
+    const ctx = await setup();
+    runToFinish(ctx);
+    expect(await ctx.guest.socket.emitWithAck("room:leave", { requestId: rid() })).toEqual({ ok: true });
+    expect(ctx.server.rooms.get("UMR-1234")!.players).toHaveLength(1);
+    expect(await ctx.host.socket.emitWithAck("room:leave", { requestId: rid() })).toEqual({ ok: true });
+    expect(ctx.server.rooms.get("UMR-1234")).toBeNull();
+    expect(ctx.server.games.get("UMR-1234")).toBeNull();
+  });
 });

@@ -5,6 +5,7 @@ import {
   RoomKickRequestSchema,
   RoomLeaveRequestSchema,
   RoomPawnRequestSchema,
+  RoomRematchRequestSchema,
   RoomReadyRequestSchema,
   RoomTimerRequestSchema,
   SessionResumeRequestSchema,
@@ -90,6 +91,12 @@ export function registerRoomHandlers(
   const random = options.random ?? new MathRandomSource();
   const createGameId = options.createGameId ?? randomUUID;
   const clock = options.clock ?? systemClock;
+  /** Menghapus sesi game room beserta semua timer-nya. */
+  const closeGame = (roomCode: string): void => {
+    games.get(roomCode)?.dispose();
+    games.delete(roomCode);
+  };
+
   socket.on("room:create", (payload, unsafeAck) => executeWithAck<RoomResult>(unsafeAck, (ack) => {
     const parsed = RoomCreateRequestSchema.safeParse(payload);
     if (!parsed.success) return ack(invalidPayload<RoomResult>());
@@ -131,6 +138,7 @@ export function registerRoomHandlers(
     // Keluar saat game berjalan (GDD 9.4 v1.10) diperlakukan seperti koneksi
     // putus: pemain tetap terdaftar dan hanya ditandai terputus.
     const playing = roomBefore?.status === "playing";
+    const wasFinished = roomBefore?.status === "finished";
     const result = runIdempotent<EmptyResult>(
       idempotency,
       socket.data.playerId,
@@ -150,7 +158,36 @@ export function registerRoomHandlers(
       } else {
         const remaining = rooms.get(roomBefore.code);
         if (remaining) emitRoomState(io, remaining);
+        // Room selesai yang kosong ditutup bersama sesi game-nya.
+        else if (wasFinished) closeGame(roomBefore.code);
       }
+    }
+    ack(result.response);
+  }));
+
+  socket.on("room:rematch", (payload, unsafeAck) => executeWithAck<RoomResult>(unsafeAck, (ack) => {
+    const parsed = RoomRematchRequestSchema.safeParse(payload);
+    if (!parsed.success) return ack(invalidPayload<RoomResult>());
+    const roomBefore = rooms.getByPlayer(socket.data.playerId);
+    let removed: string[] = [];
+    const result = runIdempotent<RoomResult>(
+      idempotency,
+      socket.data.playerId,
+      "room:rematch",
+      parsed.data.requestId,
+      () => {
+        const mutation = rooms.rematch(socket.data.playerId);
+        if (!mutation.ok) return mutation;
+        removed = mutation.removed ?? [];
+        return { ok: true, room: mutation.room };
+      },
+    );
+    if (result.response.ok && !result.replayed && roomBefore) {
+      closeGame(roomBefore.code);
+      for (const candidate of io.sockets.sockets.values()) {
+        if (removed.includes(candidate.data.playerId)) void candidate.leave(roomBefore.code);
+      }
+      emitRoomState(io, result.response.room);
     }
     ack(result.response);
   }));
