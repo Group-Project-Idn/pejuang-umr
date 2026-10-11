@@ -19,7 +19,7 @@ import {
 import { toMultiplayerEffects } from "../data/multiplier";
 import { applyEffects } from "../economy/apply-effects";
 import { processMonthChange } from "../economy/month-change";
-import { isMonthChangeStep, monthOfStep } from "../economy/schedule";
+import { isMonthChangeStep } from "../economy/schedule";
 import type { DomainEvent } from "../game/domain-events";
 import type { CalendarChoiceId, GameState } from "../game/game-state";
 import type { RandomSource } from "../random";
@@ -94,12 +94,17 @@ function buildCalendarEvent(def: CalendarEventDefinition): DomainEvent {
   };
 }
 
-/** GDD 4.2: baseTurnOrder diputar (bulan - 1) kali, pemain tereliminasi dilewati. */
-function orderForMonth(state: GameState, month: number): string[] {
-  const base = state.baseTurnOrder;
-  const shift = (month - 1) % base.length;
-  const rotated = [...base.slice(shift), ...base.slice(0, shift)];
-  return rotated.filter((id) => !state.players[id]?.eliminated);
+/**
+ * GDD 1.2, 4.2: Langkah 1 memakai baseTurnOrder. Saat bulan berganti, urutan bulan
+ * sebelumnya (tanpa pemain tereliminasi) diputar: pemain pertama pindah ke akhir.
+ * Di dalam bulan yang sama urutan tetap, hanya pemain tereliminasi yang dibuang.
+ */
+function orderForStep(state: GameState, step: number): string[] {
+  const alive = (id: string) => !state.players[id]?.eliminated;
+  if (step === 1) return state.baseTurnOrder.filter(alive);
+  const previous = state.public.turnOrder.filter(alive);
+  if (!isMonthChangeStep(step) || previous.length === 0) return previous;
+  return [...previous.slice(1), previous[0]!];
 }
 
 /** GDD 2.4, 3.3, 4.2: awal ronde (kalender, musim, ganti bulan, urutan giliran, Event Tanggal). */
@@ -173,7 +178,7 @@ export function startRound(state: GameState, random: RandomSource): RoundResult 
   }
 
   const next: GameState = { ...state, players, public: publicState, movedThisRound: [] };
-  publicState.turnOrder = orderForMonth(next, monthOfStep(step));
+  publicState.turnOrder = orderForStep(next, step);
 
   // TODO: Petak Emas (muncul di langkah 1, 5, 9, 13, 17, 21).
   // TODO: Kartu Ajakan (bagikan kartu di awal ronde).

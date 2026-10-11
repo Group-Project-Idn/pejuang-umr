@@ -164,3 +164,81 @@ describe("Event Tanggal", () => {
     expect(code(answerCalendarEvent(out, "a", "new-year", "join"))).toBe("INVALID_PAYLOAD");
   });
 });
+
+describe("rotasi urutan giliran lintas bulan (GDD 1.2)", () => {
+  const ORDER = ["a", "b", "c", "d"];
+
+  function newGame(): GameState {
+    const { state } = createGame(ORDER, "g", new SequenceRandomSource([0.1, 0.5, 0.9, 0.3, 0.7]));
+    return { ...state, baseTurnOrder: [...ORDER] };
+  }
+
+  function eliminate(state: GameState, id: string, step: number): GameState {
+    return {
+      ...state,
+      players: {
+        ...state.players,
+        [id]: {
+          ...state.players[id]!,
+          eliminated: true,
+          eliminatedAtStep: step,
+          eliminatedReason: "bankrupt",
+        },
+      },
+    };
+  }
+
+  /** Jalankan startRound untuk langkah 1..lastStep, melewati phase seperti server. */
+  function playRounds(
+    initial: GameState,
+    lastStep: number,
+    onStep?: (state: GameState, step: number) => GameState,
+  ): string[][] {
+    const orders: string[][] = [];
+    let state = initial;
+    for (let step = 1; step <= lastStep; step++) {
+      state = { ...state, public: { ...state.public, calendar: getCalendarInfo(step) } };
+      if (onStep) state = onStep(state, step);
+      state = startRound(state, rand()).state;
+      orders.push(state.public.turnOrder);
+    }
+    return orders;
+  }
+
+  it("contoh audit: C tereliminasi di Bulan 2 -> Bulan 3 [D,A,B], 4 [A,B,D], 5 [B,D,A]", () => {
+    const orders = playRounds(newGame(), 9, (state, step) =>
+      step === 3 ? eliminate(state, "c", 3) : state,
+    );
+    expect(orders[0]).toEqual(["a", "b", "c", "d"]); // Bulan 1
+    expect(orders[2]).toEqual(["b", "d", "a"]); // Bulan 2 (langkah 3), C dibuang
+    expect(orders[3]).toEqual(["b", "d", "a"]); // langkah genap: urutan tetap
+    expect(orders[4]).toEqual(["d", "a", "b"]); // Bulan 3
+    expect(orders[6]).toEqual(["a", "b", "d"]); // Bulan 4
+    expect(orders[8]).toEqual(["b", "d", "a"]); // Bulan 5
+  });
+
+  it("12 bulan: pemain pertama tidak sama di dua bulan berturut-turut", () => {
+    const orders = playRounds(newGame(), 24, (state, step) =>
+      step === 7 ? eliminate(state, "b", 7) : state,
+    );
+    const firsts: string[] = [];
+    for (let month = 1; month <= 12; month++) {
+      const order = orders[month * 2 - 2]!;
+      expect(order.length).toBeGreaterThanOrEqual(2);
+      firsts.push(order[0]!);
+    }
+    for (let i = 1; i < firsts.length; i++) {
+      expect(firsts[i]).not.toBe(firsts[i - 1]);
+    }
+  });
+
+  it("tanpa eliminasi sama dengan rotasi biasa", () => {
+    const orders = playRounds(newGame(), 24);
+    for (let month = 1; month <= 12; month++) {
+      const shift = (month - 1) % ORDER.length;
+      const expected = [...ORDER.slice(shift), ...ORDER.slice(0, shift)];
+      expect(orders[month * 2 - 2]).toEqual(expected);
+      expect(orders[month * 2 - 1]).toEqual(expected);
+    }
+  });
+});
