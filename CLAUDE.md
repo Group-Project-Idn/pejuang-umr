@@ -1,6 +1,6 @@
 # Pejuang UMR: Jakarta Survival
 
-Game web multiplayer berbasis giliran di papan heksagon 2D, 2-4 pemain, 24 langkah, pemain tamu.
+Game web multiplayer berbasis giliran di papan heksagon 3D, 2-4 pemain, 24 langkah, pemain tamu.
 
 ## Dokumen (baca sesuai kebutuhan, jangan dimuat semua sekaligus)
 

@@ -1,6 +1,6 @@
 # API Contract - Pejuang UMR: Jakarta Survival (MVP)
 
-Versi 0.1 · Oktober 2026 · Sumber aturan: GDD v1.7 · Sumber stack: 03_REKOMENDASI
+Versi 0.1 · Oktober 2026 · Sumber aturan: GDD v1.10 · Sumber stack: 03_REKOMENDASI
 Scope: **Multiplayer 2-4 pemain, 24 langkah, pemain tamu.** Solo, login, dan database tidak ada di kontrak ini.
 
 **Cara membaca.** Setiap endpoint dan event ditulis dengan pola yang sama:
@@ -21,7 +21,7 @@ Kontrak hanya mendefinisikan **bentuk data**. Keputusan aturan (boleh atau tidak
 | ------------ | ----------------------- | -------------------------------------------------------------------------------------------------- |
 | REST         | 3                       | `POST /api/v1/guest`, `GET /api/v1/rooms/:code`, `GET /health`                                     |
 | Socket.IO    | 45                      | 42 dari 03_REKOMENDASI + 3 tambahan bertanda **[+]** (`room:kicked`, `room:rematch`, `turn:timer`) |
-| Server lokal | `http://localhost:3001` | REST dan Socket.IO di port yang sama                                                               |
+| Server lokal | `http://localhost:3002` | REST dan Socket.IO di port yang sama                                                               |
 | Web lokal    | `http://localhost:3000` | Next.js                                                                                            |
 
 ---
@@ -135,7 +135,7 @@ Pakai tabel ini untuk tahu layar mana memanggil apa.
 | Timer Giliran dijeda                | Pemain aktif sedang menjawab Ajakan       | `turn:timer` [+]                                                                                        |
 | **Emote**                           | Tekan ikon smiley                         | `emote:send` → `emote:shown`                                                                            |
 | **Pause**                           | Tekan pause                               | Tidak ada request (menu pribadi, game tidak berhenti)                                                   |
-| **Hasil Akhir Multiplayer**         | Langkah 24 selesai                        | `game:finished`                                                                                         |
+| **Hasil Akhir Multiplayer**         | Langkah 24 selesai atau tinggal 1 pemain  | `game:finished`                                                                                         |
 | Hasil Akhir                         | Main Lagi (host)                          | `room:rematch` [+]                                                                                      |
 | Hasil Akhir                         | Kembali ke Lobby                          | `room:leave`                                                                                            |
 | Hasil Akhir                         | Bagikan hasil                             | Tidak ada request (gambar dibuat di klien dari `game:finished`)                                         |
@@ -275,7 +275,9 @@ type InviteCard = {
 };
 ```
 
-**Level risiko (usulan, perlu playtest):** `low` jika Peluang Zonk ≤ 15%, `medium` 16-34%, `high` ≥ 35%. Peluang Zonk sudah memperhitungkan Beban Peringkat 1, Musim, dan imunitas pemain yang melihat (GDD 4.3, 4.5). Persentase asli **tidak** dikirim, hanya level dan tag.
+**Level risiko (GDD 4.3 v1.10):** `low` jika Peluang Zonk ≤ 15%, `medium` 16-34%, `high` ≥ 35%. Peluang Zonk sudah memperhitungkan Beban Peringkat 1, Musim, dan imunitas pemain yang melihat (GDD 4.3, 4.5). Persentase asli **tidak** dikirim, hanya level dan tag.
+
+**Tag `immune` (GDD 3.4 v1.10):** hanya dikirim untuk petak kategori `health` saat `season` adalah `"transition"` dan Kesehatan pemain yang melihat ≥ 8. Petak kategori lain tidak pernah membawa tag ini.
 
 ---
 
@@ -315,12 +317,20 @@ Respons `201`:
 }
 ```
 
-Error: `400 INVALID_PAYLOAD`, `422 NAME_REJECTED` (kata kasar), `429 RATE_LIMITED` (usulan 10 request/menit per IP).
+Error: `400 INVALID_PAYLOAD`, `401 UNAUTHORIZED` (token tidak valid), `409 ALREADY_IN_ROOM` (ubah nama saat di Room atau game), `422 NAME_REJECTED` (kata kasar), `429 RATE_LIMITED` (usulan 10 request/menit per IP).
 
 Catatan:
 
 - Klien menyimpan `{ playerId, name, avatarId, token }` di `localStorage` (usulan key `pejuang.guest`).
-- **Ubah nama hanya di Lobby**, tidak saat berada di Room atau game, supaya nama di Papan Skor tidak berubah di tengah permainan.
+- **Ubah nama hanya di Lobby** (GDD 9.1 v1.10), tidak saat berada di Room atau game, supaya nama di Papan Skor tidak berubah di tengah permainan. Jika request membawa token valid dan pemain itu sedang tercatat di Room atau game, server menolak dengan `409`:
+
+```ts
+{
+  ok: false;
+  error: "ALREADY_IN_ROOM";
+  message: "Ubah nama hanya bisa di Lobby.";
+}
+```
 
 ### 4.2 `GET /api/v1/rooms/:code` - Cek room
 
@@ -446,7 +456,7 @@ type Snapshot = {
 { version?: number; playerId: string; connected: boolean; at: number }
 ```
 
-Catatan: pemain yang putus tetap punya giliran. Jika timer habis, heksa dipilih acak (GDD 4.3, 9.4). Tidak ada bot pengganti _(asumsi GDD 9.4)_.
+Catatan: pemain yang putus tetap punya giliran. Jika timer habis, heksa dipilih acak (GDD 4.3, 9.4). Tidak ada bot pengganti (GDD 9.4 v1.10).
 
 ### `error` · S→C
 
@@ -521,7 +531,7 @@ Ack;
 Catatan:
 
 - Host keluar sebelum game: host pindah ke pemain yang masuk paling awal. Room kosong ditutup.
-- Keluar saat game berjalan: lihat Keputusan Terbuka #1.
+- Keluar saat game berjalan (`status` `playing`): **tidak ditolak**, ack `{ ok: true }`. Diperlakukan sama seperti koneksi putus (GDD 9.4 v1.10): pemain tetap di game dan di papan, gilirannya menunggu Timer Giliran habis lalu heksa dipilih acak, Event Tanggal otomatis Tidak ikut, dan ia bisa kembali lewat `session:resume` selama game belum selesai. Pemain lain menerima `player:connection` dengan `connected: false`.
 
 ### `room:ready` · C→S
 
@@ -701,10 +711,10 @@ Status awal tiap pemain dikirim lewat `player:status` (Kekayaan Rp7.500.000, Hut
 
 ### `game:finished` · S→R
 
-|       |                                                                                              |
-| ----- | -------------------------------------------------------------------------------------------- |
-| Layar | Hasil Akhir Multiplayer (podium, rincian skor, Bagikan hasil)                                |
-| Aksi  | Langkah 24 selesai, atau semua pemain kecuali satu tereliminasi (lihat Keputusan Terbuka #3) |
+|       |                                                                                                    |
+| ----- | -------------------------------------------------------------------------------------------------- |
+| Layar | Hasil Akhir Multiplayer (podium, rincian skor, Bagikan hasil)                                      |
+| Aksi  | Langkah 24 selesai, atau tinggal 1 pemain (atau tidak ada) yang belum tereliminasi (GDD 1.2 v1.10) |
 
 ```ts
 type GameFinishedPayload = {
@@ -726,6 +736,7 @@ type GameFinishedPayload = {
 
 Catatan:
 
+- Dikirim langsung setelah aksi yang menyebabkan tinggal 1 pemain yang belum tereliminasi (atau tidak ada sama sekali), tanpa menunggu Langkah 24. Pemain yang tersisa otomatis peringkat 1 (GDD 1.2 v1.10).
 - Peringkat: yang bertahan di atas yang tereliminasi. Antar yang tereliminasi, yang bertahan lebih lama lebih tinggi. Tie-breaker (Hutang lebih kecil, lalu Level Stress lebih rendah) dihitung server.
 - Rincian berisi Harta Bersih dan modifier sesuai GDD 9.5. Empat indikator lawan **tidak** dikirim (lihat Keputusan Terbuka #4). Indikator milik sendiri ada di `player:status` terakhir.
 
@@ -785,7 +796,7 @@ Klien menampilkan peringatan "Awas Doom Spending" jika `stress >= 8` (usulan, ka
 ```ts
 type CalendarEventPayload = {
   version: number;
-  eventId: string; // "new-year", "lebaran", "labour-day", "wedding", "independence-day", "harbolnas"
+  eventId: string; // "new-year", "lebaran-thr", "labour-day", "wedding", "independence-day", "harbolnas" (sama dengan id di packages/engine/src/data/calendar-events.ts)
   name: string; // "Kondangan Teman"
   dateLabel: string;
   deadline: number; // 15 detik
@@ -1253,33 +1264,33 @@ Tidak memakai `version` karena tidak mengubah state game.
 
 Kode bertanda **[+]** adalah tambahan dari daftar 03_REKOMENDASI.
 
-| Kode                     | Arti                               | Teks UI (usulan)                                         | Muncul di         |
-| ------------------------ | ---------------------------------- | -------------------------------------------------------- | ----------------- |
-| `INVALID_PAYLOAD`        | Data tidak sesuai skema Zod        | "Ada yang salah. Coba lagi."                             | Semua             |
-| `UNAUTHORIZED` [+]       | Token tidak valid/kedaluwarsa      | "Sesi habis. Masuk sebagai tamu lagi."                   | Handshake, REST   |
-| `NAME_REJECTED` [+]      | Nama tidak lolos penyaring         | "Nama ini tidak bisa dipakai."                           | Popup tamu        |
-| `RATE_LIMITED` [+]       | Terlalu sering                     | "Pelan-pelan dulu, coba sebentar lagi."                  | `/guest`, emote   |
-| `ROOM_NOT_FOUND`         | Kode salah                         | "Kode room tidak ketemu."                                | Lobby             |
-| `ROOM_FULL`              | Room 4/4                           | "Room sudah penuh (4/4)."                                | Lobby             |
-| `ROOM_LOCKED`            | Game sudah mulai                   | "Permainan sudah berjalan."                              | Lobby, Room       |
-| `ALREADY_IN_ROOM` [+]    | Masih tercatat di room lain        | "Kamu masih ada di room lain."                           | Lobby             |
-| `NOT_IN_ROOM` [+]        | Resume ke room yang bukan miliknya | "Kamu tidak terdaftar di room ini."                      | Resume            |
-| `NOT_HOST`               | Aksi khusus host                   | "Hanya host yang bisa melakukan ini."                    | Room, Hasil Akhir |
-| `PAWN_TAKEN` [+]         | Pion sudah dipakai                 | "Pion ini sudah dipilih pemain lain."                    | Room              |
-| `NOT_ENOUGH_PLAYERS` [+] | Kurang dari 2 pemain               | "Menunggu minimal 2 pemain"                              | Room              |
-| `PLAYERS_NOT_READY` [+]  | Ada yang belum Siap                | "Menunggu pemain siap"                                   | Room              |
-| `NOT_YOUR_TURN`          | Bukan giliranmu                    | "Belum giliranmu."                                       | Game Board        |
-| `TILE_NOT_LIT`           | Heksa tidak menyala                | "Pilih salah satu heksa yang menyala."                   | Detail Heksa      |
-| `INVALID_TILE`           | Heksa tidak ada/terinjak           | "Heksa ini tidak bisa dipilih."                          | Detail Heksa      |
-| `STALE_VERSION`          | State klien tertinggal             | (diam-diam memanggil `session:resume`)                   | Game Board        |
-| `EVENT_CLOSED` [+]       | Waktu Event Tanggal habis          | "Waktu habis, otomatis tidak ikut."                      | Event Tanggal     |
-| `NO_INVITE_CARD`         | Tidak punya kartu                  | "Kamu belum punya Kartu Ajakan."                         | Ajakan            |
-| `INVITE_LIMIT`           | Sudah ada Ajakan di ronde ini      | "Sudah ada Ajakan di ronde ini. Kartumu tidak terpakai." | Ajakan            |
-| `INVALID_TARGET` [+]     | Target tidak sah                   | "Pemain ini tidak bisa dipilih."                         | Ajakan, kick      |
-| `INVITE_EXPIRED` [+]     | Jawaban terlambat                  | "Waktu menjawab habis."                                  | Ajakan masuk      |
-| `NOT_ELIMINATED` [+]     | Belum tereliminasi                 | -                                                        | Spectate          |
-| `GAME_FINISHED`          | Game sudah selesai                 | "Permainan sudah selesai."                               | Game Board        |
-| `INTERNAL` [+]           | Error server                       | "Server lagi bermasalah. Coba lagi."                     | Semua             |
+| Kode                     | Arti                               | Teks UI (usulan)                                                            | Muncul di         |
+| ------------------------ | ---------------------------------- | --------------------------------------------------------------------------- | ----------------- |
+| `INVALID_PAYLOAD`        | Data tidak sesuai skema Zod        | "Ada yang salah. Coba lagi."                                                | Semua             |
+| `UNAUTHORIZED` [+]       | Token tidak valid/kedaluwarsa      | "Sesi habis. Masuk sebagai tamu lagi."                                      | Handshake, REST   |
+| `NAME_REJECTED` [+]      | Nama tidak lolos penyaring         | "Nama ini tidak bisa dipakai."                                              | Popup tamu        |
+| `RATE_LIMITED` [+]       | Terlalu sering                     | "Pelan-pelan dulu, coba sebentar lagi."                                     | `/guest`, emote   |
+| `ROOM_NOT_FOUND`         | Kode salah                         | "Kode room tidak ketemu."                                                   | Lobby             |
+| `ROOM_FULL`              | Room 4/4                           | "Room sudah penuh (4/4)."                                                   | Lobby             |
+| `ROOM_LOCKED`            | Game sudah mulai                   | "Permainan sudah berjalan."                                                 | Lobby, Room       |
+| `ALREADY_IN_ROOM` [+]    | Masih tercatat di room lain        | "Kamu masih ada di room lain." (`/guest`: "Ubah nama hanya bisa di Lobby.") | Lobby, `/guest`   |
+| `NOT_IN_ROOM` [+]        | Resume ke room yang bukan miliknya | "Kamu tidak terdaftar di room ini."                                         | Resume            |
+| `NOT_HOST`               | Aksi khusus host                   | "Hanya host yang bisa melakukan ini."                                       | Room, Hasil Akhir |
+| `PAWN_TAKEN` [+]         | Pion sudah dipakai                 | "Pion ini sudah dipilih pemain lain."                                       | Room              |
+| `NOT_ENOUGH_PLAYERS` [+] | Kurang dari 2 pemain               | "Menunggu minimal 2 pemain"                                                 | Room              |
+| `PLAYERS_NOT_READY` [+]  | Ada yang belum Siap                | "Menunggu pemain siap"                                                      | Room              |
+| `NOT_YOUR_TURN`          | Bukan giliranmu                    | "Belum giliranmu."                                                          | Game Board        |
+| `TILE_NOT_LIT`           | Heksa tidak menyala                | "Pilih salah satu heksa yang menyala."                                      | Detail Heksa      |
+| `INVALID_TILE`           | Heksa tidak ada/terinjak           | "Heksa ini tidak bisa dipilih."                                             | Detail Heksa      |
+| `STALE_VERSION`          | State klien tertinggal             | (diam-diam memanggil `session:resume`)                                      | Game Board        |
+| `EVENT_CLOSED` [+]       | Waktu Event Tanggal habis          | "Waktu habis, otomatis tidak ikut."                                         | Event Tanggal     |
+| `NO_INVITE_CARD`         | Tidak punya kartu                  | "Kamu belum punya Kartu Ajakan."                                            | Ajakan            |
+| `INVITE_LIMIT`           | Sudah ada Ajakan di ronde ini      | "Sudah ada Ajakan di ronde ini. Kartumu tidak terpakai."                    | Ajakan            |
+| `INVALID_TARGET` [+]     | Target tidak sah                   | "Pemain ini tidak bisa dipilih."                                            | Ajakan, kick      |
+| `INVITE_EXPIRED` [+]     | Jawaban terlambat                  | "Waktu menjawab habis."                                                     | Ajakan masuk      |
+| `NOT_ELIMINATED` [+]     | Belum tereliminasi                 | -                                                                           | Spectate          |
+| `GAME_FINISHED`          | Game sudah selesai                 | "Permainan sudah selesai."                                                  | Game Board        |
+| `INTERNAL` [+]           | Error server                       | "Server lagi bermasalah. Coba lagi."                                        | Semua             |
 
 ---
 
@@ -1316,14 +1327,14 @@ Giliran pemain B, C: pola sama
 
 ## 17. Keputusan terbuka
 
-Hal di bawah tidak diatur jelas di GDD v1.7. Kontrak memakai usulan di kolom kanan sampai diputuskan.
+Status mengikuti GDD v1.10. Butir yang sudah diputuskan berlaku sebagai kontrak. Butir yang masih asumsi memakai usulan di kolom kanan sampai diputuskan.
 
-| #   | Pertanyaan                                                             | Usulan sementara                                                                                                                 |
-| --- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Pemain menekan Keluar saat game berjalan: dianggap apa?                | Diperlakukan seperti putus permanen: tetap di papan, giliran dipilih acak saat waktu habis, bisa kembali lewat `session:resume`  |
-| 2   | Room tanpa aktivitas ditutup setelah berapa lama?                      | 10 menit (asumsi GDD 9.3). Server mengirim `error` dengan `fatal: true`                                                          |
-| 3   | Game berakhir lebih cepat jika tinggal 1 pemain hidup?                 | Ya, `game:finished` dikirim saat tinggal 1 pemain hidup. Perlu dicatat di GDD                                                    |
-| 4   | Hasil Akhir menampilkan empat indikator semua pemain?                  | Tidak. Hanya Harta Bersih dan modifier (sesuai GDD 9.5). Jika ingin dibuka setelah game selesai, cukup tambah field di `ranking` |
-| 5   | Harbolnas: Paylater dipilih pemain atau otomatis saat Kekayaan kurang? | Pilihan terpisah (`joinPaylater`) di popup                                                                                       |
-| 6   | Ambang level risiko Rendah/Sedang/Tinggi                               | ≤15% / 16-34% / ≥35%                                                                                                             |
-| 7   | Masa berlaku token tamu                                                | 7 hari                                                                                                                           |
+| #   | Pertanyaan                                                             | Status dan keputusan                                                                                                                                                           |
+| --- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | Pemain menekan Keluar saat game berjalan: dianggap apa?                | **Diputuskan (GDD 9.4 v1.10).** Sama seperti koneksi putus: tetap di papan, giliran menunggu timer lalu dipilih acak, bisa kembali lewat `session:resume` (lihat `room:leave`) |
+| 2   | Room tanpa aktivitas ditutup setelah berapa lama?                      | Asumsi: 10 menit (GDD 9.3). Server mengirim `error` dengan `fatal: true`                                                                                                       |
+| 3   | Game berakhir lebih cepat jika tinggal 1 pemain hidup?                 | **Diputuskan (GDD 1.2 v1.10).** Ya, `game:finished` dikirim saat tinggal 1 pemain (atau tidak ada) yang belum tereliminasi                                                     |
+| 4   | Hasil Akhir menampilkan empat indikator semua pemain?                  | Tidak. Hanya Harta Bersih dan modifier (sesuai GDD 9.5). Jika ingin dibuka setelah game selesai, cukup tambah field di `ranking`                                               |
+| 5   | Harbolnas: Paylater dipilih pemain atau otomatis saat Kekayaan kurang? | **Diputuskan (GDD 3.3 v1.10, berlaku sejak v1.8).** Pilihan terpisah (`joinPaylater`) di popup                                                                                 |
+| 6   | Ambang level risiko Rendah/Sedang/Tinggi                               | **Diputuskan (GDD 4.3 v1.10).** ≤15% / 16-34% / ≥35%                                                                                                                           |
+| 7   | Masa berlaku token tamu                                                | Asumsi: 7 hari                                                                                                                                                                 |

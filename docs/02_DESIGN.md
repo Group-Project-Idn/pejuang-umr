@@ -177,7 +177,7 @@ Halaman yang sudah dibuat (Home, Lobby, Room, Game Board, Detail Heksa) memakai 
 - **Tema:** pemain adalah karyawan. Layar diibaratkan berkas HRD: kartu berbentuk **map kuning** (manila folder), **sticky note**, **klip kertas**, dan **stempel "CONFIDENTIAL"** berwarna merah. Latar berupa **kubikel kantor** yang berantakan (tumpukan kertas, kopi, lampu meja). Beberapa layar memakai bingkai "jendela browser".
 - **Garis dan bentuk:** kontur tebal berwarna cokelat tua (`ink`), sudut membulat, bayangan kecil di bawah tombol.
 - **Tombol:** hijau (aksi utama seperti Buat Room, Mulai, Pilih Heksa Ini), biru (aksi sekunder seperti Gabung, Lihat Profil), oranye (navigasi seperti Kembali), outlined untuk aksi ringan (Cara Main).
-- **HUD Game Board:** kartu kertas kuning ("Kartu Status Pribadi", "Papan Skor"), papan heksa datar tampak atas di atas meja kerja, karakter sprite sebagai pion, tanda mahkota untuk peringkat 1, dan catatan "Kamus Petak" sebagai legenda ikon kategori.
+- **HUD Game Board:** kartu kertas kuning ("Kartu Status Pribadi", "Papan Skor"), papan heksa 3D bergaya maket low-poly di atas meja kerja (GDD v1.10), karakter sprite sebagai pion, tanda mahkota untuk peringkat 1, dan catatan "Kamus Petak" sebagai legenda ikon kategori.
 - **Bahasa visual kantor di teks:** "Absen Masuk", "SOP & Pengaturan Hidup", "Ruang Rapat", "Portal Pejuang UMR - HRD System", "Kartu Identitas Pemain".
 - **Tetap berlaku:** warna mengikuti arti (kuning = uang, hijau = sehat, koral = stres/hutang), ikon atau bentuk selalu menyertai warna, kontras teks, dan semua teks berbahasa Indonesia.
 - **Catatan implementasi:** gambar utuh dari generator tidak bisa menjadi UI yang responsif. Untuk game, pakai gambar hanya sebagai **latar**, dan bangun kartu, tombol, serta teks sebagai komponen UI sungguhan. Minta aset terpisah (sprite heksa per kondisi, ikon kategori, karakter, latar meja).
@@ -187,22 +187,23 @@ Halaman yang sudah dibuat (Home, Lobby, Room, Game Board, Detail Heksa) memakai 
 
 **Persona.** Karyawan usia 22-27 tahun (lahir sekitar 1999-2004) yang tinggal di Jakarta dengan gaji setara UMR. Mereka Gen Z (sebagian di batas atas zillennial), dan aman juga untuk milenial muda. Kebiasaan: terbiasa scan cepat, bermain sambil commute (KRL, TransJakarta, ojol), sebagian besar di Android (kadang juga di laptop kantor), dan akrab dengan humor getir ("tanggal tua", "gaji numpang lewat", paylater, burnout). Mereka tidak suka digurui, ditakut-takuti, atau diberi desain yang kekanak-kanakan.
 
-**Konsep visual:** *"realita pahit yang dibungkus hangat"*. Suasana malam sepulang kerja (dark navy), aksen hangat, bentuk membulat, dan terasa seperti diorama kota kecil di atas meja.
+**Konsep visual:** _"realita pahit yang dibungkus hangat"_. Suasana malam sepulang kerja (dark navy), aksen hangat, bentuk membulat, dan terasa seperti diorama kota kecil di atas meja.
 
 **Nada:** jenaka dan berempati, bukan menghakimi.
 
 ## Colors
 
-| Peran | Warna | Dipakai untuk |
-|---|---|---|
-| **Primary** | Kuning #F5C542 | Aksi utama, **Kekayaan**, Petak Emas |
-| **Secondary** | Hijau #3FB871 | **Kesehatan**, hasil **Hoki**, status berhasil |
-| **Tertiary** | Merah-oranye #E0614A | **Level Stress**, **Hutang**, hasil **Zonk**, peringatan |
-| **Neutral** | Navy #243040 | Latar, kartu, teks sekunder, heksa tertutup |
+| Peran         | Warna                | Dipakai untuk                                            |
+| ------------- | -------------------- | -------------------------------------------------------- |
+| **Primary**   | Kuning #F5C542       | Aksi utama, **Kekayaan**, Petak Emas                     |
+| **Secondary** | Hijau #3FB871        | **Kesehatan**, hasil **Hoki**, status berhasil           |
+| **Tertiary**  | Merah-oranye #E0614A | **Level Stress**, **Hutang**, hasil **Zonk**, peringatan |
+| **Neutral**   | Navy #243040         | Latar, kartu, teks sekunder, heksa tertutup              |
 
 Token turunan (surface, container, on-surface, outline) diambil dari skala tonal pada papan style guide.
 
 **Aturan penggunaan:**
+
 1. **Dark mode sebagai default.** Light mode ditunda ke versi berikutnya, tapi token dipisah supaya mudah ditambah.
 2. **Warna mengikuti arti.** Satu warna selalu punya satu makna di seluruh game: kuning = uang/hadiah, hijau = sehat/untung, merah = bahaya/rugi. Tiga progress bar (kuning, hijau, pink) dipakai untuk Kekayaan, Kesehatan, dan Level Stress.
 3. **Hutang** tidak memakai bar. Tampilkan sebagai angka dengan badge minus dalam merah tua, supaya tidak tertukar dengan Level Stress.
@@ -218,13 +219,13 @@ Token turunan (surface, container, on-surface, outline) diambil dari skala tonal
 
 Font: **Plus Jakarta Sans** untuk semua peran.
 
-| Peran | Ukuran (mobile) | Bobot | Dipakai untuk |
-|---|---|---|---|
-| Display | 40-56 | ExtraBold | Skor akhir, Gelar |
-| Headline | 24-32 | Bold | Judul screen dan popup |
-| Title | 18-20 | SemiBold | Judul kartu dan panel |
-| Body | 14-16 | Regular | Penjelasan dan Rencana petak |
-| Label | 12-13 | Medium | Tombol, chip, indikator |
+| Peran    | Ukuran (mobile) | Bobot     | Dipakai untuk                |
+| -------- | --------------- | --------- | ---------------------------- |
+| Display  | 40-56           | ExtraBold | Skor akhir, Gelar            |
+| Headline | 24-32           | Bold      | Judul screen dan popup       |
+| Title    | 18-20           | SemiBold  | Judul kartu dan panel        |
+| Body     | 14-16           | Regular   | Penjelasan dan Rencana petak |
+| Label    | 12-13           | Medium    | Tombol, chip, indikator      |
 
 - Skala dasar 16px, rasio sekitar 1,2. Hanya pakai 3-4 bobot.
 - **Angka uang dan skor harus rata** (tabular figures). Cek apakah font mendukungnya, kalau tidak pasangkan font angka khusus.
@@ -238,11 +239,11 @@ Font: **Plus Jakarta Sans** untuk semua peran.
 - **Grid 4px:** jarak 4/8/12/16/24/32/48.
 - **Web app responsif, mobile-first.** Desain dimulai dari layar HP portrait, lalu melebar ke tablet dan desktop. Area sentuh minimal 44-48px, aksi utama di mobile ada di bagian bawah layar (jangkauan jempol), dan hormati safe area.
 
-| Breakpoint | Lebar | Penyesuaian layout |
-|---|---|---|
-| Mobile | di bawah 640px | Satu kolom. Navigasi bawah (pill). HUD ringkas di atas. Detail heksa dan Ajakan berupa bottom sheet. |
-| Tablet | 640-1023px | Satu kolom lebar atau dua kolom sederhana. Navigasi bawah atau samping. Panel samping bisa dibuka-tutup. |
-| Desktop | 1024px ke atas | Navigasi di bar atas. Game Board: sidebar kiri (statistik pribadi), sidebar kanan (Papan Skor dan kalender), papan di tengah, bar aksi di bawah tengah. Detail heksa dan Ajakan berupa panel samping atau modal di tengah (lebar sekitar 480px). Konten non-game dibatasi lebar maksimum. |
+| Breakpoint | Lebar          | Penyesuaian layout                                                                                                                                                                                                                                                                        |
+| ---------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mobile     | di bawah 640px | Satu kolom. Navigasi bawah (pill). HUD ringkas di atas. Detail heksa dan Ajakan berupa bottom sheet.                                                                                                                                                                                      |
+| Tablet     | 640-1023px     | Satu kolom lebar atau dua kolom sederhana. Navigasi bawah atau samping. Panel samping bisa dibuka-tutup.                                                                                                                                                                                  |
+| Desktop    | 1024px ke atas | Navigasi di bar atas. Game Board: sidebar kiri (statistik pribadi), sidebar kanan (Papan Skor dan kalender), papan di tengah, bar aksi di bawah tengah. Detail heksa dan Ajakan berupa panel samping atau modal di tengah (lebar sekitar 480px). Konten non-game dibatasi lebar maksimum. |
 
 - Layar HP landscape boleh dipakai: papan memenuhi layar dan panel menjadi overlay samping.
 - Input yang didukung: sentuh, mouse (ada state hover), dan keyboard (urutan fokus jelas, ring fokus terlihat, Esc menutup modal).
@@ -260,6 +261,7 @@ Kedalaman dibuat dengan **tingkat terang-gelap permukaan**, bukan bayangan: surf
 - **Ilustrasi:** flat dengan sedikit tekstur grain, karakter siluet tanpa wajah agar inklusif.
 - **Sentuhan lokal Jakarta:** KRL, warteg, kos-kosan, ojol, kopi susu, struk minimarket, notifikasi paylater. **Jangan memakai logo merek asli.**
 - **Papan 3D:** gaya maket low-poly seperti mainan, material matte, cahaya hangat, dan heksa yang terlihat tebal.
+- **Aturan papan 3D (GDD v1.10):** fallback tampilan sederhana saat WebGL tidak tersedia; mode hemat otomatis di HP atau saat "kurangi gerakan" aktif (tanpa bayangan, `dpr` maksimal 1,25, animasi kamera dimatikan); heksa bisa dipilih dengan keyboard (Tab/Enter) dan punya label pembaca layar; keadaan heksa (tertutup, menyala, terbuka, mati, Petak Emas) dibedakan dengan bentuk atau ikon, tidak hanya warna. Gambar desain yang sudah ada bergaya 2D datar, jadi dipakai sebagai acuan warna dan HUD, bukan sudut kamera.
 
 ## Components
 
@@ -296,14 +298,14 @@ Kedalaman dibuat dengan **tingkat terang-gelap permukaan**, bukan bayangan: surf
 - Humor menertawakan **situasi**, bukan orangnya.
 - **Topik sensitif:** pinjol, hutang, burnout, dan kesehatan mental jangan dijadikan bahan olok-olok. Tambahkan catatan bahwa ini simulasi tanpa uang sungguhan.
 
-| Momen | Teks |
-|---|---|
-| Ganti bulan | "Gajian masuk. Tagihan juga." |
-| Zonk | "Realita datang tanpa permisi." |
-| Hoki | "Sekali-sekali, semesta baik." |
-| Doom Spending | "Checkout dulu, nyesel belakangan." |
-| Bangkrut | "Saldo habis, tanggal masih tua." |
-| Sudden Death | "Hari ini kamu perlu istirahat." (netral, bukan mengejek) |
+| Momen         | Teks                                                      |
+| ------------- | --------------------------------------------------------- |
+| Ganti bulan   | "Gajian masuk. Tagihan juga."                             |
+| Zonk          | "Realita datang tanpa permisi."                           |
+| Hoki          | "Sekali-sekali, semesta baik."                            |
+| Doom Spending | "Checkout dulu, nyesel belakangan."                       |
+| Bangkrut      | "Saldo habis, tanggal masih tua."                         |
+| Sudden Death  | "Hari ini kamu perlu istirahat." (netral, bukan mengejek) |
 
 ## Accessibility
 
@@ -316,12 +318,14 @@ Kedalaman dibuat dengan **tingkat terang-gelap permukaan**, bukan bayangan: surf
 ## Do's and Don'ts
 
 **Do**
+
 - Pakai satu warna untuk satu makna (kuning = uang, hijau = sehat, merah = bahaya).
 - Satu tombol Primary per layar, aksi utama di bagian bawah.
 - Tambahkan ikon atau bentuk di samping setiap warna status.
 - Pakai bahasa kamu yang santai dan empatik.
 
 **Don't**
+
 - Jangan menampilkan Hutang sebagai progress bar.
 - Jangan memakai logo merek asli.
 - Jangan memakai bayangan tebal di dark mode, pakai tingkat permukaan.

@@ -1,16 +1,16 @@
 # Pejuang UMR: Jakarta Survival
 
-### Game Design Document (GDD) Ringkas - v1.9
+### Game Design Document (GDD) Ringkas - v1.10
 
 > **Logline:** Game simulasi kehidupan berbasis papan heksagonal di mana pemain harus bertahan hidup selama 12 bulan dengan menyeimbangkan uang, kesehatan, dan kewarasan mental di tengah kejamnya realita finansial Jakarta.
 
-Bagian yang baru atau berubah ditandai **[v1.9]** (perubahan terbaru), **[v1.8]**, **[v1.7]**, atau **[v1.6]**. Ringkasan perubahan dan daftar asumsi ada di Bagian 10. Dokumen ini adalah versi terkonsolidasi: aturan game dari v1.6, scope MVP dan alur Room dari v1.7, dan ide dari konsep awal "Jatah" yang dicatat sebagai backlog.
+Bagian yang baru atau berubah ditandai **[v1.10]** (perubahan terbaru), **[v1.9]**, **[v1.8]**, **[v1.7]**, atau **[v1.6]**. Ringkasan perubahan dan daftar asumsi ada di Bagian 10. Dokumen ini adalah versi terkonsolidasi: aturan game dari v1.6, scope MVP dan alur Room dari v1.7, dan ide dari konsep awal "Jatah" yang dicatat sebagai backlog.
 
 ### Konsep Inti: Petak adalah Kartu **[v1.6]**
 
 Pejuang UMR bukan game kartu biasa. **Petak heksagon itu sendiri adalah kartunya.** Tidak ada deck yang ditarik, tidak ada kartu di tangan, dan tidak ada kartu yang dibuang. Sejak permainan dimulai, setiap heksa di papan sudah berisi satu petak (kartu) tertutup. Di tiap giliran, **3 heksa di sekeliling pion menyala secara acak**. Pemain mengklik heksa yang menyala untuk melihat detailnya, lalu melangkah ke salah satunya. Heksa yang dipilih menentukan efek sekaligus arah. Satu-satunya kartu yang dipegang pemain adalah **Kartu Ajakan** (4.8).
 
-**Platform:** web app responsif, dimainkan di browser pada HP, tablet, dan desktop. Papan dirender **2D** (heksa datar tampak atas dengan karakter sprite), bukan 3D.
+**Platform:** web app responsif, dimainkan di browser pada HP, tablet, dan desktop. Papan dirender **3D** (meja dan heksa low-poly dengan karakter sprite, kamera bisa diputar dan di-zoom) **[v1.10]**. Karena target utamanya HP, papan 3D wajib punya: fallback saat WebGL tidak tersedia, mode hemat (tanpa bayangan, resolusi lebih rendah, kurangi gerakan), akses keyboard dan label pembaca layar untuk heksa, serta uji di HP Android kelas menengah sebelum rilis. Keputusan sebelumnya (2D, v1.7) diganti karena papan 3D sudah dibangun dan hasilnya dinilai menarik.
 
 ### Scope MVP **[v1.7]**
 
@@ -61,6 +61,7 @@ Pemain berjalan di **satu papan heksagon bersama** selama 24 langkah (12 bulan).
 - Pemain bisa saling mengirim **Ajakan secara realtime**, di luar giliran dan tanpa menghabiskan langkah (lihat 4.8).
 - Pemain yang tereliminasi tetap tercatat di papan peringkat, di bawah semua pemain yang bertahan. Antar pemain yang tereliminasi, yang bertahan lebih lama peringkatnya lebih tinggi. Pion pemain yang tereliminasi tetap di papan dan heksanya tetap terisi.
 - **Tie-breaker:** jika skor sama, pemenang adalah yang Hutang-nya lebih kecil, lalu yang Level Stress-nya lebih rendah. Jika masih sama persis, pemain mendapat peringkat yang sama dan peringkat berikutnya dilewati (contoh: 1, 1, 3) **[v1.8]**.
+- **Game selesai lebih cepat [v1.10]:** jika hanya tersisa **1 pemain** yang belum tereliminasi (atau tidak ada sama sekali), game langsung berakhir setelah aksi yang menyebabkannya, tanpa menunggu Langkah 24. Pemain yang tersisa otomatis menjadi peringkat 1.
 
 ### 1.3 Durasi & Skala Mode
 
@@ -153,13 +154,14 @@ Tiap kelipatan Rp 5.000.000 Hutang baru memberi +1 Level Stress (dibulatkan ke a
 
 **Aturan transaksi [v1.9]** (berlaku untuk efek petak, Realita, Event Tanggal, Ajakan, Doom Spending, dan ganti bulan):
 
-| #   | Kasus                                                 | Aturan                                                                                                                                                                                  |
-| --- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Biaya lebih besar dari Kekayaan                       | Kekurangan otomatis menjadi Hutang selama sisa limit cukup. Kekayaan tidak pernah minus.                                                                                                |
-| 2   | Kekurangan melewati limit Hutang                      | Hutang berhenti di Rp25.000.000 dan sisa kekurangan dihapus. Pemain tidak langsung tereliminasi, kecuali kekurangan itu terjadi saat ganti bulan atau Doom Spending (Bangkrut, 1.4).    |
-| 3   | Bayar Hutang melebihi sisa Hutang                     | Hanya sisa Hutang yang dibayar. Kekayaan berkurang sebesar yang benar-benar dibayar.                                                                                                    |
-| 4   | Pinjaman saat Hutang hampir penuh (Pinjol / Paylater) | Pinjaman dibatasi sisa limit. Kekayaan yang diterima sama dengan Hutang yang benar-benar bertambah.                                                                                     |
-| 5   | +1 Level Stress per Rp5.000.000 Hutang baru           | Berlaku untuk **semua** kenaikan Hutang dalam satu transaksi (pinjaman, denda, kekurangan otomatis, dan bunga yang masuk pokok), dihitung ke atas: `ceil(kenaikan Hutang / 5.000.000)`. |
+| #   | Kasus                                                 | Aturan                                                                                                                                                                                                                                                                                                          |
+| --- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Biaya lebih besar dari Kekayaan                       | Kekurangan otomatis menjadi Hutang selama sisa limit cukup. Kekayaan tidak pernah minus.                                                                                                                                                                                                                        |
+| 2   | Kekurangan melewati limit Hutang                      | Hutang berhenti di Rp25.000.000 dan sisa kekurangan dihapus. Pemain tidak langsung tereliminasi, kecuali kekurangan itu terjadi saat ganti bulan atau Doom Spending (Bangkrut, 1.4).                                                                                                                            |
+| 3   | Bayar Hutang melebihi sisa Hutang                     | Hanya sisa Hutang yang dibayar. Kekayaan berkurang sebesar yang benar-benar dibayar.                                                                                                                                                                                                                            |
+| 3a  | Bayar Hutang saat Kekayaan kurang **[v1.10]**         | Pembayaran dibatasi Kekayaan yang ada: Hutang berkurang sebesar Kekayaan yang tersedia (paling banyak sebesar nominal petak), dan Kekayaan menjadi 0. Kekurangannya **tidak** dipindah ke Hutang, karena Hutang tidak bisa dibayar dengan Hutang baru. Efek status petak (misalnya Level Stress) tetap berlaku. |
+| 4   | Pinjaman saat Hutang hampir penuh (Pinjol / Paylater) | Pinjaman dibatasi sisa limit. Kekayaan yang diterima sama dengan Hutang yang benar-benar bertambah.                                                                                                                                                                                                             |
+| 5   | +1 Level Stress per Rp5.000.000 Hutang baru           | Berlaku untuk **semua** kenaikan Hutang dalam satu transaksi (pinjaman, denda, kekurangan otomatis, dan bunga yang masuk pokok), dihitung ke atas: `ceil(kenaikan Hutang / 5.000.000)`.                                                                                                                         |
 
 Contoh Multiplayer: Kekayaan Rp300.000 lalu menginjak petak dengan efek Kekayaan -Rp1.000.000 → Kekayaan Rp0, Hutang +Rp700.000, Level Stress +1.
 
@@ -230,6 +232,8 @@ Musim **hanya memperbesar peluang Zonk pada bagian tertentu** dan tidak punya ef
 **Cara kerja:** pada petak kategori rawan, Peluang Zonk naik +10 poin persen (4.5). Jika Zonk muncul di petak tersebut, 50% kemungkinan memakai **Zonk Musim** sesuai Fokus Zonk (satu dari 3 varian di bawah), sisanya memakai varian Zonk bawaan petak.
 
 **Imunitas Sakit:** jika **Kesehatan ≥ 8**, pemain tidak terkena Zonk Musim Sakit. Selama Pancaroba, kenaikan +10 poin persen tidak berlaku bagi pemain dengan Kesehatan ≥ 8 dan Zonk Musim Sakit tidak akan muncul untuknya. Imunitas hanya berlaku untuk Sakit, bukan untuk Zonk bawaan petak (misalnya cedera di Olahraga Pagi).
+
+**Penanda kebal di Detail Heksa [v1.10]:** tag "kebal" hanya ditampilkan pada petak **Kesehatan** selama Pancaroba (satu-satunya kategori rawan di musim itu), bagi pemain dengan Kesehatan ≥ 8. Petak kategori lain tidak menampilkan tag ini.
 
 **Zonk Musim** (3 varian per musim, 9 total):
 
@@ -306,7 +310,7 @@ Angka belum termasuk Petak Emas yang tidak diambil (maksimal +6). Jika terasa se
 
 - Pemain bisa **mengklik heksa yang menyala** untuk membuka panel detail: kategori, efek **Rencana**, dan **ikon risiko** (Rendah / Sedang / Tinggi). Heksa yang tidak menyala tidak bisa dibuka dan tidak bisa dipilih. Karena heksa yang menyala diundi di awal Fase Pilihan, detail hanya bisa dibuka di giliran sendiri.
 - **Detail hanya terlihat oleh pemain yang membukanya.** Bagi pemain lain, heksa itu tetap tertutup. **Satu-satunya yang bisa dilihat semua pemain adalah heksa yang sudah dipilih (diinjak).** Tidak ada kartu yang dibuang, karena sejak awal semua kartu sudah berada di heksa.
-- Ikon risiko sudah memperhitungkan Beban Peringkat 1 dan Musim milik pemain yang melihatnya, sehingga risiko yang tampil adalah risiko sebenarnya.
+- Ikon risiko sudah memperhitungkan Beban Peringkat 1 dan Musim milik pemain yang melihatnya, sehingga risiko yang tampil adalah risiko sebenarnya. Ambangnya dari Peluang Zonk: **Rendah ≤15%, Sedang 16-34%, Tinggi ≥35%**. Persentase aslinya tidak ditampilkan **[v1.10]**.
 - Pemain lain tetap bisa membaca pola lawan lewat heksa yang terbuka (misalnya lawan menginjak Beli Vitamin = kesehatannya sedang turun), tanpa tahu isi heksa lain di sekitarnya.
 - Karena hanya 3 dari 6 heksa yang menyala dan diundi acak, pemain tidak selalu punya semua opsi. Heksa bagus yang tidak menyala bagimu bisa saja menyala bagi lawan di gilirannya, jadi tiap giliran menghadirkan pilihan yang berbeda.
 - Pengecualian: **Petak Emas** terlihat terbuka oleh semua pemain sejak muncul (lihat 4.7).
@@ -756,7 +760,7 @@ Bagian ini mengatur apa yang terjadi sebelum, selama, dan sesudah game Multiplay
 
 - Tidak ada akun. Saat pertama kali membuka Lobby (atau menekan Mabar tanpa sesi), muncul popup **"Masuk sebagai tamu"**: kolom **Nama** (ada batas panjang dan penyaring kata kasar) dan pilihan **Avatar**.
 - Data tersimpan di perangkat (`localStorage`) bersama token sesi yang dipakai untuk masuk kembali ke room saat koneksi putus.
-- Di Lobby, kartu identitas pemain memiliki tombol **Ubah nama** (membuka popup yang sama).
+- Di Lobby, kartu identitas pemain memiliki tombol **Ubah nama** (membuka popup yang sama). Ubah nama **hanya bisa di Lobby**, tidak saat pemain berada di Room atau game, supaya nama di Papan Skor tidak berubah di tengah permainan **[v1.10]**.
 - Riwayat dan rekor tidak tersimpan (butuh akun, ditunda).
 
 ### 9.2 Home dan Lobby
@@ -779,19 +783,36 @@ Bagian ini mengatur apa yang terjadi sebelum, selama, dan sesudah game Multiplay
 
 ### 9.4 Selama game
 
-- **Koneksi putus:** pemain bisa masuk kembali dengan token sesi. Jika batas waktu giliran habis saat terputus, pilihan diambil **acak** sesuai aturan 4.3. _(asumsi: tidak ada bot pengganti)_
+- **Koneksi putus:** pemain bisa masuk kembali dengan token sesi. Jika batas waktu giliran habis saat terputus, pilihan diambil **acak** sesuai aturan 4.3. Tidak ada bot pengganti **[v1.10]**.
+- **Keluar saat game berjalan [v1.10]:** diperlakukan **sama seperti koneksi putus**. Pemain tetap di papan, gilirannya menunggu Timer Giliran sampai habis lalu heksa dipilih acak, Event Tanggal otomatis Tidak ikut, dan ia bisa masuk kembali dengan token sesi selama game belum selesai. Konsekuensinya, pemain lain tetap menunggu sampai timer habis pada giliran pemain itu.
 - **Tereliminasi:** muncul layar "Hari ini kamu perlu istirahat." dengan pilihan **Lihat hasil** atau **Jadi penonton** (**Penonton** tetap bisa menyaksikan sampai game selesai tanpa melihat data privat pemain lain).
 - **Host keluar saat game berjalan:** game tetap lanjut, peran host tidak diperlukan lagi.
 - **Pause:** di Multiplayer, pause hanya membuka menu pribadi dan **tidak menghentikan game**. _(asumsi)_
 
 ### 9.5 Akhir game
 
+- Game berakhir setelah Langkah 24 atau lebih cepat jika tinggal 1 pemain yang belum tereliminasi (1.2) **[v1.10]**.
 - Layar **Hasil Akhir Multiplayer:** podium dan peringkat Skor Kesejahteraan, rincian skor yang bisa dibuka (Harta Bersih dan modifier), serta tombol **Main Lagi** (kembali ke Room yang sama), **Kembali ke Lobby**, dan **Bagikan hasil** (gambar dibuat di sisi klien).
 - _(asumsi)_ Main Lagi dikendalikan host dan pemain lain tetap perlu menekan Siap.
 
 ---
 
 ## 10. Ringkasan Revisi
+
+### v1.10 (keputusan dari audit backlog)
+
+| #   | Keputusan                                                                                     | Perubahan                               |
+| --- | --------------------------------------------------------------------------------------------- | --------------------------------------- |
+| 1   | Papan dirender **3D**, dengan syarat fallback WebGL, mode hemat, akses keyboard, dan uji HP   | Catatan Platform (menggantikan v1.7 #3) |
+| 2   | Bayar Hutang saat Kekayaan kurang dibatasi Kekayaan yang ada, kekurangan tidak menjadi Hutang | 2.3 aturan transaksi #3a                |
+| 3   | Tag "kebal" hanya pada petak Kesehatan saat Pancaroba                                         | 3.4                                     |
+| 4   | Game selesai lebih cepat jika tinggal 1 pemain yang belum tereliminasi                        | 1.2, 9.5                                |
+| 5   | Keluar saat game berjalan sama seperti koneksi putus (tunggu timer, pilih acak, bisa kembali) | 9.4                                     |
+| 6   | Ambang ikon risiko: Rendah ≤15%, Sedang 16-34%, Tinggi ≥35%                                   | 4.3 (lihat API Contract Bagian 3)       |
+| 7   | Ubah nama hanya di Lobby, tidak saat berada di Room atau game                                 | 9.1                                     |
+| 8   | Tidak ada bot pengganti (asumsi v1.7 dikonfirmasi)                                            | 9.4                                     |
+
+Catatan: lisensi 4 gambar karakter sprite belum dikonfirmasi. Wajib diselesaikan atau asetnya diganti sebelum repo dibuat public atau di-deploy.
 
 ### v1.9 (aturan transaksi dan penyelarasan dengan engine)
 
@@ -806,12 +827,7 @@ Bagian ini mengatur apa yang terjadi sebelum, selama, dan sesudah game Multiplay
 | 7   | Cara memutar urutan giliran tiap bulan                                                                      | 1.2                       |
 | 8   | Giliran dilewati jika tidak ada heksa tersisa                                                               | 4.1                       |
 
-**Belum diputuskan (dicatat agar tidak lupa):**
-
-- Game berakhir lebih cepat jika tinggal 1 pemain yang belum tereliminasi? Engine saat ini tetap berjalan sampai Langkah 24.
-- Pemain yang menekan Keluar saat game berjalan diperlakukan seperti koneksi putus? (usulan API Contract)
-- Ambang ikon risiko Rendah ≤15%, Sedang 16-34%, Tinggi ≥35% (usulan API Contract, sudah dipakai engine).
-- Ubah nama hanya di Lobby (usulan API Contract).
+Daftar "belum diputuskan" di v1.9 sudah diselesaikan di v1.10.
 
 ### v1.8 (keputusan ekonomi Multiplayer dan penyelarasan dengan kode)
 

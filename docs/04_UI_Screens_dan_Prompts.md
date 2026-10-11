@@ -6,26 +6,26 @@ Dokumen ini mencatat layar yang sudah dibuat, yang masih kurang, dan prompt gamb
 
 Scope MVP: Multiplayer dan pemain tamu saja (Solo, register, dan login ditunda).
 
-| Layar | Status | Catatan |
-|---|---|---|
-| Home | Sudah ada | Tombol Singel, Ajang Flexing, dan ikon merah (Portal/Masuk) tetap tampil tetapi tidak bisa diklik. Mabar, Spill Cara Main, dan ikon pengaturan aktif |
-| Portal Pejuang UMR (profil HRD) | Sudah ada, **ditunda** | Butuh akun |
-| Form Masuk Kerja (login) | Sudah ada, **ditunda** | Butuh akun |
-| Daftar Pejuang UMR (register) | Sudah ada, **ditunda** | Butuh akun |
-| Pengaturan | Sudah ada, **perlu revisi** | Hapus bagian Akun dan "Aturan Mabar". Sisakan Musik, Efek suara, Notifikasi Ajakan |
-| Lobby | Sudah ada, **perlu revisi** | Judul masih "Ruang Mabar / Ruang Rapat", masih ada "Player Identity Card", aturan Mabar tertulis dua baris, kolom kode terisi, tombol "Lihat Profil" perlu menjadi "Ubah nama" |
-| Popup "Masuk sebagai tamu" | **Belum ada** | Nama dan pilihan avatar. Juga dipakai untuk "Ubah nama" |
-| Room (ruang tunggu) | Sudah ada + 5 variasi | A host sendiri, B tampilan tamu, C belum siap, D hitung mundur, E menyambungkan ulang |
-| Game Board (giliran sendiri) | Sudah ada + variasi | Giliran lawan dan kondisi stres tinggi |
-| Detail Heksa | Sudah ada + variasi | Risiko tinggi dan Petak Emas |
-| Reveal Realita (Zonk, Aman, Hoki) | **Belum ada** | Momen puncak: heksa dibalik |
-| Ringkasan Ganti Bulan | **Belum ada** | Gaji, Biaya Hidup Wajib, bunga, perubahan status |
-| Popup Event Tanggal | **Belum ada** | Serentak ke semua pemain, 15 detik |
-| Layar Eliminasi | **Belum ada** | "Hari ini kamu perlu istirahat." |
-| Hasil Akhir Multiplayer | **Belum ada** | Podium, rincian skor, Main Lagi, Bagikan |
-| Ajakan (masuk, pilih target, hasil) | **Belum ada** | Boleh paling akhir |
-| Jalan Buntu, Doom Spending, banner musim dan Petak Emas, Pause | **Belum ada** | Overlay kecil |
-| Cara Main dan Error/Reconnect | **Belum ada** | Bisa belakangan |
+| Layar                                                          | Status                      | Catatan                                                                                                                                                                        |
+| -------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Home                                                           | Sudah ada                   | Tombol Singel, Ajang Flexing, dan ikon merah (Portal/Masuk) tetap tampil tetapi tidak bisa diklik. Mabar, Spill Cara Main, dan ikon pengaturan aktif                           |
+| Portal Pejuang UMR (profil HRD)                                | Sudah ada, **ditunda**      | Butuh akun                                                                                                                                                                     |
+| Form Masuk Kerja (login)                                       | Sudah ada, **ditunda**      | Butuh akun                                                                                                                                                                     |
+| Daftar Pejuang UMR (register)                                  | Sudah ada, **ditunda**      | Butuh akun                                                                                                                                                                     |
+| Pengaturan                                                     | Sudah ada, **perlu revisi** | Hapus bagian Akun dan "Aturan Mabar". Sisakan Musik, Efek suara, Notifikasi Ajakan                                                                                             |
+| Lobby                                                          | Sudah ada, **perlu revisi** | Judul masih "Ruang Mabar / Ruang Rapat", masih ada "Player Identity Card", aturan Mabar tertulis dua baris, kolom kode terisi, tombol "Lihat Profil" perlu menjadi "Ubah nama" |
+| Popup "Masuk sebagai tamu"                                     | **Belum ada**               | Nama dan pilihan avatar. Juga dipakai untuk "Ubah nama"                                                                                                                        |
+| Room (ruang tunggu)                                            | Sudah ada + 5 variasi       | A host sendiri, B tampilan tamu, C belum siap, D hitung mundur, E menyambungkan ulang                                                                                          |
+| Game Board (giliran sendiri)                                   | Sudah ada + variasi         | Giliran lawan dan kondisi stres tinggi                                                                                                                                         |
+| Detail Heksa                                                   | Sudah ada + variasi         | Risiko tinggi dan Petak Emas                                                                                                                                                   |
+| Reveal Realita (Zonk, Aman, Hoki)                              | **Belum ada**               | Momen puncak: heksa dibalik                                                                                                                                                    |
+| Ringkasan Ganti Bulan                                          | **Belum ada**               | Gaji, Biaya Hidup Wajib, bunga, perubahan status                                                                                                                               |
+| Popup Event Tanggal                                            | **Belum ada**               | Serentak ke semua pemain, 15 detik                                                                                                                                             |
+| Layar Eliminasi                                                | **Belum ada**               | "Hari ini kamu perlu istirahat."                                                                                                                                               |
+| Hasil Akhir Multiplayer                                        | **Belum ada**               | Podium, rincian skor, Main Lagi, Bagikan                                                                                                                                       |
+| Ajakan (masuk, pilih target, hasil)                            | **Belum ada**               | Boleh paling akhir                                                                                                                                                             |
+| Jalan Buntu, Doom Spending, banner musim dan Petak Emas, Pause | **Belum ada**               | Overlay kecil                                                                                                                                                                  |
+| Cara Main dan Error/Reconnect                                  | **Belum ada**               | Bisa belakangan                                                                                                                                                                |
 
 Layar penuh MVP sekitar 8: Home, Lobby, Room, Game Board, Hasil Akhir Multiplayer, Pengaturan, Cara Main, Error/Reconnect (ditambah popup tamu dan ±20 overlay di Game Board).
 
@@ -35,7 +35,7 @@ Home → Lobby (popup tamu pertama kali) → Room → hitung mundur → Game Boa
 
 ## 3. Catatan dari gambar yang sudah dibuat
 
-- Hexa pada Game Board berupa **2D datar tampak atas** (flat-top), karakter sprite 2D. Tidak perlu Three.js.
+- Hexa pada Game Board kini dirender **3D** dengan Three.js (GDD v1.10). Gambar desain yang sudah ada (2D datar, flat-top) tetap dipakai sebagai acuan warna, HUD, dan teks, bukan sudut kamera.
 - Hutang di Game Board ditampilkan sebagai bar. DESIGN.md menyarankan angka dengan badge. Putuskan satu cara (bar bisa dimaknai sebagai pemakaian limit Rp25jt).
 - Di gambar Game Board hanya 2 heksa menyala di sekitar pion pemain (selain Petak Emas yang jauh), padahal aturan GDD adalah 3 dari 6 tetangga.
 - Ikon pada chip "Kondangan Teman" kosong.
@@ -181,7 +181,7 @@ Using the same "Detail Heksa" screen, create these variants. Change only what is
 
 A) High-risk tile: the tab is "2 Sosial", title "Nongkrong", Rencana chips: "Kekayaan -Rp1.000.000" and "Level Stress -2". The risk meter is "Risiko Tinggi" (3 of 3 bars filled, a bigger warning icon). Add two small tags below it: "Beban Peringkat 1: risiko +15" with a crown icon, and "Musim Kemarau: Sosial rawan, risiko +10" with a sun icon.
 
-B) Golden tile: the selected tile is the glowing golden hexagon. The panel has a gold border and a sparkle, the category chip "Emas", title "Beasiswa Penuh", Rencana chip "Kekayaan +Rp10.000.000". No risk meter. A note "Tidak ada Realita, langsung untung." and an alert "Hanya 1 pemain yang bisa mengambil. Hangus dalam 2 ronde." The button reads "AMBIL PETAK EMAS".
+B) Golden tile: the selected tile is the glowing golden hexagon. The panel has a gold border and a sparkle, the category chip "Emas", title "Beasiswa Penuh", Rencana chip "Kekayaan +Rp7.500.000". No risk meter. A note "Tidak ada Realita, langsung untung." and an alert "Hanya 1 pemain yang bisa mengambil. Hangus dalam 2 ronde." The button reads "AMBIL PETAK EMAS".
 
 C) Waiting: the panel is closed, only the tile glows with a hint "Klik heksa untuk lihat detail" (this is the previous screen, for comparison).
 ```
@@ -198,11 +198,11 @@ Prompt untuk popup ini belum dibuat. Isi yang dibutuhkan: judul "Masuk sebagai t
 
 ## 5. Teks yang harus persis (cek hasil generator)
 
-| Bagian | Teks |
-|---|---|
-| Room | RUANG TUNGGU, Menunggu peserta rapat, KODE ROOM, UMR-4821, Salin kode, Bagikan link, ATURAN MABAR, TIMER GILIRAN (diatur host), 30 dtk - Cepat, 60 dtk - Santai, PESERTA (2/4), HOST, Siap, Belum siap, Menunggu pemain..., MULAI, SIAP, Keluar, Cara Main, Keluarkan, Menunggu minimal 2 pemain, Menunggu pemain siap, Menyambungkan ulang..., Papan sedang disiapkan... |
-| Game Board | 15 Mei, Langkah 10/24, Pancaroba, Kondangan Teman - 2 langkah lagi, KARTU STATUS PRIBADI, Hanya kamu yang melihat, Kekayaan, Hutang, Kesehatan, Level Stress, PAPAN SKOR, Skor Sementara, Beban Peringkat 1: peluang Zonk +15%, Petak Emas, Hangus dalam 3 ronde, GILIRANMU, Pilih satu heksa yang menyala, Klik heksa untuk lihat detail, Kartu Ajakan |
-| Detail Heksa | Hanya kamu yang bisa melihat ini, Lembur Proyek, RENCANA, Kekayaan +Rp5.000.000, Risiko Sedang, REALITA, Terungkap setelah kamu melangkah, PILIH HEKSA INI, Tutup, AMBIL PETAK EMAS |
-| Lobby | Ruang Rapat, Mabar 2-4 pemain, Kartu Identitas Pemain, Ubah nama, Contoh: UMR-4821, Kode room tidak ketemu., Lanjutkan permainan |
+| Bagian       | Teks                                                                                                                                                                                                                                                                                                                                                                      |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Room         | RUANG TUNGGU, Menunggu peserta rapat, KODE ROOM, UMR-4821, Salin kode, Bagikan link, ATURAN MABAR, TIMER GILIRAN (diatur host), 30 dtk - Cepat, 60 dtk - Santai, PESERTA (2/4), HOST, Siap, Belum siap, Menunggu pemain..., MULAI, SIAP, Keluar, Cara Main, Keluarkan, Menunggu minimal 2 pemain, Menunggu pemain siap, Menyambungkan ulang..., Papan sedang disiapkan... |
+| Game Board   | 15 Mei, Langkah 10/24, Pancaroba, Kondangan Teman - 2 langkah lagi, KARTU STATUS PRIBADI, Hanya kamu yang melihat, Kekayaan, Hutang, Kesehatan, Level Stress, PAPAN SKOR, Skor Sementara, Beban Peringkat 1: peluang Zonk +15%, Petak Emas, Hangus dalam 3 ronde, GILIRANMU, Pilih satu heksa yang menyala, Klik heksa untuk lihat detail, Kartu Ajakan                   |
+| Detail Heksa | Hanya kamu yang bisa melihat ini, Lembur Proyek, RENCANA, Kekayaan +Rp5.000.000, Risiko Sedang, REALITA, Terungkap setelah kamu melangkah, PILIH HEKSA INI, Tutup, AMBIL PETAK EMAS                                                                                                                                                                                       |
+| Lobby        | Ruang Rapat, Mabar 2-4 pemain, Kartu Identitas Pemain, Ubah nama, Contoh: UMR-4821, Kode room tidak ketemu., Lanjutkan permainan                                                                                                                                                                                                                                          |
 
 Catatan: nama pemain dan semua angka pada gambar hanyalah contoh. Nominal pada Multiplayer sudah memakai pengali ×2 (misalnya Lembur Proyek Rp5.000.000).
