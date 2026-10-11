@@ -46,6 +46,21 @@ describe("simulasi game penuh", () => {
         playerCount,
         seed,
         (current, produced) => {
+          // Privasi: JSON public state tidak memuat isi heksa selain Petak Emas aktif.
+          if (
+            index % 5 === 0 &&
+            produced.some((e) => e.type === "tile:opened" || e.type === "gold:spawned")
+          ) {
+            const publicJson = JSON.stringify(current.public);
+            const activeGold = current.public.gold;
+            if (activeGold && current.board.tiles[hexKey(activeGold.hex)] !== activeGold.goldId) {
+              fail(`Petak Emas ${activeGold.goldId} tidak cocok dengan isi heksanya`);
+            }
+            for (const tileId of Object.values(current.board.tiles)) {
+              if (tileId === activeGold?.goldId) continue;
+              if (publicJson.includes(`"${tileId}"`)) fail(`public state membocorkan "${tileId}"`);
+            }
+          }
           for (const [playerId, player] of Object.entries(current.players)) {
             const { health, stress, wealth, debt } = player.status;
             if (!Number.isInteger(health) || health < 0 || health > 10) {
