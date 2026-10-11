@@ -23,6 +23,7 @@ import {
 } from "@pejuang/engine";
 import { randomUUID } from "node:crypto";
 import type { Server, Socket } from "socket.io";
+import { systemClock, type Clock } from "../game/clock";
 import { dispatch } from "../game/event-dispatcher";
 import { GameSession, identitiesFromRoom } from "../game/game-session";
 import type { GameRepository } from "../repositories/game-repository";
@@ -81,11 +82,13 @@ export function registerRoomHandlers(
     countdownMs?: number;
     random?: RandomSource;
     createGameId?: () => string;
+    clock?: Clock;
   } = {},
 ): void {
   const countdownMs = options.countdownMs ?? 3_000;
   const random = options.random ?? new MathRandomSource();
   const createGameId = options.createGameId ?? randomUUID;
+  const clock = options.clock ?? systemClock;
   socket.on("room:create", (payload, unsafeAck) => executeWithAck<RoomResult>(unsafeAck, (ack) => {
     const parsed = RoomCreateRequestSchema.safeParse(payload);
     if (!parsed.success) return ack(invalidPayload<RoomResult>());
@@ -287,7 +290,7 @@ export function registerRoomHandlers(
             return;
           }
           const playingRoom = transition.room;
-          const session = games.set(
+          const session: GameSession = games.set(
             room.code,
             new GameSession(
               room.code,
@@ -295,6 +298,14 @@ export function registerRoomHandlers(
               random,
               playingRoom.turnSeconds,
               identitiesFromRoom(playingRoom.players),
+              {
+                clock,
+                send: (events) => dispatch(io, session, events),
+                onFinished: () => {
+                  const finished = rooms.markFinished(room.code);
+                  if (finished.ok) emitRoomState(io, finished.room);
+                },
+              },
             ),
           );
           const game = toPublicState(session.state);
@@ -322,6 +333,7 @@ export function registerRoomHandlers(
               );
             }
           }
+          session.start();
         } catch {
           io.to(room.code).emit("error", {
             code: "INTERNAL",
