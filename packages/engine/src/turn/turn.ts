@@ -27,7 +27,7 @@ export type TurnResult =
       ok: true;
       state: GameState;
       events: DomainEvent[];
-      nextAction: "nextTurn" | "endRound";
+      nextAction: "nextTurn" | "endRound" | "finished";
     }
   | { ok: false; code: ErrorCode; message: string };
 
@@ -269,7 +269,15 @@ function applyChoice(
     },
   };
 
-  // TODO: game selesai bila hanya satu pemain tersisa (Keputusan Terbuka #3).
+  const early = checkEarlyFinish(next);
+  if (early) {
+    return {
+      ok: true,
+      state: early.state,
+      events: [...events, ...early.events],
+      nextAction: "finished",
+    };
+  }
   const nextAction = remainingPlayers(next).length > 0 ? "nextTurn" : "endRound";
   return { ok: true, state: next, events, nextAction };
 }
@@ -334,6 +342,16 @@ export function endRound(state: GameState, _random: RandomSource): RoundResult {
     },
     events: [],
   };
+}
+
+/**
+ * GDD 1.2 v1.10: game selesai lebih cepat bila pemain yang belum tereliminasi <= 1.
+ * Mengembalikan hasil finishGame, atau null bila game berlanjut. Pemain yang tersisa
+ * otomatis peringkat 1 karena rankPlayers menaruh pemain bertahan di atas yang tereliminasi.
+ */
+export function checkEarlyFinish(state: GameState): RoundResult | null {
+  const alive = Object.values(state.players).filter((player) => !player.eliminated).length;
+  return alive <= 1 ? finishGame(state) : null;
 }
 
 /**

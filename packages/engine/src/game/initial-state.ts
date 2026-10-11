@@ -1,4 +1,7 @@
 import { getHexRing, type HexCoord, type PublicGameState } from "@pejuang/shared";
+import { getCalendarInfo } from "../calendar/calendar";
+import { INITIAL_STATUS } from "../economy/constants";
+import { toScoreRows } from "../score/ranking";
 import { createBoardState, type BoardState } from "../board/board-state";
 import type { BoardRadius } from "../hex/board";
 import type { RandomSource } from "../random";
@@ -60,15 +63,7 @@ export function createGameSetup(
     version: 1,
     gameId,
     boardRadius,
-    calendar: {
-      step: 1,
-      totalSteps: 24,
-      round: 1,
-      month: 1,
-      dateLabel: "Januari · Pekan 1",
-      season: "rainy",
-      nextEvent: null,
-    },
+    calendar: getCalendarInfo(1),
     turnOrder,
     activePlayerId: null,
     turnDeadline: null,
@@ -77,12 +72,14 @@ export function createGameSetup(
     openedHexes: [],
     deadHexes: [],
     gold: null,
-    scores: turnOrder.map((playerId, index) => ({
-      playerId,
-      provisionalScore: 0,
-      rank: index + 1,
-      eliminated: false,
-    })),
+    scores: toScoreRows(
+      turnOrder.map((playerId) => ({
+        playerId,
+        status: { ...INITIAL_STATUS },
+        eliminated: false,
+        eliminatedAtStep: null,
+      })),
+    ),
     rankOneBurden: [],
     eliminated: [],
     spectators: [],

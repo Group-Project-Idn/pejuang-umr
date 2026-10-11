@@ -19,14 +19,18 @@ import {
 import { toMultiplayerEffects } from "../data/multiplier";
 import { applyEffects } from "../economy/apply-effects";
 import { processMonthChange } from "../economy/month-change";
-import { isMonthChangeStep, monthOfStep } from "../economy/schedule";
+import { isBurnout } from "../economy/elimination";
+import { isMonthChangeStep } from "../economy/schedule";
 import type { DomainEvent } from "../game/domain-events";
 import type { CalendarChoiceId, GameState } from "../game/game-state";
 import type { RandomSource } from "../random";
+import { checkEarlyFinish } from "./turn";
 
 export interface RoundResult {
   state: GameState;
   events: DomainEvent[];
+  /** "finished" bila game selesai lebih cepat (<= 1 pemain hidup); server berhenti melanjutkan ronde. */
+  nextAction?: "finished";
 }
 
 export type AnswerResult =
@@ -94,12 +98,17 @@ function buildCalendarEvent(def: CalendarEventDefinition): DomainEvent {
   };
 }
 
-/** GDD 4.2: baseTurnOrder diputar (bulan - 1) kali, pemain tereliminasi dilewati. */
-function orderForMonth(state: GameState, month: number): string[] {
-  const base = state.baseTurnOrder;
-  const shift = (month - 1) % base.length;
-  const rotated = [...base.slice(shift), ...base.slice(0, shift)];
-  return rotated.filter((id) => !state.players[id]?.eliminated);
+/**
+ * GDD 1.2, 4.2: Langkah 1 memakai baseTurnOrder. Saat bulan berganti, urutan bulan
+ * sebelumnya (tanpa pemain tereliminasi) diputar: pemain pertama pindah ke akhir.
+ * Di dalam bulan yang sama urutan tetap, hanya pemain tereliminasi yang dibuang.
+ */
+function orderForStep(state: GameState, step: number): string[] {
+  const alive = (id: string) => !state.players[id]?.eliminated;
+  if (step === 1) return state.baseTurnOrder.filter(alive);
+  const previous = state.public.turnOrder.filter(alive);
+  if (!isMonthChangeStep(step) || previous.length === 0) return previous;
+  return [...previous.slice(1), previous[0]!];
 }
 
 /** GDD 2.4, 3.3, 4.2: awal ronde (kalender, musim, ganti bulan, urutan giliran, Event Tanggal). */
@@ -173,7 +182,11 @@ export function startRound(state: GameState, random: RandomSource): RoundResult 
   }
 
   const next: GameState = { ...state, players, public: publicState, movedThisRound: [] };
-  publicState.turnOrder = orderForMonth(next, monthOfStep(step));
+  const early = checkEarlyFinish(next);
+  if (early) {
+    return { state: early.state, events: [...events, ...early.events], nextAction: "finished" };
+  }
+  publicState.turnOrder = orderForStep(next, step);
 
   // TODO: Petak Emas (muncul di langkah 1, 5, 9, 13, 17, 21).
   // TODO: Kartu Ajakan (bagikan kartu di awal ronde).
@@ -237,6 +250,8 @@ export function closeCalendarEvent(state: GameState, random: RandomSource): Roun
   }
   const events: DomainEvent[] = [];
   const players = { ...state.players };
+  const step = state.public.calendar.step;
+  let publicState = state.public;
   for (const playerId of state.public.turnOrder) {
     const player = players[playerId];
     if (!player || player.eliminated) continue;
@@ -249,9 +264,13 @@ export function closeCalendarEvent(state: GameState, random: RandomSource): Roun
       effects.push(...toMultiplayerEffects(choice.chance.effects));
       flavor = choice.chance.text;
     }
-    // TODO: cek Bangkrut/Burnout setelah efek event.
+    // Kekurangan Kekayaan dari Event Tanggal tidak menyebabkan Bangkrut (GDD 1.4);
+    // hanya Burnout Total yang bisa mengeliminasi di sini.
     const status = applyEffects(player.status, effects).status;
-    players[playerId] = { ...player, status };
+    const burnout = isBurnout(status);
+    players[playerId] = burnout
+      ? { status, eliminated: true, eliminatedAtStep: step, eliminatedReason: "burnout" }
+      : { ...player, status };
     const target = { kind: "player", playerId } as const;
     events.push({
       type: "calendar:result",
@@ -265,9 +284,31 @@ export function closeCalendarEvent(state: GameState, random: RandomSource): Roun
       },
     });
     events.push({ type: "player:status", target, payload: status });
+    if (burnout) {
+      publicState = {
+        ...publicState,
+        eliminated: [...publicState.eliminated, playerId],
+        scores: publicState.scores.map((row) =>
+          row.playerId === playerId ? { ...row, eliminated: true } : row,
+        ),
+      };
+      events.push({
+        type: "player:eliminated",
+        target: { kind: "room" },
+        payload: { version: 0, playerId, reason: "burnout", step },
+      });
+    }
   }
-  return {
-    state: { ...state, players, pendingCalendarEvent: null, phase: "turn" },
-    events,
+  const next: GameState = {
+    ...state,
+    players,
+    public: publicState,
+    pendingCalendarEvent: null,
+    phase: "turn",
   };
+  const early = checkEarlyFinish(next);
+  if (early) {
+    return { state: early.state, events: [...events, ...early.events], nextAction: "finished" };
+  }
+  return { state: next, events };
 }

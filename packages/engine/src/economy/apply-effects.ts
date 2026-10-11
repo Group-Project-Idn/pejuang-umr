@@ -30,7 +30,9 @@ export function applyEffects(
     debtAdded += added;
     if (total.wealth > 0) wealthDelta = added;
   } else if (total.debt < 0) {
-    const paid = Math.min(-total.debt, debt);
+    // Bayar Hutang (GDD 2.3 #3, #3a): dibatasi sisa Hutang dan Kekayaan yang ada.
+    const payable = total.wealth < 0 ? Math.min(-total.debt, status.wealth) : -total.debt;
+    const paid = Math.min(payable, debt);
     debt -= paid;
     if (total.wealth < 0) wealthDelta = -paid;
   }

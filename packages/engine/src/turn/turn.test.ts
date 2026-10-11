@@ -12,7 +12,7 @@ import type { DomainEvent } from "../game/domain-events";
 import type { GameState } from "../game/game-state";
 import { SequenceRandomSource } from "../random";
 import { startRound } from "./round";
-import { chooseHex, endRound, startTurn, timeoutTurn } from "./turn";
+import { checkEarlyFinish, chooseHex, endRound, startTurn, timeoutTurn } from "./turn";
 
 const IDS = ["a", "b", "c"];
 
@@ -48,7 +48,10 @@ function withStatus(state: GameState, playerId: string, patch: Partial<PrivateSt
   const player = state.players[playerId]!;
   return {
     ...state,
-    players: { ...state.players, [playerId]: { ...player, status: { ...player.status, ...patch } } },
+    players: {
+      ...state.players,
+      [playerId]: { ...player, status: { ...player.status, ...patch } },
+    },
   };
 }
 
@@ -70,7 +73,10 @@ function closeAllNeighbors(state: GameState, playerId: string): GameState {
   const keys = getNeighbors(pawnOf(state, playerId)).map(hexKey);
   return {
     ...state,
-    board: { ...state.board, usedHexKeys: [...state.board.usedHexKeys, ...keys] },
+    board: {
+      ...state.board,
+      usedHexKeys: [...state.board.usedHexKeys, ...keys],
+    },
   };
 }
 
@@ -106,7 +112,10 @@ describe("startTurn", () => {
     const afterFirst: GameState = {
       ...game,
       movedThisRound: [first],
-      players: { ...game.players, [second]: { ...game.players[second]!, eliminated: true } },
+      players: {
+        ...game.players,
+        [second]: { ...game.players[second]!, eliminated: true },
+      },
     };
     expect(startTurn(afterFirst, seeded()).state.public.activePlayerId).toBe(third);
   });
@@ -152,7 +161,8 @@ describe("chooseHex", () => {
   it("menolak heksa yang tidak menyala, turnId lama, dan pemain lain", () => {
     const { state, playerId, turnId } = begin(makeGame());
     const lit = new Set(state.pendingTurn!.options.map(hexKey));
-    const unlit = getNeighbors(pawnOf(state, playerId)).find((hex) => !lit.has(hexKey(hex))) ??
+    const unlit =
+      getNeighbors(pawnOf(state, playerId)).find((hex) => !lit.has(hexKey(hex))) ??
       pawnOf(state, playerId);
     const code = (r: ReturnType<typeof chooseHex>) => (r.ok ? "ok" : r.code);
     const hex = state.pendingTurn!.options[0]!;
@@ -183,7 +193,10 @@ describe("chooseHex", () => {
     expect(ofType(result.events, "tile:resolved")[0]!.payload.outcome).toBe("safe");
     expect(next.players[playerId]!.status.wealth).toBe(6_500_000);
 
-    expect(ofType(result.events, "player:status")[0]!.target).toEqual({ kind: "player", playerId });
+    expect(ofType(result.events, "player:status")[0]!.target).toEqual({
+      kind: "player",
+      playerId,
+    });
     expect(ofType(result.events, "game:patch")[0]!.payload.ops[0]!.type).toBe("scores");
     expect(next.public.scores).toHaveLength(3);
   });
@@ -205,9 +218,13 @@ describe("chooseHex", () => {
 
   it("Doom setelah petak saat Level Stress >= 9", () => {
     // buying-vitamins tidak mengubah stress; Realita safe tanpa efek.
-    const game = withStatus(forceTile(makeGame(), "buying-vitamins"), makeGame().public.turnOrder[0]!, {
-      stress: 10,
-    });
+    const game = withStatus(
+      forceTile(makeGame(), "buying-vitamins"),
+      makeGame().public.turnOrder[0]!,
+      {
+        stress: 10,
+      },
+    );
     const { state, playerId, turnId } = begin(game);
     const result = chooseHex(state, playerId, turnId, state.pendingTurn!.options[0]!, safeRandom());
     if (!result.ok) throw new Error(result.message);
@@ -234,7 +251,10 @@ describe("chooseHex", () => {
     if (!result.ok) throw new Error(result.message);
     const resolved = ofType(result.events, "tile:resolved")[0]!.payload;
     expect(resolved.outcome).toBe("zonk");
-    expect(resolved.effects).toContainEqual({ stat: "wealth", delta: -1_500_000 });
+    expect(resolved.effects).toContainEqual({
+      stat: "wealth",
+      delta: -1_500_000,
+    });
     const player = result.state.players[playerId]!;
     expect(player.status.wealth).toBe(0);
     expect(player.status.debt).toBe(25_000_000);
@@ -264,7 +284,9 @@ describe("chooseHex", () => {
   it("Burnout: Kesehatan 0 setelah Rencana", () => {
     // quick-freelance: Kesehatan -1 (MP -2) dari Kesehatan 1.
     const first = makeGame().public.turnOrder[0]!;
-    const game = withStatus(forceTile(makeGame(), "quick-freelance"), first, { health: 1 });
+    const game = withStatus(forceTile(makeGame(), "quick-freelance"), first, {
+      health: 1,
+    });
     const { state, playerId, turnId } = begin(game);
     const result = chooseHex(state, playerId, turnId, state.pendingTurn!.options[0]!, safeRandom());
     if (!result.ok) throw new Error(result.message);
@@ -316,5 +338,65 @@ describe("endRound", () => {
       expect(row.netWorth).toBe(7_500_000);
       expect(row.modifier).toBe("bonus");
     }
+  });
+});
+
+describe("game selesai lebih cepat (GDD 1.2 v1.10)", () => {
+  it("3 pemain, dua Burnout di ronde yang sama -> selesai setelah eliminasi kedua", () => {
+    const order = makeGame().public.turnOrder;
+    let state = forceTile(makeGame(), "quick-freelance");
+    state = withStatus(state, order[0]!, { health: 1 });
+    state = withStatus(state, order[1]!, { health: 1 });
+
+    const first = begin(state);
+    const r1 = chooseHex(
+      first.state,
+      first.playerId,
+      first.turnId,
+      first.state.pendingTurn!.options[0]!,
+      safeRandom(),
+    );
+    if (!r1.ok) throw new Error(r1.message);
+    expect(r1.nextAction).toBe("nextTurn");
+    expect(r1.state.phase).not.toBe("finished");
+
+    const second = begin(r1.state);
+    const r2 = chooseHex(
+      second.state,
+      second.playerId,
+      second.turnId,
+      second.state.pendingTurn!.options[0]!,
+      safeRandom(),
+    );
+    if (!r2.ok) throw new Error(r2.message);
+    expect(r2.nextAction).toBe("finished");
+    expect(r2.state.phase).toBe("finished");
+    const ranking = ofType(r2.events, "game:finished")[0]!.payload.ranking;
+    expect(ranking.find((row) => row.playerId === order[2])?.rank).toBe(1);
+  });
+
+  it("timeoutTurn yang menyebabkan eliminasi terakhir juga mengembalikan finished", () => {
+    const { state: created } = createGame(
+      ["a", "b"],
+      "g",
+      new SequenceRandomSource([0.1, 0.5, 0.9]),
+    );
+    let state: GameState = {
+      ...created,
+      phase: "turn",
+      public: { ...created.public, calendar: getCalendarInfo(2) },
+    };
+    state = forceTile(state, "quick-freelance");
+    const first = state.public.turnOrder[0]!;
+    state = withStatus(state, first, { health: 1 });
+    const started = begin(state);
+    const result = timeoutTurn(started.state, started.turnId, safeRandom());
+    if (!result.ok) throw new Error(result.message);
+    expect(result.nextAction).toBe("finished");
+    expect(ofType(result.events, "game:finished")).toHaveLength(1);
+  });
+
+  it("checkEarlyFinish: null bila >= 2 pemain hidup", () => {
+    expect(checkEarlyFinish(makeGame())).toBeNull();
   });
 });
