@@ -55,6 +55,9 @@ const PAYLOAD_SCHEMAS: Partial<Record<keyof ServerToClientEvents, PayloadSchema>
   "gold:expired": GoldExpiredPayloadSchema,
 };
 
+/** Event room yang tidak dikirim ke penonton: ia tidak ikut bermain (GDD 9.4). */
+const HIDDEN_FROM_SPECTATORS = new Set<string>(["calendar:event"]);
+
 interface Emitter {
   emit(event: string, payload: unknown): unknown;
 }
@@ -86,7 +89,15 @@ export function dispatch(
     }
     session.recordEvent(event, parsed.data);
     if (event.target.kind === "room") {
-      (io.to(session.roomCode) as unknown as Emitter).emit(event.type, parsed.data);
+      if (HIDDEN_FROM_SPECTATORS.has(event.type)) {
+        for (const socket of io.sockets.sockets.values()) {
+          if (socket.rooms.has(session.roomCode) && !session.isSpectator(socket.data.playerId)) {
+            (socket as unknown as Emitter).emit(event.type, parsed.data);
+          }
+        }
+      } else {
+        (io.to(session.roomCode) as unknown as Emitter).emit(event.type, parsed.data);
+      }
       continue;
     }
     const { playerId } = event.target;

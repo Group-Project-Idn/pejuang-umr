@@ -20,6 +20,7 @@ import { broadcastConnection } from "./services/connection";
 import { FixedWindowRateLimiter } from "./services/rate-limit";
 import { verifyGuestToken } from "./services/guest-token";
 import { ClientEventSchemas } from "@pejuang/shared";
+import { registerEmoteHandlers, EMOTE_WINDOW_MS } from "./socket/register-emote-handlers";
 import { registerGameHandlers } from "./socket/register-game-handlers";
 import { registerRoomHandlers } from "./socket/register-room-handlers";
 import { executeWithAck } from "./socket/safe-handler";
@@ -63,6 +64,8 @@ export function createPejuangServer(
   httpServer.on("close", () => janitor.dispose());
 
   const activeSockets = new Map<string, string>();
+  // Batas emote per pemain (bukan per socket), terpisah dari limiter umum.
+  const emoteLimiter = new FixedWindowRateLimiter(1, EMOTE_WINDOW_MS);
 
   io.use((socket, next) => {
     const token = socket.handshake.auth.token;
@@ -139,6 +142,14 @@ export function createPejuangServer(
       clock: dependencies.clock,
     });
     registerGameHandlers(io, socket, rooms, games, gameIdempotency);
+    registerEmoteHandlers(
+      io,
+      socket,
+      rooms,
+      gameIdempotency,
+      emoteLimiter,
+      dependencies.clock ?? systemClock,
+    );
 
     socket.on("disconnect", () => {
       if (activeSockets.get(socket.data.playerId) === socket.id) {
