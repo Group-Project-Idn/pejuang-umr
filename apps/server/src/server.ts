@@ -13,9 +13,13 @@ import { createHttpHandler } from "./http/router";
 import { GameRepository } from "./repositories/game-repository";
 import { IdempotencyRepository } from "./repositories/idempotency-repository";
 import { RoomRepository } from "./repositories/room-repository";
+import { systemClock } from "./game/clock";
+import { DEFAULT_ROOM_EMPTY_MS, DEFAULT_ROOM_IDLE_MS } from "./config";
+import { RoomJanitor } from "./services/room-janitor";
 import { broadcastConnection } from "./services/connection";
 import { FixedWindowRateLimiter } from "./services/rate-limit";
 import { verifyGuestToken } from "./services/guest-token";
+import { ClientEventSchemas } from "@pejuang/shared";
 import { registerGameHandlers } from "./socket/register-game-handlers";
 import { registerRoomHandlers } from "./socket/register-room-handlers";
 import { executeWithAck } from "./socket/safe-handler";
@@ -47,6 +51,16 @@ export function createPejuangServer(
   >(httpServer, {
     cors: { origin: config.webOrigin },
   });
+
+  const janitor = new RoomJanitor(
+    io,
+    rooms,
+    games,
+    dependencies.clock ?? systemClock,
+    config.roomIdleMs ?? DEFAULT_ROOM_IDLE_MS,
+    config.roomEmptyMs ?? DEFAULT_ROOM_EMPTY_MS,
+  );
+  httpServer.on("close", () => janitor.dispose());
 
   const activeSockets = new Map<string, string>();
 
@@ -90,7 +104,17 @@ export function createPejuangServer(
       dependencies.socketRateLimit?.windowMs ?? 5_000,
     );
     socket.use((packet, next) => {
-      if (limiter.consume("socket")) return next();
+      if (limiter.consume("socket")) {
+        // Aktivitas room: event C->S yang valid dari anggota room. Microtask kedua
+        // menangkap pemain yang baru menjadi anggota lewat event ini (create/join).
+        const [event, payload] = packet;
+        const schema = ClientEventSchemas[event as keyof typeof ClientEventSchemas];
+        if (schema?.safeParse(payload).success) {
+          janitor.touch(socket.data.playerId);
+          queueMicrotask(() => janitor.touch(socket.data.playerId));
+        }
+        return next();
+      }
       const ack = packet[packet.length - 1];
       if (typeof ack === "function") ack({ ok: false, error: "RATE_LIMITED" });
     });
@@ -134,5 +158,5 @@ export function createPejuangServer(
     });
   });
 
-  return { httpServer, io, rooms, games };
+  return { httpServer, io, rooms, games, janitor };
 }

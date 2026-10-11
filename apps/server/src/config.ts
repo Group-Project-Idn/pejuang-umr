@@ -4,7 +4,23 @@ export type ServerConfig = {
   guestTokenSecret: string;
   version: string;
   trustProxy: boolean;
+  /** Room waiting/finished tanpa aktivitas ini ditutup; room playing ditutup bila semua pemain putus selama ini. */
+  roomIdleMs?: number;
+  /** Room waiting/finished tanpa anggota tersambung selama ini ditutup. */
+  roomEmptyMs?: number;
 };
+
+export const DEFAULT_ROOM_IDLE_MS = 600_000;
+export const DEFAULT_ROOM_EMPTY_MS = 120_000;
+
+function readDuration(value: string | undefined, fallback: number, name: string): number {
+  if (value === undefined || value === "") return fallback;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`${name} harus berupa integer milidetik lebih dari 0.`);
+  }
+  return parsed;
+}
 
 const PLACEHOLDER_SECRET = "change-me";
 
@@ -36,5 +52,7 @@ export function readServerConfig(
     guestTokenSecret,
     version: env.npm_package_version ?? "0.0.0",
     trustProxy: env.TRUST_PROXY === "true",
+    roomIdleMs: readDuration(env.ROOM_IDLE_MS, DEFAULT_ROOM_IDLE_MS, "ROOM_IDLE_MS"),
+    roomEmptyMs: readDuration(env.ROOM_EMPTY_MS, DEFAULT_ROOM_EMPTY_MS, "ROOM_EMPTY_MS"),
   };
 }

@@ -38,4 +38,15 @@ describe("readServerConfig", () => {
     expect(config.port).toBe(3002);
     expect(readServerConfig({ PORT: "8080" }).port).toBe(8080);
   });
+
+  it("M11: ROOM_IDLE_MS default 600000 dan ROOM_EMPTY_MS default 120000, bisa diatur", () => {
+    const config = readServerConfig({ GUEST_TOKEN_SECRET: "change-me" });
+    expect(config.roomIdleMs).toBe(600_000);
+    expect(config.roomEmptyMs).toBe(120_000);
+    expect(readServerConfig({ ROOM_IDLE_MS: "1000", ROOM_EMPTY_MS: "500" })).toMatchObject({
+      roomIdleMs: 1000,
+      roomEmptyMs: 500,
+    });
+    expect(() => readServerConfig({ ROOM_IDLE_MS: "abc" })).toThrow(/ROOM_IDLE_MS/);
+  });
 });

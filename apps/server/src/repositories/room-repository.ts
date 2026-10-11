@@ -271,6 +271,18 @@ export class RoomRepository {
     return cloneRoom(this.save(room));
   }
 
+  codes(): string[] {
+    return [...this.rooms.keys()];
+  }
+
+  /** Menghapus room beserta pemetaan semua anggotanya. */
+  close(code: string): void {
+    const room = this.rooms.get(code);
+    if (!room) return;
+    for (const player of room.players) this.playerRooms.delete(player.playerId);
+    this.rooms.delete(code);
+  }
+
   get(code: string): RoomState | null {
     const room = this.rooms.get(code);
     return room ? cloneRoom(room) : null;
