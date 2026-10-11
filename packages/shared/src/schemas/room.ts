@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { AvatarIdSchema, PawnIdSchema } from "./common";
 
-export const PublicPlayerSchema = z.object({
+export const PublicPlayerSchema = z.strictObject({
   playerId: z.string().min(1),
   name: z.string().min(1),
   avatarId: AvatarIdSchema,

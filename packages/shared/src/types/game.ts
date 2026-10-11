@@ -1,110 +1,39 @@
-import type { CalendarEventPayload, CalendarInfo, Season } from "./calendar";
-import type { InviteCard, InviteIncomingPayload } from "./invite";
-import type { Effect, PawnId, PrivateStatus } from "./player";
-import type { RoomState } from "./room";
+import type { z } from "zod";
+import { CategorySchema, HexCoordSchema, OutcomeSchema, RiskSchema } from "../schemas/common";
+import {
+  DeadEndPayloadSchema,
+  GameFinishedPayloadSchema,
+  GoldTileSchema,
+  OpenedHexSchema,
+  PublicGameStateSchema,
+  RiskTagSchema,
+  ScoreRowSchema,
+  SnapshotSchema,
+  TileOptionSchema,
+  TurnOptionsPayloadSchema,
+} from "../schemas/game";
 
-export type HexCoord = { q: number; r: number };
-export type Category = "work" | "social" | "health" | "finance" | "gold";
-export type Outcome = "zonk" | "safe" | "lucky";
-export type Risk = "low" | "medium" | "high";
+export type HexCoord = z.infer<typeof HexCoordSchema>;
+export type Category = z.infer<typeof CategorySchema>;
+export type Outcome = z.infer<typeof OutcomeSchema>;
+export type Risk = z.infer<typeof RiskSchema>;
 
-export type OpenedHex = {
-  hex: HexCoord;
-  category: Category;
-  title: string;
-  outcome: Outcome | null;
-  byPlayerId: string;
-  step: number;
-};
+export type OpenedHex = z.infer<typeof OpenedHexSchema>;
 
-export type GoldTile = {
-  goldId: string;
-  hex: HexCoord;
-  title: string;
-  plan: Effect[];
-  expiresAtStep: number;
-};
+export type GoldTile = z.infer<typeof GoldTileSchema>;
 
-export type ScoreRow = {
-  playerId: string;
-  provisionalScore: number;
-  rank: number;
-  eliminated: boolean;
-};
+export type ScoreRow = z.infer<typeof ScoreRowSchema>;
 
-export type PublicGameState = {
-  version: number;
-  gameId: string;
-  boardRadius: 4 | 5 | 6;
-  calendar: CalendarInfo;
-  turnOrder: string[];
-  activePlayerId: string | null;
-  turnDeadline: number | null;
-  turnPaused: boolean;
-  pawns: Array<{ playerId: string; hex: HexCoord }>;
-  openedHexes: OpenedHex[];
-  deadHexes: HexCoord[];
-  gold: GoldTile | null;
-  scores: ScoreRow[];
-  rankOneBurden: string[];
-  eliminated: string[];
-  spectators: string[];
-};
+export type PublicGameState = z.infer<typeof PublicGameStateSchema>;
 
-export type RiskTag =
-  | { type: "rankOne"; plusPct: 15 }
-  | { type: "season"; season: Season; plusPct: 10 }
-  | { type: "immune"; reason: "health>=8" };
+export type RiskTag = z.infer<typeof RiskTagSchema>;
 
-export type TileOption = {
-  hex: HexCoord;
-  category: Category;
-  title: string;
-  plan: Effect[];
-  risk: Risk | null;
-  riskTags: RiskTag[];
-  isGold: boolean;
-};
+export type TileOption = z.infer<typeof TileOptionSchema>;
 
-export type TurnOptionsPayload = {
-  turnId: string;
-  options: TileOption[];
-};
+export type TurnOptionsPayload = z.infer<typeof TurnOptionsPayloadSchema>;
 
-export type DeadEndPayload = {
-  turnId: string;
-  options: Array<TileOption & { distance: number }>;
-  stressPenalty: 1;
-};
+export type DeadEndPayload = z.infer<typeof DeadEndPayloadSchema>;
 
-export type GameFinishedPayload = {
-  version: number;
-  ranking: Array<{
-    rank: number;
-    playerId: string;
-    name: string;
-    pawn: PawnId;
-    finalScore: number;
-    netWorth: number;
-    modifier: "penalty" | "bonus" | "none";
-    modifierPct: -50 | 20 | 0;
-    eliminated: boolean;
-    eliminatedAtStep: number | null;
-  }>;
-};
+export type GameFinishedPayload = z.infer<typeof GameFinishedPayloadSchema>;
 
-export type Snapshot = {
-  serverTime: number;
-  room: RoomState;
-  game: PublicGameState | null;
-  me: {
-    playerId: string;
-    status: PrivateStatus | null;
-    inviteCard: InviteCard | null;
-    pendingTurn: TurnOptionsPayload | DeadEndPayload | null;
-    pendingCalendar: CalendarEventPayload | null;
-    pendingInvite: InviteIncomingPayload | null;
-    isSpectator: boolean;
-  };
-  result: GameFinishedPayload | null;
-};
+export type Snapshot = z.infer<typeof SnapshotSchema>;
