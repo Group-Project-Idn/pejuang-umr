@@ -18,6 +18,15 @@ export const RAW_COLORS = {
   navy800: "#17202f",
   navy750: "#212b39",
   gray600: "#555f6f",
+  paper: "#f5d56b",
+  paperCard: "#ebc25a",
+  ink: "#3b2a12",
+  buttonGreen: "#8bd450",
+  buttonGreenInk: "#2d5a12",
+  buttonBlue: "#7fb0f5",
+  buttonBlueInk: "#1f3f73",
+  buttonOrange: "#f5a623",
+  stampRed: "#c0392b",
 } as const;
 
 export const SEMANTIC_TOKENS = {
@@ -32,6 +41,15 @@ export const SEMANTIC_TOKENS = {
   textPrimary: "#d9e3f7",
   textSecondary: "#cfc5b0",
   textMuted: "#85837c",
+  paper: RAW_COLORS.paper,
+  paperCard: RAW_COLORS.paperCard,
+  ink: RAW_COLORS.ink,
+  actionGreen: RAW_COLORS.buttonGreen,
+  actionGreenInk: RAW_COLORS.buttonGreenInk,
+  actionBlue: RAW_COLORS.buttonBlue,
+  actionBlueInk: RAW_COLORS.buttonBlueInk,
+  actionOrange: RAW_COLORS.buttonOrange,
+  stamp: RAW_COLORS.stampRed,
 } as const;
 
 export const RADIUS = { sm: 8, md: 16, lg: 24, full: 9999 } as const;

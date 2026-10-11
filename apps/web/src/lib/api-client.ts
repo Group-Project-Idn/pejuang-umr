@@ -1,8 +1,10 @@
 import {
   GuestResponseSchema,
+  RoomLookupResponseSchema,
   type Ack,
   type GuestRequest,
   type GuestResponse,
+  type RoomLookupResponse,
 } from "@pejuang/shared";
 import { getServerUrl } from "./config";
 
@@ -39,4 +41,26 @@ export async function createOrUpdateGuest(
   }
 
   return GuestResponseSchema.parse(body);
+}
+
+export async function lookupRoom(
+  code: string,
+  token?: string,
+): Promise<RoomLookupResponse> {
+  const response = await fetch(
+    `${getServerUrl()}/api/v1/rooms/${encodeURIComponent(code)}`,
+    {
+      cache: "no-store",
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+    },
+  );
+  const body = (await response.json()) as
+    | RoomLookupResponse
+    | { ok: false; error: string };
+  if (!response.ok || (body as { ok?: boolean }).ok === false) {
+    throw new Error(
+      (body as { error?: string }).error ?? "ROOM_NOT_FOUND",
+    );
+  }
+  return RoomLookupResponseSchema.parse(body);
 }
