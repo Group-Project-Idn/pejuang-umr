@@ -33,5 +33,7 @@ export interface GameState {
   baseTurnOrder: string[];
   pendingTurn: PendingTurn | null;
   pendingCalendarEvent: PendingCalendarEvent | null;
+  /** Pemain yang sudah melangkah di ronde ini; dikosongkan di awal ronde baru. */
+  movedThisRound: string[];
   phase: GamePhase;
 }

@@ -172,7 +172,7 @@ export function startRound(state: GameState, random: RandomSource): RoundResult 
     }
   }
 
-  const next: GameState = { ...state, players, public: publicState };
+  const next: GameState = { ...state, players, public: publicState, movedThisRound: [] };
   publicState.turnOrder = orderForMonth(next, monthOfStep(step));
 
   // TODO: Petak Emas (muncul di langkah 1, 5, 9, 13, 17, 21).

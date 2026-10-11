@@ -27,6 +27,7 @@ export function createGame(
     baseTurnOrder: [...publicState.turnOrder],
     pendingTurn: null,
     pendingCalendarEvent: null,
+    movedThisRound: [],
     phase: "roundStart",
   };
   const events: DomainEvent[] = playerIds.map((playerId) => ({

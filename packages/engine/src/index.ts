@@ -24,3 +24,4 @@ export * from "./reality/zonk-chance";
 export * from "./score/ranking";
 export * from "./score/score";
 export * from "./turn/round";
+export * from "./turn/turn";
