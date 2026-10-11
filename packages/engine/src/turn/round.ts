@@ -19,14 +19,18 @@ import {
 import { toMultiplayerEffects } from "../data/multiplier";
 import { applyEffects } from "../economy/apply-effects";
 import { processMonthChange } from "../economy/month-change";
+import { isBurnout } from "../economy/elimination";
 import { isMonthChangeStep } from "../economy/schedule";
 import type { DomainEvent } from "../game/domain-events";
 import type { CalendarChoiceId, GameState } from "../game/game-state";
 import type { RandomSource } from "../random";
+import { checkEarlyFinish } from "./turn";
 
 export interface RoundResult {
   state: GameState;
   events: DomainEvent[];
+  /** "finished" bila game selesai lebih cepat (<= 1 pemain hidup); server berhenti melanjutkan ronde. */
+  nextAction?: "finished";
 }
 
 export type AnswerResult =
@@ -178,6 +182,10 @@ export function startRound(state: GameState, random: RandomSource): RoundResult 
   }
 
   const next: GameState = { ...state, players, public: publicState, movedThisRound: [] };
+  const early = checkEarlyFinish(next);
+  if (early) {
+    return { state: early.state, events: [...events, ...early.events], nextAction: "finished" };
+  }
   publicState.turnOrder = orderForStep(next, step);
 
   // TODO: Petak Emas (muncul di langkah 1, 5, 9, 13, 17, 21).
@@ -242,6 +250,8 @@ export function closeCalendarEvent(state: GameState, random: RandomSource): Roun
   }
   const events: DomainEvent[] = [];
   const players = { ...state.players };
+  const step = state.public.calendar.step;
+  let publicState = state.public;
   for (const playerId of state.public.turnOrder) {
     const player = players[playerId];
     if (!player || player.eliminated) continue;
@@ -254,9 +264,13 @@ export function closeCalendarEvent(state: GameState, random: RandomSource): Roun
       effects.push(...toMultiplayerEffects(choice.chance.effects));
       flavor = choice.chance.text;
     }
-    // TODO: cek Bangkrut/Burnout setelah efek event.
+    // Kekurangan Kekayaan dari Event Tanggal tidak menyebabkan Bangkrut (GDD 1.4);
+    // hanya Burnout Total yang bisa mengeliminasi di sini.
     const status = applyEffects(player.status, effects).status;
-    players[playerId] = { ...player, status };
+    const burnout = isBurnout(status);
+    players[playerId] = burnout
+      ? { status, eliminated: true, eliminatedAtStep: step, eliminatedReason: "burnout" }
+      : { ...player, status };
     const target = { kind: "player", playerId } as const;
     events.push({
       type: "calendar:result",
@@ -270,9 +284,31 @@ export function closeCalendarEvent(state: GameState, random: RandomSource): Roun
       },
     });
     events.push({ type: "player:status", target, payload: status });
+    if (burnout) {
+      publicState = {
+        ...publicState,
+        eliminated: [...publicState.eliminated, playerId],
+        scores: publicState.scores.map((row) =>
+          row.playerId === playerId ? { ...row, eliminated: true } : row,
+        ),
+      };
+      events.push({
+        type: "player:eliminated",
+        target: { kind: "room" },
+        payload: { version: 0, playerId, reason: "burnout", step },
+      });
+    }
   }
-  return {
-    state: { ...state, players, pendingCalendarEvent: null, phase: "turn" },
-    events,
+  const next: GameState = {
+    ...state,
+    players,
+    public: publicState,
+    pendingCalendarEvent: null,
+    phase: "turn",
   };
+  const early = checkEarlyFinish(next);
+  if (early) {
+    return { state: early.state, events: [...events, ...early.events], nextAction: "finished" };
+  }
+  return { state: next, events };
 }

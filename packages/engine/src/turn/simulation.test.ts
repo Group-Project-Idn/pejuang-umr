@@ -6,6 +6,7 @@ import { playRandomGame } from "./simulation-helpers";
 const GAME_COUNT = 200;
 const DEBT_LIMIT = 25_000_000;
 const MONTH_CHANGES = 11;
+const TOTAL_STEPS = 24;
 
 function ofType<T extends DomainEvent["type"]>(events: readonly DomainEvent[], type: T) {
   return events.filter((e): e is Extract<DomainEvent, { type: T }> => e.type === type);
@@ -86,13 +87,20 @@ describe("simulasi game penuh", () => {
         if (initialUsedHexKeys.includes(key)) fail(`titik awal ${key} diinjak`);
       }
 
-      // Ganti bulan: tepat 11 kali untuk yang bertahan.
+      // Game boleh selesai sebelum Langkah 24, tetapi hanya bila <= 1 pemain hidup.
+      const reachedLastStep = state.public.calendar.step >= TOTAL_STEPS;
+      const alive = playerIds.filter((id) => !state.players[id]!.eliminated).length;
+      if (!reachedLastStep && alive > 1) {
+        fail(`selesai di langkah ${state.public.calendar.step} dengan ${alive} pemain hidup`);
+      }
+
+      // Ganti bulan: tepat 11 kali untuk yang bertahan, hanya bila game mencapai Langkah 24.
       for (const playerId of playerIds) {
         const summaries = ofType(events, "month:summary").filter(
           (e) => e.target.kind === "player" && e.target.playerId === playerId,
         ).length;
         const player = state.players[playerId]!;
-        if (!player.eliminated && summaries !== MONTH_CHANGES) {
+        if (!player.eliminated && reachedLastStep && summaries !== MONTH_CHANGES) {
           fail(`${playerId} bertahan tetapi ganti bulan ${summaries}x`);
         }
         if (player.eliminated && summaries > MONTH_CHANGES) {
