@@ -2,6 +2,7 @@ export const ENGINE_VERSION = "0.0.1";
 
 export * from "./board/board-state";
 export * from "./board/movement";
+export * from "./calendar/calendar";
 export * from "./economy/apply-effects";
 export * from "./economy/constants";
 export * from "./economy/doom";
