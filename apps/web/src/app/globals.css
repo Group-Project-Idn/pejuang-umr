@@ -1,5 +1,29 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+
+  --color-latar: #0a1422;
+  --color-kartu: #17202f;
+  --color-kartu-tinggi: #212b39;
+  --color-garis: #555f6f;
+  --color-teks-utama: #d9e3f7;
+  --color-teks-sekunder: #cfc5b0;
+  --color-teks-redup: #85837c;
+  --color-indikator-kekayaan: #f5c542;
+  --color-indikator-kesehatan: #3fb871;
+  --color-indikator-stres: #e0614a;
+  --color-bahaya: #7c2a19;
+  --color-bahaya-lembut: #f4b7ae;
+
+  --text-display: 2.5rem;
+  --text-headline: 1.75rem;
+  --text-title: 1.125rem;
+  --text-body: 1rem;
+  --text-body-sm: 0.875rem;
+  --text-label: 0.8125rem;
+}
+
 :root { --ink: #32251f; --paper: #f5df9d; }
 * { box-sizing: border-box; }
 html, body { min-height: 100%; }
