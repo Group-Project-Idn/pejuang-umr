@@ -2,6 +2,7 @@ import { getCalendarEventAtStep } from "../calendar/calendar";
 import { createGame } from "../game/create-game";
 import type { DomainEvent } from "../game/domain-events";
 import type { CalendarChoiceId, GameState } from "../game/game-state";
+import { expireInvite, respondInvite, sendInvite } from "../invite/invite";
 import type { RandomSource } from "../random";
 import { answerCalendarEvent, closeCalendarEvent, startRound } from "./round";
 import { chooseHex, endRound, startTurn, timeoutTurn } from "./turn";
@@ -10,6 +11,10 @@ const MAX_ITERATIONS = 2000;
 const TIMEOUT_PCT = 10;
 const SKIP_ANSWER_PCT = 15;
 const PLAYER_RANDOM_OFFSET = 7919;
+const INVITE_RANDOM_OFFSET = 104729;
+const INVITE_SEND_PCT = 30;
+const INVITE_EXPIRE_PCT = 20;
+const INVITE_JOIN_PCT = 50;
 
 /** RandomSource deterministik (mulberry32) untuk simulasi; bukan Math.random. */
 export class SeededRandom implements RandomSource {
@@ -40,11 +45,33 @@ export class SeededRandom implements RandomSource {
   }
 }
 
+/** Catatan satu Ajakan sukses; `scoreDelta` = selisih Skor Sementara sesaat setelah dijawab. */
+export interface InviteLogEntry {
+  step: number;
+  senderId: string;
+  targetId: string;
+  answer: "join" | "decline";
+  autoDeclined: boolean;
+  senderScoreDelta: number;
+  targetScoreDelta: number;
+}
+
 export interface SimulationResult {
   state: GameState;
   events: DomainEvent[];
   initialUsedHexKeys: string[];
   playerIds: string[];
+  inviteLog: InviteLogEntry[];
+  /** Percobaan kirim yang ditolak karena INVITE_LIMIT (1 Ajakan per ronde). */
+  inviteLimitRejections: number;
+}
+
+function isFinished(state: GameState): boolean {
+  return state.phase === "finished";
+}
+
+function scoreOf(state: GameState, playerId: string): number {
+  return state.public.scores.find((row) => row.playerId === playerId)?.provisionalScore ?? 0;
 }
 
 export type Observer = (state: GameState, events: readonly DomainEvent[]) => void;
@@ -57,6 +84,9 @@ export function playRandomGame(
 ): SimulationResult {
   const engineRandom = new SeededRandom(seed);
   const playerRandom = new SeededRandom(seed + PLAYER_RANDOM_OFFSET);
+  const inviteRandom = new SeededRandom(seed + INVITE_RANDOM_OFFSET);
+  const inviteLog: InviteLogEntry[] = [];
+  let inviteLimitRejections = 0;
   const playerIds = Array.from({ length: playerCount }, (_, index) => `p${index + 1}`);
 
   const created = createGame(playerIds, `sim-${seed}`, engineRandom);
@@ -69,6 +99,42 @@ export function playRandomGame(
     state = next;
     events.push(...produced);
     observe?.(state, produced);
+  };
+
+  /** Pemain yang sedang giliran punya peluang 30% mengirim Ajakan bila memegang kartu. */
+  const maybeInvite = (senderId: string) => {
+    const card = state.players[senderId]?.inviteCard;
+    if (!card || !inviteRandom.chance(INVITE_SEND_PCT)) return;
+    const targets = playerIds.filter((id) => id !== senderId && !state.players[id]!.eliminated);
+    if (targets.length === 0) return;
+    const targetId = inviteRandom.pick(targets);
+    const sent = sendInvite(state, senderId, card.cardId, targetId);
+    if (!sent.ok) {
+      if (sent.code !== "INVITE_LIMIT") throw new Error(`${sent.code}: ${sent.message}`);
+      inviteLimitRejections += 1;
+      return;
+    }
+    record(sent.state, sent.events);
+    const inviteId = state.pendingInvite!.inviteId;
+    const step = state.public.calendar.step;
+    const senderBefore = scoreOf(state, senderId);
+    const targetBefore = scoreOf(state, targetId);
+    const autoDeclined = inviteRandom.chance(INVITE_EXPIRE_PCT);
+    const answer = inviteRandom.chance(INVITE_JOIN_PCT) ? "join" : "decline";
+    const resolved = autoDeclined
+      ? expireInvite(state, inviteId)
+      : respondInvite(state, targetId, inviteId, answer);
+    if (!resolved.ok) throw new Error(`${resolved.code}: ${resolved.message}`);
+    record(resolved.state, resolved.events);
+    inviteLog.push({
+      step,
+      senderId,
+      targetId,
+      answer: autoDeclined ? "decline" : answer,
+      autoDeclined,
+      senderScoreDelta: scoreOf(state, senderId) - senderBefore,
+      targetScoreDelta: scoreOf(state, targetId) - targetBefore,
+    });
   };
 
   for (let iteration = 0; state.phase !== "finished"; iteration += 1) {
@@ -110,6 +176,9 @@ export function playRandomGame(
       continue;
     }
 
+    maybeInvite(state.pendingTurn.playerId);
+    if (isFinished(state)) continue;
+
     const pending = state.pendingTurn;
     const result = playerRandom.chance(TIMEOUT_PCT)
       ? timeoutTurn(state, pending.turnId, engineRandom)
@@ -128,5 +197,5 @@ export function playRandomGame(
     }
   }
 
-  return { state, events, initialUsedHexKeys, playerIds };
+  return { state, events, initialUsedHexKeys, playerIds, inviteLog, inviteLimitRejections };
 }
