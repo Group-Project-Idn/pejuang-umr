@@ -133,6 +133,18 @@ export class RoomRepository {
     return { ok: true, room: cloneRoom(this.save(room)) };
   }
 
+  // Keluar saat game berjalan (GDD 9.4 v1.10): diperlakukan sama seperti
+  // koneksi putus. Pemain TETAP terdaftar di room dan game, hanya ditandai
+  // terputus (connected: false) agar bisa kembali lewat session:resume.
+  markDisconnected(playerId: string): RoomMutationResult {
+    const room = this.getByPlayerMutable(playerId);
+    if (!room) return { ok: false, error: "NOT_IN_ROOM" };
+    room.players = room.players.map((player) =>
+      player.playerId === playerId ? { ...player, connected: false } : player,
+    );
+    return { ok: true, room: cloneRoom(this.save(room)) };
+  }
+
   setReady(playerId: string, ready: boolean): RoomMutationResult {
     const room = this.getByPlayerMutable(playerId);
     if (!room) return { ok: false, error: "NOT_IN_ROOM" };

@@ -25,7 +25,7 @@ export function readServerConfig(
     }
   }
 
-  const port = Number(env.PORT ?? 3001);
+  const port = Number(env.PORT ?? 3002);
   if (!Number.isInteger(port) || port < 0 || port > 65_535) {
     throw new Error("PORT harus berupa integer antara 0 dan 65535.");
   }

@@ -550,4 +550,135 @@ describe("room lifecycle", () => {
     );
     expect(server.rooms.get("UMR-1234")?.players).toHaveLength(2);
   });
+
+  it("M5: session:resume ke room ada tapi bukan anggotanya dijawab NOT_IN_ROOM", async () => {
+    const { baseUrl, server } = await startServer();
+    const host = await connectGuest(baseUrl, "Host", "avatar-01");
+    const outsider = await connectGuest(baseUrl, "Bukan Anggota", "avatar-02");
+    await host.socket.emitWithAck("room:create", {
+      requestId: requestIds[0]!,
+    });
+
+    // Room ada, tapi pemain ini tidak terdaftar -> NOT_IN_ROOM (bukan ROOM_NOT_FOUND).
+    const resumed = await outsider.socket.emitWithAck("session:resume", {
+      requestId: requestIds[1]!,
+      roomCode: "UMR-1234",
+    });
+    expect(resumed).toEqual({ ok: false, error: "NOT_IN_ROOM" });
+
+    // Room yang tidak ada tetap ROOM_NOT_FOUND.
+    const missing = await outsider.socket.emitWithAck("session:resume", {
+      requestId: requestIds[2]!,
+      roomCode: "UMR-9999",
+    });
+    expect(missing).toEqual({ ok: false, error: "ROOM_NOT_FOUND" });
+    expect(server.rooms.get("UMR-1234")?.hostId).toBe(host.playerId);
+  });
+
+  it("M8: game:start menolak payload berlebih dengan INVALID_PAYLOAD (skema strict)", async () => {
+    const { baseUrl } = await startServer();
+    const host = await connectGuest(baseUrl, "Host", "avatar-01");
+    const guest = await connectGuest(baseUrl, "Guest", "avatar-02");
+    await host.socket.emitWithAck("room:create", {
+      requestId: requestIds[0]!,
+    });
+    await guest.socket.emitWithAck("room:join", {
+      requestId: requestIds[1]!,
+      roomCode: "UMR-1234",
+    });
+    await guest.socket.emitWithAck("room:ready", {
+      requestId: requestIds[2]!,
+      ready: true,
+    });
+
+    // GameStartRequestSchema strict: field asing harus ditolak.
+    const rejected = await host.socket.timeout(1_000).emitWithAck(
+      "game:start",
+      { requestId: requestIds[3]!, roomCode: "UMR-1234" } as never,
+    );
+    expect(rejected).toEqual({ ok: false, error: "INVALID_PAYLOAD" });
+
+    // Payload bersih tetap diterima.
+    const accepted = await host.socket.emitWithAck("game:start", {
+      requestId: requestIds[4]!,
+    });
+    expect(accepted).toEqual({ ok: true });
+  });
+
+  it("M10: room:leave saat game berjalan tidak ditolak, pemain tetap terdaftar", async () => {
+    const { baseUrl, server } = await startServer(20);
+    const host = await connectGuest(baseUrl, "Host", "avatar-01");
+    const guest = await connectGuest(baseUrl, "Guest", "avatar-02");
+    await host.socket.emitWithAck("room:create", {
+      requestId: requestIds[0]!,
+    });
+    await guest.socket.emitWithAck("room:join", {
+      requestId: requestIds[1]!,
+      roomCode: "UMR-1234",
+    });
+    await guest.socket.emitWithAck("room:ready", {
+      requestId: requestIds[2]!,
+      ready: true,
+    });
+
+    const started = new Promise<Parameters<ServerToClientEvents["game:started"]>[0]>(
+      (resolve) => host.socket.once("game:started", resolve),
+    );
+    await host.socket.emitWithAck("game:start", {
+      requestId: requestIds[3]!,
+    });
+    await started;
+    expect(server.rooms.get("UMR-1234")?.status).toBe("playing");
+
+    // Pemain lain (host) menerima player:connection connected:false.
+    const connection = new Promise<
+      Parameters<ServerToClientEvents["player:connection"]>[0]
+    >((resolve) => host.socket.once("player:connection", resolve));
+
+    // Guest menekan Keluar saat game berjalan: ack ok, tidak ROOM_LOCKED.
+    const leave = await guest.socket.emitWithAck("room:leave", {
+      requestId: requestIds[4]!,
+    });
+    expect(leave).toEqual({ ok: true });
+
+    await expect(connection).resolves.toMatchObject({
+      playerId: guest.playerId,
+      connected: false,
+    });
+
+    // Pemain tetap tercatat di room dan game dengan connected false.
+    const room = server.rooms.get("UMR-1234")!;
+    expect(room.status).toBe("playing");
+    expect(player(room, guest.playerId).connected).toBe(false);
+    expect(server.games.get("UMR-1234")?.pawns).toHaveLength(2);
+
+    // Pemain bisa kembali lewat session:resume.
+    const resumed = await guest.socket.emitWithAck("session:resume", {
+      requestId: requestIds[5]!,
+      roomCode: "UMR-1234",
+    });
+    expect(resumed.ok).toBe(true);
+    if (!resumed.ok) return;
+    expect(player(resumed.snapshot.room, guest.playerId).connected).toBe(true);
+  });
+
+  it("M10: room:leave saat waiting tetap mengeluarkan pemain", async () => {
+    const { baseUrl, server } = await startServer();
+    const host = await connectGuest(baseUrl, "Host", "avatar-01");
+    const guest = await connectGuest(baseUrl, "Guest", "avatar-02");
+    await host.socket.emitWithAck("room:create", {
+      requestId: requestIds[0]!,
+    });
+    await guest.socket.emitWithAck("room:join", {
+      requestId: requestIds[1]!,
+      roomCode: "UMR-1234",
+    });
+
+    const left = await guest.socket.emitWithAck("room:leave", {
+      requestId: requestIds[2]!,
+    });
+    expect(left).toEqual({ ok: true });
+    // Saat waiting, pemain benar-benar dikeluarkan dari room.
+    expect(server.rooms.get("UMR-1234")?.players).toHaveLength(1);
+  });
 });

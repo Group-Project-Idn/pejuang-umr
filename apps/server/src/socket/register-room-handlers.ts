@@ -1,4 +1,5 @@
 import {
+  GameStartRequestSchema,
   RoomCreateRequestSchema,
   RoomJoinRequestSchema,
   RoomKickRequestSchema,
@@ -120,20 +121,33 @@ export function registerRoomHandlers(
     const parsed = RoomLeaveRequestSchema.safeParse(payload);
     if (!parsed.success) return ack(invalidPayload());
     const roomBefore = rooms.getByPlayer(socket.data.playerId);
+    // Keluar saat game berjalan (GDD 9.4 v1.10) diperlakukan seperti koneksi
+    // putus: pemain tetap terdaftar dan hanya ditandai terputus.
+    const playing = roomBefore?.status === "playing";
     const result = runIdempotent<EmptyResult>(
       idempotency,
       socket.data.playerId,
       "room:leave",
       parsed.data.requestId,
       () => {
-        const mutation = rooms.leave(socket.data.playerId);
+        const mutation = playing
+          ? rooms.markDisconnected(socket.data.playerId)
+          : rooms.leave(socket.data.playerId);
         return mutation.ok ? { ok: true } : mutation;
       },
     );
     if (result.response.ok && !result.replayed && roomBefore) {
       void socket.leave(roomBefore.code);
-      const remaining = rooms.get(roomBefore.code);
-      if (remaining) emitRoomState(io, remaining);
+      if (playing) {
+        io.to(roomBefore.code).emit("player:connection", {
+          playerId: socket.data.playerId,
+          connected: false,
+          at: Date.now(),
+        });
+      } else {
+        const remaining = rooms.get(roomBefore.code);
+        if (remaining) emitRoomState(io, remaining);
+      }
     }
     ack(result.response);
   }));
@@ -232,7 +246,7 @@ export function registerRoomHandlers(
   }));
 
   socket.on("game:start", (payload, unsafeAck) => executeWithAck<EmptyResult>(unsafeAck, (ack) => {
-    const parsed = RoomCreateRequestSchema.safeParse(payload);
+    const parsed = GameStartRequestSchema.safeParse(payload);
     if (!parsed.success) return ack(invalidPayload());
     const result = runIdempotent<EmptyResult>(
       idempotency,
@@ -312,11 +326,11 @@ export function registerRoomHandlers(
       return ack(invalidPayload<{ snapshot: ReturnType<typeof createSnapshot> }>());
     }
     const room = rooms.get(parsed.data.roomCode);
-    if (
-      !room ||
-      !room.players.some((player) => player.playerId === socket.data.playerId)
-    ) {
+    if (!room) {
       return ack({ ok: false, error: "ROOM_NOT_FOUND" });
+    }
+    if (!room.players.some((player) => player.playerId === socket.data.playerId)) {
+      return ack({ ok: false, error: "NOT_IN_ROOM" });
     }
 
     rooms.setConnected(socket.data.playerId, true);
