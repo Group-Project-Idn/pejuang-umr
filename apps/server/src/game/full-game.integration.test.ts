@@ -90,6 +90,8 @@ function collectKeys(value: unknown, keys = new Set<string>()): Set<string> {
   return keys;
 }
 
+const MOTIVE_ALLOWED_TYPES = new Set(["invite:card", "invite:resolved"]);
+
 describe("game penuh 3 bot", () => {
   it("berjalan sampai game:finished tanpa kebocoran dan tanpa lompatan version", async () => {
     const startedAt = Date.now();
@@ -239,7 +241,10 @@ describe("game penuh 3 bot", () => {
     for (const bot of bots) {
       for (const entry of bot.log) {
         const keys = collectKeys(entry.payload);
-        expect(keys.has("motive"), `motive di ${entry.type}`).toBe(false);
+        // Motif hanya milik pemilik kartu (invite:card) dan hasil Ajakan per pemain (invite:resolved).
+        if (!MOTIVE_ALLOWED_TYPES.has(entry.type)) {
+          expect(keys.has("motive"), `motive di ${entry.type}`).toBe(false);
+        }
         if ([...keys].some((key) => PRIVATE_STAT_KEYS.has(key))) {
           expect(STAT_ALLOWED_TYPES.has(entry.type), `field status di ${entry.type}`).toBe(true);
         }

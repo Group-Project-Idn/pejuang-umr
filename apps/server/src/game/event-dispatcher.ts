@@ -7,6 +7,9 @@ import {
   GamePatchPayloadSchema,
   GoldExpiredPayloadSchema,
   GoldSpawnedPayloadSchema,
+  InviteCardPushPayloadSchema,
+  InviteIncomingPayloadSchema,
+  InviteResolvedPayloadSchema,
   MonthSummaryPayloadSchema,
   PlayerEliminatedPayloadSchema,
   PrivateStatusSchema,
@@ -53,6 +56,9 @@ const PAYLOAD_SCHEMAS: Partial<Record<keyof ServerToClientEvents, PayloadSchema>
   "tile:resolved": TileResolvedPayloadSchema,
   "gold:spawned": GoldSpawnedPayloadSchema,
   "gold:expired": GoldExpiredPayloadSchema,
+  "invite:card": InviteCardPushPayloadSchema,
+  "invite:incoming": InviteIncomingPayloadSchema,
+  "invite:resolved": InviteResolvedPayloadSchema,
 };
 
 /** Event room yang tidak dikirim ke penonton: ia tidak ikut bermain (GDD 9.4). */

@@ -14,10 +14,10 @@ export function createSnapshot(
     me: {
       playerId,
       status: session ? session.statusOf(playerId) : null,
-      inviteCard: null,
+      inviteCard: session ? session.inviteCardFor(playerId) : null,
       pendingTurn: session ? session.pendingTurnFor(playerId) : null,
       pendingCalendar: session ? session.pendingCalendarFor(playerId) : null,
-      pendingInvite: null,
+      pendingInvite: session ? session.pendingInviteFor(playerId) : null,
       isSpectator: session ? session.isSpectator(playerId) : false,
     },
     result: session ? session.result : null,

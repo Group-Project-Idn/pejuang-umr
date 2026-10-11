@@ -22,7 +22,12 @@ type GameSocket = Socket<
   SocketData
 >;
 
-type GameAction = "calendar:answer" | "turn:choose" | "turn:jump";
+type GameAction =
+  | "calendar:answer"
+  | "turn:choose"
+  | "turn:jump"
+  | "invite:send"
+  | "invite:respond";
 
 /** Handler aksi pemain selama game. `idempotency` memakai jendela 60 detik (API_CONTRACT 1.3). */
 export function registerGameHandlers(
@@ -34,9 +39,9 @@ export function registerGameHandlers(
 ): void {
   const register = (
     event: GameAction,
-    run: (session: GameSession, playerId: string, payload: never) => Ack,
+    run: (session: GameSession, playerId: string, payload: never) => Ack<object>,
   ) => {
-    // Tipe handler dibuat longgar karena tiga event berbagi satu alur yang sama.
+    // Tipe handler dibuat longgar karena beberapa event berbagi satu alur yang sama.
     (socket as unknown as { on(e: string, h: (p: unknown, a: unknown) => void): void }).on(
       event,
       (payload, unsafeAck) =>
@@ -66,6 +71,13 @@ export function registerGameHandlers(
   );
   register("turn:jump", (session, playerId, p: { turnId: string; hex: never }) =>
     session.move(playerId, p.turnId, p.hex, "jump"),
+  );
+
+  register("invite:send", (session, playerId, p: { cardId: string; targetPlayerId: string }) =>
+    session.sendInvite(playerId, p.cardId, p.targetPlayerId),
+  );
+  register("invite:respond", (session, playerId, p: { inviteId: string; answer: "join" | "decline" }) =>
+    session.respondInvite(playerId, p.inviteId, p.answer),
   );
 
   // Tanpa cache idempotensi: memanggil ulang selalu aman dan snapshot-nya harus segar.

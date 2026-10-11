@@ -335,6 +335,11 @@ export function registerRoomHandlers(
               {
                 clock,
                 send: (events) => dispatch(io, session, events),
+                broadcast: (event, payload) =>
+                  (io.to(room.code) as unknown as { emit(e: string, p: unknown): void }).emit(
+                    event,
+                    payload,
+                  ),
                 onFinished: () => {
                   const finished = rooms.markFinished(room.code);
                   if (finished.ok) emitRoomState(io, finished.room);

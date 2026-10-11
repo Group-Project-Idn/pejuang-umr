@@ -5,7 +5,10 @@ import {
   chooseHex,
   closeCalendarEvent,
   endRound,
+  expireInvite,
   finishGame,
+  respondInvite,
+  sendInvite,
   startRound,
   startTurn,
   timeoutTurn,
@@ -18,15 +21,23 @@ import {
   type TurnResult,
   toPublicState,
 } from "@pejuang/engine";
-import type { Ack, HexCoord, PublicGameState } from "@pejuang/shared";
+import type {
+  Ack,
+  HexCoord,
+  InviteIncomingPayload,
+  PublicGameState,
+} from "@pejuang/shared";
 import { systemClock, type Clock, type TimerHandle } from "./clock";
 
 export const CALENDAR_SECONDS = 15;
+export const INVITE_SECONDS = 10;
 
 export interface SessionRuntime {
   clock: Clock;
   /** Meneruskan event engine ke klien (dispatcher). */
   send(events: DomainEvent[]): void;
+  /** Event room yang bukan DomainEvent engine (mis. turn:timer). Opsional supaya tes lama tetap jalan. */
+  broadcast?(event: "turn:timer", payload: unknown): void;
   /** Dipanggil sekali saat game selesai (mis. status room "finished"). */
   onFinished(): void;
 }
@@ -66,6 +77,11 @@ export class GameSession {
   /** Payload game:finished persis seperti yang dikirim (dengan version), untuk snapshot. */
   result: FinishedPayload | null = null;
   private turnDeadline: number | null = null;
+  private inviteTimer: TimerHandle | null = null;
+  /** Payload invite:incoming yang sedang menunggu jawaban (untuk snapshot). */
+  private pendingInviteInfo: { targetId: string; payload: InviteIncomingPayload } | null = null;
+  /** Sisa waktu giliran yang dijeda selama Ajakan ke pemain aktif. */
+  private pausedTurn: { turnId: string; remainingMs: number } | null = null;
   /** Pemain tereliminasi yang memilih jadi penonton (public.spectators). */
   private readonly spectators = new Set<string>();
 
@@ -78,6 +94,8 @@ export class GameSession {
   dispose(): void {
     this.clearCalendarTimer();
     this.clearTurnTimer();
+    this.clearInviteTimer();
+    this.pausedTurn = null;
   }
 
   answerCalendar(
@@ -110,6 +128,117 @@ export class GameSession {
     this.clearTurnTimer();
     this.applyTurnResult(result);
     return { ok: true };
+  }
+
+  /** invite:send. Mengisi fromName dan deadline 10 detik, lalu menjeda timer giliran bila target sedang giliran. */
+  sendInvite(
+    senderId: string,
+    cardId: string,
+    targetId: string,
+  ): Ack<{ inviteId: string; deadline: number }> {
+    if (this.finished) return { ok: false, error: "GAME_FINISHED" };
+    const result = sendInvite(this.state, senderId, cardId, targetId);
+    if (!result.ok) return { ok: false, error: result.code, message: result.message };
+    const now = this.runtime.clock.now();
+    const deadline = now + INVITE_SECONDS * 1000;
+    const inviteId = result.state.pendingInvite?.inviteId ?? "";
+    const events = result.events.map((event): DomainEvent => {
+      if (event.type !== "invite:incoming") return event;
+      const payload = {
+        ...(event.payload as InviteIncomingPayload),
+        fromName: this.identities[senderId]?.name ?? senderId,
+        deadline,
+      };
+      this.pendingInviteInfo = { targetId, payload };
+      return { ...event, payload } as DomainEvent;
+    });
+    this.state = result.state;
+    this.inviteTimer = this.runtime.clock.setTimeout(
+      () => this.onInviteTimeout(inviteId),
+      INVITE_SECONDS * 1000,
+    );
+    const pending = this.state.pendingTurn;
+    if (result.targetIsActivePlayer && pending && this.turnDeadline !== null) {
+      const remainingMs = Math.max(0, this.turnDeadline - now);
+      this.clearTurnTimer();
+      this.pausedTurn = { turnId: pending.turnId, remainingMs };
+      this.broadcastTurnTimer(pending.turnId, true, null, remainingMs);
+    }
+    this.emit(events, now);
+    return { ok: true, inviteId, deadline };
+  }
+
+  /** invite:respond. */
+  respondInvite(playerId: string, inviteId: string, answer: "join" | "decline"): Ack {
+    if (this.finished) return { ok: false, error: "GAME_FINISHED" };
+    const result = respondInvite(this.state, playerId, inviteId, answer);
+    if (!result.ok) return { ok: false, error: result.code, message: result.message };
+    this.afterInvite(result);
+    return { ok: true };
+  }
+
+  private onInviteTimeout(inviteId: string): void {
+    this.inviteTimer = null;
+    if (this.finished) return;
+    const result = expireInvite(this.state, inviteId);
+    if (result.ok) this.afterInvite(result);
+  }
+
+  /** Ajakan selesai (dijawab atau habis waktu): terapkan hasil, lalu lanjutkan atau hentikan giliran. */
+  private afterInvite(result: RoundResult): void {
+    this.clearInviteTimer();
+    this.pendingInviteInfo = null;
+    this.state = result.state;
+    this.emit(result.events);
+    if (result.nextAction === "finished") return this.finish();
+
+    const paused = this.pausedTurn;
+    this.pausedTurn = null;
+    const pending = this.state.pendingTurn;
+    if (pending && this.state.players[pending.playerId]?.eliminated) {
+      // Engine tidak membersihkan pendingTurn pemain yang Burnout karena Ajakan.
+      this.clearTurnTimer();
+      this.state = { ...this.state, pendingTurn: null };
+      return this.runTurn();
+    }
+    if (paused && pending && pending.turnId === paused.turnId) {
+      const now = this.runtime.clock.now();
+      this.turnDeadline = now + paused.remainingMs;
+      this.turnTimer = this.runtime.clock.setTimeout(
+        () => this.onTurnTimeout(paused.turnId),
+        paused.remainingMs,
+      );
+      this.broadcastTurnTimer(paused.turnId, false, this.turnDeadline, paused.remainingMs);
+    }
+  }
+
+  private broadcastTurnTimer(
+    turnId: string,
+    paused: boolean,
+    deadline: number | null,
+    remainingMs: number,
+  ): void {
+    this.runtime.broadcast?.("turn:timer", {
+      version: this.nextVersion(),
+      turnId,
+      paused,
+      deadline,
+      remainingMs,
+    });
+  }
+
+  private clearInviteTimer(): void {
+    if (this.inviteTimer !== null) this.runtime.clock.clearTimeout(this.inviteTimer);
+    this.inviteTimer = null;
+  }
+
+  inviteCardFor(playerId: string): Snapshot["me"]["inviteCard"] {
+    return this.state.players[playerId]?.inviteCard ?? null;
+  }
+
+  pendingInviteFor(playerId: string): InviteIncomingPayload | null {
+    const info = this.pendingInviteInfo;
+    return info && info.targetId === playerId ? info.payload : null;
   }
 
   private runRound(): void {
@@ -223,7 +352,7 @@ export class GameSession {
     this.turnDeadline = null;
   }
 
-  /** State publik untuk snapshot: version dan turnDeadline asli (timer tidak di-reset saat resume). */
+  /** State publik untuk snapshot: turnDeadline null selama timer dijeda, deadline baru setelah dilanjutkan. */
   publicState(): PublicGameState {
     return structuredClone({
       ...toPublicState(this.state),
