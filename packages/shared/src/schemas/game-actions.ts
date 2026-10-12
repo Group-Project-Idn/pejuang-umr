@@ -25,12 +25,15 @@ export const TurnChooseRequestSchema = z.strictObject(turnMoveShape);
 
 export const TurnJumpRequestSchema = z.strictObject(turnMoveShape);
 
+/** @deprecated v0.3: mode penonton dihapus. */
 export const SpectateEnterRequestSchema = z.strictObject(
   RequestPayloadSchema.shape,
 );
 
 export const InviteSendRequestSchema = z.strictObject({
   ...RequestPayloadSchema.shape,
+  // v0.3: wajib setelah pembersihan G7
+  turnId: z.string().min(1).optional(),
   cardId: z.string().min(1),
   targetPlayerId: z.string().min(1),
 });
@@ -44,4 +47,10 @@ export const InviteRespondRequestSchema = z.strictObject({
 export const EmoteSendRequestSchema = z.strictObject({
   ...RequestPayloadSchema.shape,
   emoteId: z.string().min(1),
+});
+
+export const MonthPayDebtRequestSchema = z.strictObject({
+  ...RequestPayloadSchema.shape,
+  month: z.number().int().min(1).max(12),
+  amount: z.number().int().nonnegative(),
 });

@@ -6,6 +6,8 @@ import {
   GoldTileSchema,
   OpenedHexSchema,
   PublicGameStateSchema,
+  ReflectionSchema,
+  RevealedRealitySchema,
   RiskTagSchema,
   ScoreRowSchema,
   SnapshotSchema,
@@ -37,3 +39,7 @@ export type DeadEndPayload = z.infer<typeof DeadEndPayloadSchema>;
 export type GameFinishedPayload = z.infer<typeof GameFinishedPayloadSchema>;
 
 export type Snapshot = z.infer<typeof SnapshotSchema>;
+
+export type RevealedReality = z.infer<typeof RevealedRealitySchema>;
+
+export type Reflection = z.infer<typeof ReflectionSchema>;
