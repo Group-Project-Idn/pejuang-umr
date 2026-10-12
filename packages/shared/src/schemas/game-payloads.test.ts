@@ -197,10 +197,9 @@ describe("bentuk payload S->C", () => {
             playerId: "p1",
             name: "Nick",
             pawn: "cream-circle",
-            finalScore: 100,
+            finalScore: 70,
             netWorth: 5_000_000,
-            modifier: "bonus",
-            modifierPct: 20,
+            points: { finance: 60, health: 80, calm: 70 },
             eliminated: false,
             eliminatedAtStep: null,
           },
@@ -301,16 +300,20 @@ describe("bentuk payload S->C", () => {
         version: 1,
         serverTime: 1_000,
         gameId: "game-1",
-        boardRadius: 4,
+        boardRadius: 6,
         turnSeconds: 30,
         turnOrder: ["p1", "p2"],
         startPositions: [
-          { playerId: "p1", hex: { q: 4, r: -4 } },
-          { playerId: "p2", hex: { q: -4, r: 4 } },
+          { playerId: "p1", hex: { q: 3, r: -3 } },
+          { playerId: "p2", hex: { q: -3, r: 3 } },
         ],
         calendar: CALENDAR_INFO,
       }).success,
     ).toBe(true);
+    expect(GameStartedPayloadSchema.safeParse({
+      version: 1, serverTime: 1_000, gameId: "game-1", boardRadius: 4,
+      turnSeconds: 30, turnOrder: ["p1", "p2"], startPositions: [], calendar: CALENDAR_INFO,
+    }).success).toBe(false);
   });
 
   it("SeasonChangedPayloadSchema menerima pergantian musim yang valid", () => {

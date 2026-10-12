@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hexKey } from "@pejuang/shared";
+import { createBoard, getHexDistance, hexKey } from "@pejuang/shared";
 import { GOLD_TILES, TILES } from "../data";
 import { createGameSetup, createStartPositions } from "../game/initial-state";
 import { MathRandomSource, SequenceRandomSource } from "../random";
@@ -56,6 +56,20 @@ describe("createBoardState", () => {
 });
 
 describe("createGameSetup", () => {
+  it("papan 127 heksa: titik awal 2/3/4 pemain tersebar sesuai cincin GDD 4.1", () => {
+    for (const count of [2, 3, 4]) {
+      const { publicState, board } = createGameSetup(ids(count), "g", new SequenceRandomSource([0.5]));
+      expect(publicState.boardRadius).toBe(6);
+      expect(createBoard(publicState.boardRadius)).toHaveLength(127);
+      const starts = publicState.pawns.map(({ hex }) => hex);
+      expect(starts).toHaveLength(count);
+      expect(new Set(starts.map(hexKey)).size).toBe(count);
+      expect(starts.every((hex) => getHexDistance({ q: 0, r: 0 }, hex) === (count === 4 ? 2 : 3))).toBe(true);
+      expect(Object.keys(board.tiles)).toHaveLength(127 - count);
+      expect(board.usedHexKeys).toHaveLength(count);
+    }
+  });
+
   it("publicState tidak membocorkan id petak", () => {
     const { publicState, board } = createGameSetup(
       ids(4),

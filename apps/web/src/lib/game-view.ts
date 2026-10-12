@@ -241,7 +241,6 @@ export function applyGoldExpired(
     ...current!,
     version: payload.version,
     gold: null,
-    deadHexes: [...current!.deadHexes, payload.hex],
   };
 }
 

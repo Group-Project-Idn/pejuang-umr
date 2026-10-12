@@ -179,7 +179,7 @@ describe("reducer event publik (B01)", () => {
     version: 1,
     serverTime: 1_000,
     gameId: "game-1",
-    boardRadius: 4,
+    boardRadius: 6,
     turnSeconds: 30,
     turnOrder: ["p1", "p2"],
     startPositions: [
@@ -317,7 +317,7 @@ describe("reducer event publik (B01)", () => {
     ).toEqual([]);
   });
 
-  it("menyelesaikan heksa, mengklaim emas, lalu menghanguskannya", () => {
+  it("menghanguskan emas tanpa mengubah heksa tertutup menjadi Heksa Mati", () => {
     const game = applyTileResolved(
       applyTileOpened(baseGame(), tileOpened)!,
       resolved,
@@ -342,7 +342,7 @@ describe("reducer event publik (B01)", () => {
       hex: { q: 2, r: 0 },
     })!;
     expect(expired.gold).toBeNull();
-    expect(expired.deadHexes).toEqual([{ q: 2, r: 0 }]);
+    expect(expired.deadHexes).toEqual([]);
     expect(
       applyGoldExpired(expired, {
         version: 7,

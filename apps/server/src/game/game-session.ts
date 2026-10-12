@@ -110,6 +110,7 @@ export class GameSession {
   private calendarDeadline: number | null = null;
   private turnTimer: TimerHandle | null = null;
   private monthTimer: TimerHandle | null = null;
+  private monthDeadline: number | null = null;
   private revealTimer: TimerHandle | null = null;
   finished = false;
   /** Payload game:finished persis seperti yang dikirim (dengan version), untuk snapshot. */
@@ -145,6 +146,10 @@ export class GameSession {
     amount: number,
   ): Ack<{ paid: number; debtCleared: boolean; stressDelta: 0 | -2 }> {
     if (this.finished) return { ok: false, error: "GAME_FINISHED" };
+    if (this.state.phase === "monthChange" && this.isPastDeadline(this.monthDeadline)) {
+      this.closeMonth();
+      return { ok: false, error: "PAYMENT_CLOSED" };
+    }
     const result = answerMonthPayment(this.state, playerId, month, amount);
     if (!result.ok) return { ok: false, error: result.code, message: result.message };
     this.state = result.state;
@@ -293,10 +298,13 @@ export class GameSession {
     if (result.nextAction === "finished") return this.finish();
     if (this.state.phase === "monthChange") {
       // Debtor ditunggu sampai MONTH_PAY_SECONDS; tanpa debtor popup hanya tampil sebentar.
-      const waitMs = hasMonthDebtors(this.state)
-        ? this.timing.monthPaySeconds * 1000
-        : this.timing.monthSummaryOnlyMs;
-      this.monthTimer = this.runtime.clock.setTimeout(() => this.closeMonth(), waitMs);
+      const hasDebtors = hasMonthDebtors(this.state);
+      const waitMs = hasDebtors ? this.timing.monthPaySeconds * 1000 : this.timing.monthSummaryOnlyMs;
+      this.monthDeadline = hasDebtors ? this.runtime.clock.now() + waitMs : null;
+      this.monthTimer = this.runtime.clock.setTimeout(
+        () => this.closeMonth(),
+        waitMs + (hasDebtors ? DEADLINE_GRACE_MS + 1 : 0),
+      );
       return;
     }
     this.afterCalendarPhase();
@@ -443,6 +451,7 @@ export class GameSession {
   private clearMonthTimer(): void {
     if (this.monthTimer !== null) this.runtime.clock.clearTimeout(this.monthTimer);
     this.monthTimer = null;
+    this.monthDeadline = null;
   }
 
   private clearRevealTimer(): void {
