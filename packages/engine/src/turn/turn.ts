@@ -533,7 +533,8 @@ export function endRound(state: GameState, random: RandomSource): RoundResult {
     {
       ...resolved,
       movedThisRound: [],
-      public: { ...resolved.public, calendar: getCalendarInfo(step + 1) },
+      // Kalender publik tetap di langkah ini selama jeda Fase Pembalikan; startRound memajukannya.
+      nextStep: step + 1,
     },
     "roundStart",
   );

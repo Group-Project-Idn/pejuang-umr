@@ -90,6 +90,11 @@ export interface GameState {
   /** Pemain yang sudah melangkah di ronde ini; dikosongkan di awal ronde baru. */
   movedThisRound: string[];
   phase: GamePhase;
+  /**
+   * Langkah ronde berikutnya, diisi endRound. `public.calendar` baru maju saat startRound
+   * (GDD 4.2 v1.12), supaya snapshot selama jeda Fase Pembalikan masih di langkah yang baru selesai.
+   */
+  nextStep?: number | null;
   /** Ajakan ronde ini (GDD 4.8 v1.12); dikosongkan setelah Fase Pembalikan. */
   roundInvites: RoundInvite[];
   /**

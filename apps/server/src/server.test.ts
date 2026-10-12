@@ -47,7 +47,7 @@ async function startServer(trustProxy = false) {
 describe("server foundation", () => {
   it("membuat dan memverifikasi guest token", () => {
     const created = createGuestToken(
-      { name: "Raka", avatarId: "avatar-01" },
+      { name: "Raka", avatarId: "michael" },
       secret,
       1_000,
     );
@@ -79,7 +79,7 @@ describe("server foundation", () => {
     const firstResponse = await fetch(`${baseUrl}/api/v1/guest`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name: "Raka", avatarId: "avatar-01" }),
+      body: JSON.stringify({ name: "Raka", avatarId: "michael" }),
     });
     const first = (await firstResponse.json()) as {
       playerId: string;
@@ -93,7 +93,7 @@ describe("server foundation", () => {
         "content-type": "application/json",
         authorization: `Bearer ${first.token}`,
       },
-      body: JSON.stringify({ name: "Raka Baru", avatarId: "avatar-02" }),
+      body: JSON.stringify({ name: "Raka Baru", avatarId: "raka" }),
     });
     const updated = (await updateResponse.json()) as { playerId: string };
     expect(updateResponse.status).toBe(201);
@@ -115,7 +115,7 @@ describe("server foundation", () => {
     expect(connectError.message).toBe("UNAUTHORIZED");
 
     const guest = createGuestToken(
-      { name: "Sinta", avatarId: "avatar-03" },
+      { name: "Sinta", avatarId: "sinta" },
       secret,
     );
     const authorized: Socket<ServerToClientEvents, ClientToServerEvents> =
@@ -143,7 +143,7 @@ describe("guest endpoint validation", () => {
     const response = await fetch(`${baseUrl}/api/v1/guest`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name: "A", avatarId: "avatar-01" }),
+      body: JSON.stringify({ name: "A", avatarId: "michael" }),
     });
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
@@ -157,7 +157,7 @@ describe("guest endpoint validation", () => {
     const response = await fetch(`${baseUrl}/api/v1/guest`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name: "Raka@123", avatarId: "avatar-01" }),
+      body: JSON.stringify({ name: "Raka@123", avatarId: "michael" }),
     });
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
@@ -171,7 +171,7 @@ describe("guest endpoint validation", () => {
     const response = await fetch(`${baseUrl}/api/v1/guest`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name: "bangsat", avatarId: "avatar-01" }),
+      body: JSON.stringify({ name: "bangsat", avatarId: "michael" }),
     });
     expect(response.status).toBe(422);
     await expect(response.json()).resolves.toMatchObject({
@@ -189,7 +189,7 @@ describe("guest endpoint validation", () => {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           name: `Pejuang${index}`,
-          avatarId: "avatar-01",
+          avatarId: "michael",
         }),
       });
       statuses.push(response.status);
@@ -206,7 +206,7 @@ describe("guest endpoint validation", () => {
         "content-type": "application/json",
         authorization: "Bearer token.palsu.123",
       },
-      body: JSON.stringify({ name: "Raka", avatarId: "avatar-01" }),
+      body: JSON.stringify({ name: "Raka", avatarId: "michael" }),
     });
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toMatchObject({
@@ -218,7 +218,7 @@ describe("guest endpoint validation", () => {
   it("menolak token kedaluwarsa pada Authorization dengan UNAUTHORIZED", async () => {
     const { baseUrl } = await startServer();
     const expired = createGuestToken(
-      { name: "Raka", avatarId: "avatar-01" },
+      { name: "Raka", avatarId: "michael" },
       secret,
       Date.now() - 8 * 24 * 60 * 60 * 1000,
     );
@@ -228,7 +228,7 @@ describe("guest endpoint validation", () => {
         "content-type": "application/json",
         authorization: `Bearer ${expired.token}`,
       },
-      body: JSON.stringify({ name: "Raka Baru", avatarId: "avatar-02" }),
+      body: JSON.stringify({ name: "Raka Baru", avatarId: "raka" }),
     });
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toMatchObject({
@@ -242,7 +242,7 @@ describe("guest endpoint validation", () => {
     const response = await fetch(`${baseUrl}/api/v1/guest`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name: "Raka", avatarId: "avatar-01" }),
+      body: JSON.stringify({ name: "Raka", avatarId: "michael" }),
     });
     expect(response.status).toBe(201);
     const body = (await response.json()) as {
@@ -255,7 +255,7 @@ describe("guest endpoint validation", () => {
     };
     expect(body.ok).toBe(true);
     expect(body.name).toBe("Raka");
-    expect(body.avatarId).toBe("avatar-01");
+    expect(body.avatarId).toBe("michael");
     expect(typeof body.playerId).toBe("string");
     expect(body.playerId.length).toBeGreaterThan(0);
     expect(typeof body.token).toBe("string");
@@ -283,7 +283,7 @@ describe("socket handshake auth", () => {
   it("menolak token kedaluwarsa saat handshake dengan connect_error UNAUTHORIZED", async () => {
     const { baseUrl } = await startServer();
     const expired = createGuestToken(
-      { name: "Sinta", avatarId: "avatar-03" },
+      { name: "Sinta", avatarId: "sinta" },
       secret,
       Date.now() - 8 * 24 * 60 * 60 * 1000,
     );
@@ -328,14 +328,14 @@ describe("REST rooms & guest", () => {
   it("M3: room lookup memakai bentuk kontrak tanpa membocorkan daftar pemain", async () => {
     const { rooms, baseUrl } = await startServerWithRooms(() => "UMR-1234");
     const member = createGuestToken(
-      { name: "Anggota", avatarId: "avatar-01", playerId: "p-anggota" },
+      { name: "Anggota", avatarId: "michael", playerId: "p-anggota" },
       secret,
     );
     const outsider = createGuestToken(
-      { name: "Luar", avatarId: "avatar-02", playerId: "p-luar" },
+      { name: "Luar", avatarId: "raka", playerId: "p-luar" },
       secret,
     );
-    rooms.create({ playerId: "p-anggota", name: "Anggota", avatarId: "avatar-01" });
+    rooms.create({ playerId: "p-anggota", name: "Anggota", avatarId: "michael" });
 
     const anonymous = await fetch(`${baseUrl}/api/v1/rooms/UMR-1234`);
     expect(anonymous.status).toBe(200);
@@ -374,12 +374,12 @@ describe("REST rooms & guest", () => {
     const host = rooms.create({
       playerId: "p-host",
       name: "Host",
-      avatarId: "avatar-01",
+      avatarId: "michael",
     });
     expect(host.ok).toBe(true);
     const guests = ["p-2", "p-3", "p-4"];
     for (const id of guests) {
-      rooms.join("UMR-5678", { playerId: id, name: id, avatarId: "avatar-02" });
+      rooms.join("UMR-5678", { playerId: id, name: id, avatarId: "raka" });
       rooms.setReady(id, true);
     }
 
@@ -440,13 +440,13 @@ describe("REST rooms & guest", () => {
   it("T2: token valid milik pemain di room tidak boleh ubah nama (409 ALREADY_IN_ROOM)", async () => {
     const { rooms, baseUrl } = await startServerWithRooms(() => "UMR-1234");
     const identity = createGuestToken(
-      { name: "Di Room", avatarId: "avatar-01", playerId: "p-diroom" },
+      { name: "Di Room", avatarId: "michael", playerId: "p-diroom" },
       secret,
     );
     rooms.create({
       playerId: "p-diroom",
       name: "Di Room",
-      avatarId: "avatar-01",
+      avatarId: "michael",
     });
 
     const response = await fetch(`${baseUrl}/api/v1/guest`, {
@@ -455,7 +455,7 @@ describe("REST rooms & guest", () => {
         "content-type": "application/json",
         authorization: `Bearer ${identity.token}`,
       },
-      body: JSON.stringify({ name: "Nama Baru", avatarId: "avatar-02" }),
+      body: JSON.stringify({ name: "Nama Baru", avatarId: "raka" }),
     });
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toEqual({
@@ -468,7 +468,7 @@ describe("REST rooms & guest", () => {
   it("T2: token valid pemain di luar room masih boleh ubah nama", async () => {
     const { baseUrl } = await startServerWithRooms(() => "UMR-1234");
     const identity = createGuestToken(
-      { name: "Di Lobby", avatarId: "avatar-01", playerId: "p-lobby" },
+      { name: "Di Lobby", avatarId: "michael", playerId: "p-lobby" },
       secret,
     );
 
@@ -478,7 +478,7 @@ describe("REST rooms & guest", () => {
         "content-type": "application/json",
         authorization: `Bearer ${identity.token}`,
       },
-      body: JSON.stringify({ name: "Nama Baru", avatarId: "avatar-02" }),
+      body: JSON.stringify({ name: "Nama Baru", avatarId: "raka" }),
     });
     expect(response.status).toBe(201);
     const body = (await response.json()) as { playerId: string; name: string };
@@ -497,7 +497,7 @@ describe("REST rooms & guest", () => {
           // Setiap request memakai IP palsu berbeda; tanpa TRUST_PROXY diabaikan.
           "x-forwarded-for": `10.0.0.${index}`,
         },
-        body: JSON.stringify({ name: `Pejuang${index}`, avatarId: "avatar-01" }),
+        body: JSON.stringify({ name: `Pejuang${index}`, avatarId: "michael" }),
       });
       statuses.push(response.status);
     }
@@ -515,7 +515,7 @@ describe("REST rooms & guest", () => {
           "content-type": "application/json",
           "x-forwarded-for": `10.0.0.${index}`,
         },
-        body: JSON.stringify({ name: `Pejuang${index}`, avatarId: "avatar-01" }),
+        body: JSON.stringify({ name: `Pejuang${index}`, avatarId: "michael" }),
       });
       statuses.push(response.status);
     }

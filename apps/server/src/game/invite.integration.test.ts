@@ -150,6 +150,7 @@ function orderOf(ctx: Ctx): [TestPlayer, TestPlayer, TestPlayer] {
 
 /** Pemain aktif memilih heksa pertama dari turn:options terakhirnya. */
 async function chooseFor(ctx: Ctx, player: TestPlayer) {
+  await until(() => ctx.find(player, "turn:options").length > 0, "turn:options");
   const options = ctx.find(player, "turn:options").at(-1)!.payload;
   const ack = await player.socket.emitWithAck("turn:choose", {
     requestId: rid(),
@@ -166,7 +167,8 @@ async function waitTurnOf(ctx: Ctx, player: TestPlayer) {
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 60));
 
-describe("invite lewat socket (GDD 4.8 v1.12)", () => {
+// Banyak langkah berurutan lewat socket nyata; beri ruang saat mesin sibuk (suite berjalan paralel).
+describe("invite lewat socket (GDD 4.8 v1.12)", { timeout: 20_000 }, () => {
   it("di luar giliran sendiri ditolak INVITE_NOT_ALLOWED; setelah turn:choose juga ditolak", async () => {
     const ctx = await setup();
     const { active, others } = await startTurns(ctx);

@@ -32,6 +32,7 @@ export function createGame(
     pendingMonth: null,
     movedThisRound: [],
     phase: "roundStart",
+    nextStep: null,
     roundInvites: [],
     decisionLog: emptyDecisionLog(playerIds),
     pendingRealities: [],

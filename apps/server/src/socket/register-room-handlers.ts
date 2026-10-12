@@ -2,6 +2,7 @@ import {
   GameStartRequestSchema,
   RoomCreateRequestSchema,
   RoomJoinRequestSchema,
+  RoomAvatarRequestSchema,
   RoomKickRequestSchema,
   RoomLeaveRequestSchema,
   RoomPawnRequestSchema,
@@ -140,27 +141,33 @@ export function registerRoomHandlers(
     // putus: pemain tetap terdaftar dan hanya ditandai terputus.
     const playing = roomBefore?.status === "playing";
     const wasFinished = roomBefore?.status === "finished";
+    // Pemain yang sudah tereliminasi benar-benar keluar dari room (GDD 9.4 v1.12);
+    // yang belum tereliminasi diperlakukan seperti koneksi putus.
+    const leavingEliminated =
+      playing && games.get(roomBefore!.code)?.isEliminated(socket.data.playerId) === true;
     const result = runIdempotent<EmptyResult>(
       idempotency,
       socket.data.playerId,
       "room:leave",
       parsed.data.requestId,
       () => {
-        const mutation = playing
-          ? rooms.markDisconnected(socket.data.playerId)
-          : rooms.leave(socket.data.playerId);
+        const mutation = leavingEliminated
+          ? rooms.leaveEliminated(socket.data.playerId)
+          : playing
+            ? rooms.markDisconnected(socket.data.playerId)
+            : rooms.leave(socket.data.playerId);
         return mutation.ok ? { ok: true } : mutation;
       },
     );
     if (result.response.ok && !result.replayed && roomBefore) {
       void socket.leave(roomBefore.code);
-      if (playing) {
+      if (playing && !leavingEliminated) {
         broadcastConnection(io, games, roomBefore.code, socket.data.playerId, false);
       } else {
         const remaining = rooms.get(roomBefore.code);
         if (remaining) emitRoomState(io, remaining);
         // Room selesai yang kosong ditutup bersama sesi game-nya.
-        else if (wasFinished) closeGame(roomBefore.code);
+        else if (wasFinished || leavingEliminated) closeGame(roomBefore.code);
       }
     }
     ack(result.response);
@@ -177,7 +184,10 @@ export function registerRoomHandlers(
       "room:rematch",
       parsed.data.requestId,
       () => {
-        const mutation = rooms.rematch(socket.data.playerId);
+        const mutation = rooms.rematch(
+          socket.data.playerId,
+          games.get(roomBefore?.code ?? "")?.eliminatedPlayerIds() ?? [],
+        );
         if (!mutation.ok) return mutation;
         removed = mutation.removed ?? [];
         return { ok: true, room: mutation.room };
@@ -223,6 +233,26 @@ export function registerRoomHandlers(
       parsed.data.requestId,
       () => {
         const mutation = rooms.setPawn(socket.data.playerId, parsed.data.pawn);
+        return mutation.ok ? { ok: true } : mutation;
+      },
+    );
+    if (result.response.ok && !result.replayed) {
+      const room = rooms.getByPlayer(socket.data.playerId);
+      if (room) emitRoomState(io, room);
+    }
+    ack(result.response);
+  }));
+
+  socket.on("room:avatar", (payload, unsafeAck) => executeWithAck<EmptyResult>(unsafeAck, (ack) => {
+    const parsed = RoomAvatarRequestSchema.safeParse(payload);
+    if (!parsed.success) return ack(invalidPayload());
+    const result = runIdempotent<EmptyResult>(
+      idempotency,
+      socket.data.playerId,
+      "room:avatar",
+      parsed.data.requestId,
+      () => {
+        const mutation = rooms.setAvatar(socket.data.playerId, parsed.data.avatarId);
         return mutation.ok ? { ok: true } : mutation;
       },
     );
@@ -338,7 +368,11 @@ export function registerRoomHandlers(
                 timing: options.timing,
                 send: (events) => dispatch(io, session, events),
                 onFinished: () => {
-                  const finished = rooms.markFinished(room.code);
+                  // Peringkat terbaik dari pemain yang belum tereliminasi menjadi kandidat host baru (D7).
+                  const survivors = (session.result?.ranking ?? [])
+                    .filter((row) => !row.eliminated)
+                    .map((row) => row.playerId);
+                  const finished = rooms.markFinished(room.code, survivors);
                   if (finished.ok) emitRoomState(io, finished.room);
                 },
               },

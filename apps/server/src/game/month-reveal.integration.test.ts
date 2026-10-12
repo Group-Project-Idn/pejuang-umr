@@ -153,7 +153,8 @@ function driveToBeforeRound(ctx: Ctx, step: number) {
   drive(
     ctx,
     () =>
-      ctx.session.state.public.calendar.step === step &&
+      ctx.session.state.nextStep === step &&
+      ctx.session.state.public.calendar.step === step - 1 &&
       ctx.session.state.phase === "roundStart" &&
       ctx.session.state.public.phase === "reveal",
     `jeda sebelum langkah ${step}`,
@@ -417,12 +418,19 @@ describe("Fase Pembalikan", () => {
     );
     const hidden = ctx.session.state.pendingRealities[0]!;
     const publicJson = JSON.stringify(ctx.session.publicState());
-    expect(publicJson).not.toContain(hidden.text);
+    // Teks yang sama bisa sah muncul dari Realita ronde 1 yang sudah dibuka (varian acak sama).
+    const alreadyRevealed = new Set(
+      ctx.session.publicState().openedHexes.flatMap((entry) => (entry.reality ? [entry.reality.text] : [])),
+    );
+    const textCollides = alreadyRevealed.has(hidden.text);
+    if (!textCollides) expect(publicJson).not.toContain(hidden.text);
     expect(ctx.session.publicState().openedHexes.at(-1)).toMatchObject({ reality: null, outcome: null });
     await until(() => ctx.find(ctx.host, "tile:opened").length >= 1, "tile:opened");
     for (const p of [ctx.host, ctx.guest]) {
       expect(p.log.some((e) => e.type === "tile:resolved" && e.payload.round === 2)).toBe(false);
-      expect(JSON.stringify(p.log.filter((e) => e.type !== "session:snapshot"))).not.toContain(hidden.text);
+      if (!textCollides) {
+        expect(JSON.stringify(p.log.filter((e) => e.type !== "session:snapshot"))).not.toContain(hidden.text);
+      }
     }
   });
 
@@ -440,6 +448,40 @@ describe("Fase Pembalikan", () => {
     expect(ctx.session.state.public.phase).toBe("reveal");
     ctx.clock.advance(1);
     expect(ctx.session.state.phase).not.toBe("roundStart");
+    expect(ctx.session.state.public.calendar.step).toBe(4);
+  });
+
+  it("snapshot selama jeda Fase Pembalikan: phase reveal dan kalender masih di langkah yang baru selesai", async () => {
+    const ctx = await setup();
+    driveToBeforeRound(ctx, 4);
+    const resume = async () => {
+      const socket: TestSocket = createClient(ctx.baseUrl, {
+        transports: ["websocket"],
+        auth: { token: ctx.guest.token },
+        reconnection: false,
+      });
+      openSockets.push(socket);
+      await new Promise<void>((resolve) => socket.once("connect", resolve));
+      const resumed = await socket.emitWithAck("session:resume", { requestId: rid(), roomCode: "UMR-1234" });
+      if (!resumed.ok) throw new Error("resume gagal");
+      return resumed.snapshot;
+    };
+    const paused = await resume();
+    expect(paused.game?.phase).toBe("reveal");
+    expect(paused.game?.calendar.step).toBe(3);
+    // Langkah baru baru terlihat lewat game:patch calendar di startRound.
+    const patchesBefore = ctx.find(ctx.host, "game:patch").filter((e) =>
+      e.payload.ops.some((op: { type: string; calendar?: { step: number } }) => op.type === "calendar" && op.calendar?.step === 4),
+    ).length;
+    expect(patchesBefore).toBe(0);
+    ctx.clock.advance(REVEAL_STEP_MS * 2);
+    await until(
+      () =>
+        ctx.find(ctx.host, "game:patch").some((e) =>
+          e.payload.ops.some((op: { type: string; calendar?: { step: number } }) => op.type === "calendar" && op.calendar?.step === 4),
+        ),
+      "game:patch calendar langkah 4",
+    );
     expect(ctx.session.state.public.calendar.step).toBe(4);
   });
 
