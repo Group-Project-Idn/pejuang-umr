@@ -3,6 +3,7 @@ import {
   getHexDistance,
   getNeighbors,
   hexKey,
+  GameFinishedPayloadSchema,
   type HexCoord,
   type PrivateStatus,
 } from "@pejuang/shared";
@@ -669,16 +670,17 @@ describe("endRound (Fase Pembalikan)", () => {
     expect(state.phase).toBe("finished");
     const finished = ofType(events, "game:finished")[0]!;
     expect(finished.target).toEqual({ kind: "room" });
+    expect(GameFinishedPayloadSchema.safeParse(finished.payload).success).toBe(true);
     expect(finished.payload.ranking).toHaveLength(3);
     expect(finished.payload.ranking.map((r) => r.rank)).toContain(1);
     for (const row of finished.payload.ranking) {
       expect(row.netWorth).toBe(7_500_000);
-      expect(row.modifier).toBe("none");
-      expect(row.modifierPct).toBe(0);
+      expect(row).not.toHaveProperty("modifier");
+      expect(row).not.toHaveProperty("modifierPct");
       expect(row.finalScore).toBeCloseTo(88.3333333, 5);
-      expect(row.points?.finance).toBeCloseTo(65, 9);
-      expect(row.points?.health).toBe(100);
-      expect(row.points?.calm).toBe(100);
+      expect(row.points.finance).toBeCloseTo(65, 9);
+      expect(row.points.health).toBe(100);
+      expect(row.points.calm).toBe(100);
       expect(row).not.toHaveProperty("avatarId");
     }
   });

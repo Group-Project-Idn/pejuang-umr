@@ -482,8 +482,6 @@ export function finishGame(
       points: player.points,
       finalScore: player.score,
       netWorth: player.netWorth,
-      modifier: "none" as const,
-      modifierPct: 0 as const,
       eliminated: player.eliminated,
       eliminatedAtStep: player.eliminatedAtStep,
     };

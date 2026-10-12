@@ -62,7 +62,7 @@ export const GoldTileSchema = z.object({
 export const ScoreRowSchema = z.strictObject({
   playerId: z.string().min(1),
   // v1.12: skor desimal 0-100 (sebelumnya int).
-  provisionalScore: z.number(),
+  provisionalScore: z.number().min(0).max(100),
   rank: z.number().int().positive(),
   eliminated: z.boolean(),
 });
@@ -279,26 +279,21 @@ export const GamePatchPayloadSchema = z.object({
   ops: z.array(GamePatchOpSchema),
 });
 
-export const GameFinishedRankSchema = z.object({
+export const GameFinishedRankSchema = z.strictObject({
   rank: z.number().int().positive(),
   playerId: z.string().min(1),
   name: z.string().min(1),
   pawn: PawnIdSchema,
   // v0.3: wajib setelah pembersihan G7
   avatarId: AvatarIdSchema.optional(),
-  // v0.3: wajib setelah pembersihan G7
-  points: z
-    .object({
-      finance: z.number().min(0),
-      health: z.number().min(0),
-      calm: z.number().min(0),
-    })
-    .optional(),
+  points: z.strictObject({
+    finance: z.number().min(0).max(100),
+    health: z.number().min(0).max(100),
+    calm: z.number().min(0).max(100),
+  }),
   // v1.12: skor desimal 0-100 (sebelumnya int).
-  finalScore: z.number(),
+  finalScore: z.number().min(0).max(100),
   netWorth: z.number().int(),
-  modifier: z.enum(["penalty", "bonus", "none"]),
-  modifierPct: z.union([z.literal(-50), z.literal(20), z.literal(0)]),
   eliminated: z.boolean(),
   eliminatedAtStep: z.number().int().nullable(),
 });

@@ -756,10 +756,11 @@ type GameFinishedPayload = {
     rank: number;
     playerId: string;
     name: string;
-    avatarId: AvatarId;
-    finalScore: number; // Skor Kesejahteraan 0-100
+    pawn: PawnId; // kompatibilitas pion lama sampai migrasi avatar (tahap 7)
+    avatarId?: AvatarId; // wajib setelah migrasi avatar (tahap 7)
+    finalScore: number; // Skor Kesejahteraan desimal 0-100
     netWorth: number; // Harta Bersih (Rupiah)
-    points: { finance: number; health: number; calm: number }; // Poin Keuangan, Kesehatan, Ketenangan
+    points: { finance: number; health: number; calm: number }; // wajib, masing-masing 0-100
     eliminated: boolean;
     eliminatedAtStep: number | null;
   }>;
@@ -770,7 +771,7 @@ Catatan:
 
 - Dikirim di akhir Fase Pembalikan saat Langkah 24 selesai, atau saat tinggal 1 pemain (atau tidak ada) yang belum tereliminasi (GDD 1.2 v1.12). Pemain yang tersisa otomatis peringkat 1.
 - Peringkat: yang bertahan di atas yang tereliminasi. Antar yang tereliminasi, yang bertahan lebih lama lebih tinggi. Yang tereliminasi di Fase Pembalikan yang sama diurutkan menurut skor beku, lalu tie-breaker (Hutang lebih kecil, lalu Level Stress lebih rendah). Semua dihitung server.
-- Rincian berisi Harta Bersih dan tiga poin skor (GDD 9.5 v1.12). Karena Poin Kesehatan dan Poin Ketenangan diturunkan langsung dari Kesehatan dan Level Stress, keduanya ikut terbuka setelah game selesai. Kekayaan dan Hutang lawan **tidak** dikirim terpisah.
+- Rincian berisi Harta Bersih dan tiga poin skor (GDD 6.2, 9.5 v1.12); modifier lama tidak dikirim. Karena Poin Kesehatan dan Poin Ketenangan diturunkan langsung dari Kesehatan dan Level Stress, keduanya ikut terbuka setelah game selesai. Kekayaan dan Hutang lawan **tidak** dikirim terpisah.
 - Refleksi AI menyusul lewat `reflection:ready` (privat).
 
 ---
