@@ -164,8 +164,6 @@ components:
     backgroundColor: "{colors.primary}"
   hex-tile-open:
     backgroundColor: "{colors.surface-container-high}"
-  hex-tile-dead:
-    backgroundColor: "{colors.surface-container}"
 ---
 
 # Pejuang UMR: Jakarta Survival: Design System
@@ -177,7 +175,7 @@ Halaman yang sudah dibuat (Home, Lobby, Room, Game Board, Detail Heksa) memakai 
 - **Tema:** pemain adalah karyawan. Layar diibaratkan berkas HRD: kartu berbentuk **map kuning** (manila folder), **sticky note**, **klip kertas**, dan **stempel "CONFIDENTIAL"** berwarna merah. Latar berupa **kubikel kantor** yang berantakan (tumpukan kertas, kopi, lampu meja). Beberapa layar memakai bingkai "jendela browser".
 - **Garis dan bentuk:** kontur tebal berwarna cokelat tua (`ink`), sudut membulat, bayangan kecil di bawah tombol.
 - **Tombol:** hijau (aksi utama seperti Buat Room, Mulai, Pilih Heksa Ini), biru (aksi sekunder seperti Gabung, Lihat Profil), oranye (navigasi seperti Kembali), outlined untuk aksi ringan (Cara Main).
-- **HUD Game Board:** kartu kertas kuning ("Kartu Status Pribadi", "Papan Skor"), papan heksa 3D bergaya maket low-poly di atas meja kerja (GDD v1.10), karakter sprite sebagai pion, tanda mahkota untuk peringkat 1, dan catatan "Kamus Petak" sebagai legenda ikon kategori.
+- **HUD Game Board:** kartu kertas kuning ("Kartu Status Pribadi", "Papan Skor"), papan heksa 3D bergaya maket low-poly di atas meja kerja (GDD v1.10), karakter sprite sebagai pion (karakter = avatar pilihan pemain, juga tampil di Papan Skor), label "Jalan" pada pemain yang sedang giliran (GDD v1.12), tanda mahkota untuk peringkat 1, dan catatan "Kamus Petak" sebagai legenda ikon kategori.
 - **Bahasa visual kantor di teks:** "Absen Masuk", "SOP & Pengaturan Hidup", "Ruang Rapat", "Portal Pejuang UMR - HRD System", "Kartu Identitas Pemain".
 - **Tetap berlaku:** warna mengikuti arti (kuning = uang, hijau = sehat, koral = stres/hutang), ikon atau bentuk selalu menyertai warna, kontras teks, dan semua teks berbahasa Indonesia.
 - **Catatan implementasi:** gambar utuh dari generator tidak bisa menjadi UI yang responsif. Untuk game, pakai gambar hanya sebagai **latar**, dan bangun kartu, tombol, serta teks sebagai komponen UI sungguhan. Minta aset terpisah (sprite heksa per kondisi, ikon kategori, karakter, latar meja).
@@ -209,8 +207,8 @@ Token turunan (surface, container, on-surface, outline) diambil dari skala tonal
 3. **Hutang** tidak memakai bar. Tampilkan sebagai angka dengan badge minus dalam merah tua, supaya tidak tertukar dengan Level Stress.
 4. **Warna kategori petak** mengikuti indikator yang paling dipengaruhi: Keuangan kuning, Kesehatan hijau, Sosial salmon, Kerja biru-abu (netral), Emas kuning dengan glow.
 5. **Musim** memakai nada dari palet yang sama, tanpa warna baru: Hujan biru-abu dingin, Kemarau amber hangat, Pancaroba hijau-abu pucat.
-6. **Warna pemain (4 pion):** pakai nada terang dari palet (krem, biru es, mint, salmon) **dan** bedakan juga dengan bentuk pion atau angka.
-7. **Heksa Mati:** abu gelap tanpa saturasi dan terlihat retak.
+6. **Pion pemain (GDD v1.12):** pion adalah karakter (avatar) yang dipilih pemain, unik dalam satu room. Pasangan warna dan bentuk pion lama tidak dipakai lagi. Karakter dibedakan lewat siluet dan pakaian, bukan hanya warna, dan karakter yang sama tampil di Papan Skor.
+7. **Heksa Mati dihapus (GDD v1.12).** Petak Emas yang tidak diambil kembali tampil sebagai heksa tertutup biasa.
 8. **Latar bertingkat:** permukaan paling gelap untuk latar, makin terang untuk kartu dan panel. Di dark mode, kedalaman dibuat dengan perbedaan terang-gelap, bukan bayangan.
 9. **Jangan hanya mengandalkan warna.** Merah dan hijau mudah tertukar bagi buta warna, jadi selalu tambahkan ikon dan bentuk.
 10. **Kontras:** teks minimal 4.5:1 dan ikon/elemen UI minimal 3:1. Teks di atas tombol kuning memakai cokelat tua.
@@ -237,16 +235,16 @@ Font: **Plus Jakarta Sans** untuk semua peran.
 ## Layout
 
 - **Grid 4px:** jarak 4/8/12/16/24/32/48.
-- **Web app responsif, mobile-first.** Desain dimulai dari layar HP portrait, lalu melebar ke tablet dan desktop. Area sentuh minimal 44-48px, aksi utama di mobile ada di bagian bawah layar (jangkauan jempol), dan hormati safe area.
+- **Web app responsif, fokus utama desktop (GDD v1.12).** Layout tetap diusahakan nyaman di HP portrait dan tablet. Area sentuh minimal 44-48px, aksi utama di mobile ada di bagian bawah layar (jangkauan jempol), dan hormati safe area.
 
-| Breakpoint | Lebar          | Penyesuaian layout                                                                                                                                                                                                                                                                        |
-| ---------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Mobile     | di bawah 640px | Satu kolom. Navigasi bawah (pill). HUD ringkas di atas. Detail heksa dan Ajakan berupa bottom sheet.                                                                                                                                                                                      |
-| Tablet     | 640-1023px     | Satu kolom lebar atau dua kolom sederhana. Navigasi bawah atau samping. Panel samping bisa dibuka-tutup.                                                                                                                                                                                  |
-| Desktop    | 1024px ke atas | Navigasi di bar atas. Game Board: sidebar kiri (statistik pribadi), sidebar kanan (Papan Skor dan kalender), papan di tengah, bar aksi di bawah tengah. Detail heksa dan Ajakan berupa panel samping atau modal di tengah (lebar sekitar 480px). Konten non-game dibatasi lebar maksimum. |
+| Breakpoint | Lebar          | Penyesuaian layout                                                                                                                                                                                                                                                                                                    |
+| ---------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mobile     | di bawah 640px | Satu kolom. Navigasi bawah (pill). HUD ringkas di atas. Popup detail heksa (dengan tombol Pilih) dan Ajakan berupa bottom sheet.                                                                                                                                                                                      |
+| Tablet     | 640-1023px     | Satu kolom lebar atau dua kolom sederhana. Navigasi bawah atau samping. Panel samping bisa dibuka-tutup.                                                                                                                                                                                                              |
+| Desktop    | 1024px ke atas | Navigasi di bar atas. Game Board: sidebar kiri (statistik pribadi), sidebar kanan (Papan Skor dan kalender), papan di tengah, bar aksi di bawah tengah. Popup detail heksa (dengan tombol Pilih) dan Ajakan berupa panel samping atau modal di tengah (lebar sekitar 480px). Konten non-game dibatasi lebar maksimum. |
 
 - Layar HP landscape boleh dipakai: papan memenuhi layar dan panel menjadi overlay samping.
-- Input yang didukung: sentuh, mouse (ada state hover), dan keyboard (urutan fokus jelas, ring fokus terlihat, Esc menutup modal).
+- Input yang didukung: sentuh, mouse, dan keyboard untuk elemen DOM (urutan fokus jelas, ring fokus terlihat, Esc menutup modal). **Tidak ada hover di papan (GDD v1.12):** detail heksa hanya dibuka dengan klik atau ketuk. Hover pada tombol DOM boleh sebagai efek visual saja, tidak pernah menjadi satu-satunya cara melihat informasi.
 - Satu tombol Primary per layar.
 - HUD dan teks dibuat dengan DOM (bukan di dalam WebGL), papan permainan 3D berada di belakangnya.
 
@@ -261,19 +259,22 @@ Kedalaman dibuat dengan **tingkat terang-gelap permukaan**, bukan bayangan: surf
 - **Ilustrasi:** flat dengan sedikit tekstur grain, karakter siluet tanpa wajah agar inklusif.
 - **Sentuhan lokal Jakarta:** KRL, warteg, kos-kosan, ojol, kopi susu, struk minimarket, notifikasi paylater. **Jangan memakai logo merek asli.**
 - **Papan 3D:** gaya maket low-poly seperti mainan, material matte, cahaya hangat, dan heksa yang terlihat tebal.
-- **Aturan papan 3D (GDD v1.10):** fallback tampilan sederhana saat WebGL tidak tersedia; mode hemat otomatis di HP atau saat "kurangi gerakan" aktif (tanpa bayangan, `dpr` maksimal 1,25, animasi kamera dimatikan); heksa bisa dipilih dengan keyboard (Tab/Enter) dan punya label pembaca layar; keadaan heksa (tertutup, menyala, terbuka, mati, Petak Emas) dibedakan dengan bentuk atau ikon, tidak hanya warna. Gambar desain yang sudah ada bergaya 2D datar, jadi dipakai sebagai acuan warna dan HUD, bukan sudut kamera.
+- **Aturan papan 3D (GDD v1.12):** tidak ada papan cadangan. Jika WebGL tidak tersedia, tampilkan pemberitahuan bahwa perangkat belum didukung. Mode hemat, pemilihan heksa dengan keyboard, dan label pembaca layar ditunda (bukan prioritas MVP). Keadaan heksa (tertutup, menyala, terbuka, Petak Emas) dibedakan dengan bentuk atau ikon, tidak hanya warna. Heksa tertutup tampil gelap; heksa menyala menampilkan Rencana singkat di permukaannya. Gambar desain yang sudah ada bergaya 2D datar, jadi dipakai sebagai acuan warna dan HUD, bukan sudut kamera.
 
 ## Components
 
 - **Tombol:** Primary (kuning terisi), Secondary (gelap tonal), Inverted (biru muda terisi, untuk aksi kontras seperti "Ajak"), Outlined (aksi sekunder, garis tepi outline). Setiap tombol punya state default, hover, pressed, focus, disabled, dan loading.
 - **Navigasi bawah (pill):** Home, Lobby, Profil/Pengaturan. Item aktif berupa lingkaran kuning muda. Di desktop menjadi navigasi di bar atas dengan item yang sama.
 - **Search bar:** untuk Glosarium dan cari room.
-- **Tombol ikon bulat:** emote, Ajakan, kamera, pause.
-- **Komponen khusus game (tambahan v1.7):** popup "Masuk sebagai tamu" (nama dan pilihan avatar), kartu identitas pemain dengan tombol "Ubah nama", slot pemain Room (kartu ID dengan pion, status Siap, dan label HOST), dan tombol nonaktif tanpa efek klik untuk fitur yang ditunda.
+- **Tombol ikon bulat:** emote, Ajakan, kamera. Tidak ada tombol pause (GDD v1.12).
+- **Komponen khusus game (tambahan v1.7):** popup "Masuk sebagai tamu" (nama dan pilihan avatar), kartu identitas pemain dengan tombol "Edit Profile" (GDD v1.12), slot pemain Room (kartu ID dengan karakter, status Siap, dan label HOST), dan tombol nonaktif tanpa efek klik untuk fitur yang ditunda.
 - **Komponen khusus game:**
-  - Heksa dengan 4 state: tertutup (neutral, redup), menyala (kuning dengan glow), terbuka (permukaan terang dengan ikon kategori), mati (abu gelap, retak).
-  - Pion dan mahkota Peringkat 1.
-  - Bottom sheet Detail Heksa (di desktop menjadi panel samping kanan).
+  - Heksa dengan 4 state: tertutup (gelap), menyala (kuning dengan glow dan Rencana singkat di permukaan), terbuka (permukaan terang dengan ikon kategori; sisi Rencana sampai Fase Pembalikan, lalu sisi Realita), Petak Emas.
+  - Pion karakter, mahkota Peringkat 1, dan label "Jalan" pada pemain yang sedang giliran.
+  - Popup Detail Heksa dengan tombol Pilih (bottom sheet di mobile, panel samping kanan di desktop). Klik heksa menyala lain langsung mengganti isinya. Heksa terbuka juga bisa diklik semua pemain untuk melihat detailnya, tanpa tombol Pilih.
+  - Popup Ganti Bulan: rincian Gaji, Biaya Hidup, Bunga, Kekayaan baru, dan slider Bayar Hutang dengan batas waktu.
+  - Animasi Fase Pembalikan (heksa dibalik satu per satu sesuai urutan giliran).
+  - Kartu Refleksi AI di Layar Eliminasi dan Hasil Akhir.
   - Indikator risiko Rendah/Sedang/Tinggi, dibedakan lewat jumlah garis atau bentuk ikon (bukan hanya warna).
   - Kartu Ajakan.
   - Popup Event Tanggal.
@@ -286,9 +287,9 @@ Kedalaman dibuat dengan **tingkat terang-gelap permukaan**, bukan bayangan: surf
 - **Prinsip:** gerak menjelaskan sebab-akibat. Angka yang berubah harus terlihat bergerak dari sumbernya ke indikator.
 - **Durasi:** UI biasa 150-250 ms, momen utama (heksa terbalik, reveal Realita) 400-800 ms.
 - **Easing:** ease-out saat masuk, ease-in saat keluar, dan spring ringan untuk pion.
-- **Batas total animasi per giliran 3-4 detik**, dengan tombol Percepat dan tap-to-skip.
-- Di desktop, elemen yang bisa diklik punya state hover (naik sedikit atau glow) dan tooltip istilah muncul saat hover. Di mobile, tooltip muncul dengan tekan lama.
-- Sediakan opsi **kurangi gerakan**. Efek musim (hujan, heat haze) hanya dekoratif dan bisa dimatikan.
+- **Batas total animasi per giliran 3-4 detik**, dengan tombol Percepat dan tap-to-skip. Fase Pembalikan sekitar 2-3 detik per pemain di akhir ronde (GDD v1.12).
+- Di desktop, tombol DOM boleh punya state hover (naik sedikit atau glow) dan tooltip istilah boleh muncul saat hover. Heksa di papan tidak memakai hover (GDD v1.12). Di mobile, tooltip muncul dengan tekan lama.
+- Opsi **kurangi gerakan** ditunda bersama mode hemat (GDD v1.12). Efek musim (hujan, heat haze) hanya dekoratif dan bisa dimatikan.
 - **Transisi antar screen:** wipe berbentuk heksagon (iris). Ganti bulan memakai halaman kalender yang terbalik.
 
 ## Microcopy

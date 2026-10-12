@@ -1,6 +1,8 @@
 # API Contract - Pejuang UMR: Jakarta Survival (MVP)
 
-Versi 0.2 · Oktober 2026 · Sumber aturan: GDD v1.11 · Sumber stack: 03_REKOMENDASI
+Versi 0.3 · Oktober 2026 · Sumber aturan: GDD v1.12 · Sumber stack: 03_REKOMENDASI
+
+**Perubahan v0.3 (GDD v1.12):** Realita dibuka di Fase Pembalikan (`round:reveal`), Bayar Hutang lewat `month:pay-debt`, `room:pawn` diganti `room:avatar`, `turn:timer` dan `spectate:enter` dihapus, `reflection:ready` ditambah, skor 0-100, motif Ajakan hanya Tulus/Komisi, papan selalu radius 6, semua nilai 1×.
 Scope: **Multiplayer 2-4 pemain, 24 langkah, pemain tamu.** Solo, login, dan database tidak ada di kontrak ini.
 
 **Cara membaca.** Setiap endpoint dan event ditulis dengan pola yang sama:
@@ -17,12 +19,12 @@ Kontrak hanya mendefinisikan **bentuk data**. Keputusan aturan (boleh atau tidak
 
 ## 0. Ringkasan
 
-| Jenis        | Jumlah                  | Keterangan                                                                                         |
-| ------------ | ----------------------- | -------------------------------------------------------------------------------------------------- |
-| REST         | 3                       | `POST /api/v1/guest`, `GET /api/v1/rooms/:code`, `GET /health`                                     |
-| Socket.IO    | 45                      | 42 dari 03_REKOMENDASI + 3 tambahan bertanda **[+]** (`room:kicked`, `room:rematch`, `turn:timer`) |
-| Server lokal | `http://localhost:3002` | REST dan Socket.IO di port yang sama                                                               |
-| Web lokal    | `http://localhost:3000` | Next.js                                                                                            |
+| Jenis        | Jumlah                  | Keterangan                                                                           |
+| ------------ | ----------------------- | ------------------------------------------------------------------------------------ |
+| REST         | 3                       | `POST /api/v1/guest`, `GET /api/v1/rooms/:code`, `GET /health`                       |
+| Socket.IO    | 46                      | 44 dari 03_REKOMENDASI + 2 tambahan bertanda **[+]** (`room:kicked`, `room:rematch`) |
+| Server lokal | `http://localhost:3002` | REST dan Socket.IO di port yang sama                                                 |
+| Web lokal    | `http://localhost:3000` | Next.js                                                                              |
 
 ---
 
@@ -39,7 +41,9 @@ Nama field dan nilai enum di kode memakai bahasa Inggris. Teks yang tampil di UI
 | Zonk / Aman / Hoki                                    | `zonk` / `safe` / `lucky`                         |
 | Heksa / Petak                                         | `hex` / `tile`                                    |
 | Langkah / Ronde / Bulan                               | `step` / `round` / `month`                        |
-| Petak Emas / Heksa Mati                               | `gold` / `dead`                                   |
+| Petak Emas                                            | `gold`                                            |
+| Fase Pembalikan                                       | `reveal` (event `round:reveal`)                   |
+| Refleksi AI                                           | `reflection`                                      |
 | Skor Sementara / Beban Peringkat 1                    | `provisionalScore` / `rankOneBurden`              |
 | Ajakan / Kartu Ajakan                                 | `invite` / `inviteCard`                           |
 | Musim Hujan / Kemarau / Pancaroba                     | `rainy` / `dry` / `transition`                    |
@@ -72,26 +76,31 @@ Setiap payload C→S berisi `requestId: string` (UUID dari `crypto.randomUUID()`
 
 Semua batas waktu dikirim sebagai `deadline: number` (epoch ms waktu server), bukan tick tiap detik. Klien menghitung mundur sendiri. Untuk menghindari jam HP yang meleset, `session:snapshot` dan `game:started` membawa `serverTime`, dan klien menyimpan selisihnya (`offset = serverTime - Date.now()`).
 
+Server menjadi acuan batas waktu (GDD 9.4 v1.12). Aksi yang tiba lebih dari **500 ms** setelah `deadline` ditolak, lalu aturan waktu habis berlaku. **Tidak ada timer yang dijeda** dalam keadaan apa pun.
+
 ### 1.6 Angka
 
 - Uang dalam **Rupiah bulat** (`number`), misalnya `5000000`. Format "Rp5,7jt" atau "Rp5.730.000" dibuat di klien (util di `shared`).
 - Kesehatan dan Level Stress `0-10`.
-- Nilai yang dikirim server **sudah memakai pengali Multiplayer** (Rupiah ×2, status ×2 maksimal ±3). Klien tidak menghitung ulang.
+- Semua nilai dipakai apa adanya (1×), tanpa pengali Multiplayer (GDD 1.3 v1.12).
+- Skor Sementara dan Skor Kesejahteraan berupa angka desimal 0-100 (GDD 6.2 v1.12). Klien menampilkannya sebagai bilangan bulat.
 
 ### 1.7 Koordinat heksa
 
-Koordinat axial `{ q, r }`, heksa flat-top, pusat papan `{ q: 0, r: 0 }`. Klien bisa membangun seluruh bentuk papan hanya dari `boardRadius`, jadi server tidak perlu mengirim daftar heksa tertutup.
+Koordinat axial `{ q, r }`, heksa flat-top, pusat papan `{ q: 0, r: 0 }`. Papan Multiplayer selalu `boardRadius: 6` (127 heksa) untuk 2-4 pemain (GDD 4.1 v1.12). Klien bisa membangun seluruh bentuk papan dari angka ini, jadi server tidak perlu mengirim daftar heksa tertutup.
 
 ### 1.8 Privasi data (ringkas dari 03_REKOMENDASI Bagian 6)
 
-| Data                                                      | Dikirim ke                          |
-| --------------------------------------------------------- | ----------------------------------- |
-| Isi heksa tertutup                                        | Tidak pernah dikirim                |
-| 3 heksa menyala + detail Rencana + risiko                 | Hanya pemain aktif (`turn:options`) |
-| Heksa terbuka, posisi pion, Skor Sementara, hasil Realita | Semua (`tile:*`, `game:patch`)      |
-| Kekayaan, Hutang, Kesehatan, Level Stress                 | Hanya pemiliknya (`player:status`)  |
-| Motif Ajakan sebelum dijawab                              | Hanya pengirim (`invite:card`)      |
-| Petak Emas (posisi dan isi)                               | Semua (`gold:spawned`)              |
+| Data                                                 | Dikirim ke                                                                   |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Isi heksa tertutup                                   | Tidak pernah dikirim                                                         |
+| 3 heksa menyala + detail Rencana + risiko            | Hanya pemain aktif (`turn:options`)                                          |
+| Heksa terbuka (Rencana), posisi pion, Skor Sementara | Semua (`tile:opened`, `game:patch`)                                          |
+| Hasil Realita                                        | Semua, di Fase Pembalikan (`tile:resolved`)                                  |
+| Kekayaan, Hutang, Kesehatan, Level Stress            | Hanya pemiliknya (`player:status`)                                           |
+| Motif Ajakan                                         | Pengirim (`invite:card`), lalu target di Fase Pembalikan (`invite:resolved`) |
+| Refleksi AI                                          | Hanya pemiliknya (`reflection:ready`)                                        |
+| Petak Emas (posisi dan isi)                          | Semua (`gold:spawned`)                                                       |
 
 ### 1.9 Batas laju (rate limit)
 
@@ -105,6 +114,7 @@ Koordinat axial `{ q, r }`, heksa flat-top, pusat papan `{ q: 0, r: 0 }`. Klien 
 
 Pakai tabel ini untuk tahu layar mana memanggil apa.
 
+<<<<<<< HEAD
 | Layar / overlay                     | Aksi pengguna atau kejadian               | API                                                                                                     |
 | ----------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | **Home**                            | Tekan Mabar                               | Jika belum ada sesi tamu di `localStorage`: buka popup tamu. Jika ada: ke Lobby. Tidak memanggil server |
@@ -147,6 +157,51 @@ Pakai tabel ini untuk tahu layar mana memanggil apa.
 | **Pengaturan**                      | Musik, Efek suara, Notifikasi Ajakan      | Tidak ada request (disimpan di `localStorage`)                                                          |
 | **Cara Main**                       | Buka                                      | Tidak ada request (konten statis)                                                                       |
 | **Error / Reconnect**               | Event `error`, `connect_error`, ack gagal | Lihat Bagian 15                                                                                         |
+=======
+| Layar / overlay                       | Aksi pengguna atau kejadian                     | API                                                                                                                       |
+| ------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| **Home**                              | Tekan Mabar                                     | Jika belum ada sesi tamu di `localStorage`: buka popup tamu. Jika ada: ke Lobby. Tidak memanggil server                   |
+| Home                                  | Singel, Ajang Flexing, ikon Portal              | Tidak ada (nonaktif)                                                                                                      |
+| **Popup Masuk sebagai tamu**          | Isi nama + avatar, tekan tombol utama           | `POST /api/v1/guest`                                                                                                      |
+| Popup (mode Edit Profile, dari Lobby) | Ubah nama/avatar (karakter)                     | `POST /api/v1/guest` dengan header `Authorization`                                                                        |
+| **Lobby**                             | Halaman dibuka                                  | `GET /health` (chip "Server ...: Normal" dan kondisi server bermasalah)                                                   |
+| Lobby                                 | Kartu "Lanjutkan permainan"                     | `GET /api/v1/rooms/:code` (kode terakhir dari `localStorage`), lalu `session:resume`                                      |
+| Lobby                                 | Buat Room (Host)                                | `room:create`                                                                                                             |
+| Lobby                                 | Isi kode, tekan Gabung / Enter                  | `GET /api/v1/rooms/:code` (cek cepat), lalu `room:join`                                                                   |
+| **Room (Ruang Tunggu)**               | Masuk halaman / ada perubahan                   | `room:state` (diterima)                                                                                                   |
+| Room                                  | Pilih karakter (pion)                           | `room:avatar`                                                                                                             |
+| Room                                  | Host pilih 15 / 30 / 60 dtk                     | `room:timer`                                                                                                              |
+| Room                                  | Tamu tekan SIAP                                 | `room:ready`                                                                                                              |
+| Room                                  | Host tekan "..." → Keluarkan                    | `room:kick` → target menerima `room:kicked` [+]                                                                           |
+| Room                                  | Keluar / Kembali                                | `room:leave`                                                                                                              |
+| Room                                  | Host tekan MULAI                                | `game:start` → `room:countdown` → `game:started`                                                                          |
+| Room varian E (Menyambungkan ulang)   | Socket tersambung lagi                          | `session:resume` → `session:snapshot`                                                                                     |
+| **Game Board**                        | Awal ronde (Fase Kalender)                      | `game:patch`, `season:changed`, `gold:spawned` / `gold:expired`, `invite:card`                                            |
+| Game Board                            | Giliran mulai                                   | `turn:start` (semua), `turn:options` (pemain aktif)                                                                       |
+| Game Board                            | Pemain lain putus/sambung                       | `player:connection`                                                                                                       |
+| **Popup Detail Heksa**                | Klik heksa menyala (tanpa hover)                | **Tidak ada request.** Detail ketiga heksa sudah dikirim di `turn:options`                                                |
+| Popup Detail Heksa                    | Klik heksa terbuka (semua pemain)               | **Tidak ada request.** Data dari `openedHexes` di state publik                                                            |
+| Popup Detail Heksa                    | PILIH HEKSA INI / AMBIL PETAK EMAS              | `turn:choose`                                                                                                             |
+| **Overlay Jalan Buntu**               | Tidak ada heksa menyala                         | `turn:dead-end` → `turn:jump`                                                                                             |
+| **Fase Berjalan**                     | Pion pindah, Rencana berlaku                    | `tile:opened`                                                                                                             |
+| **Fase Pembalikan**                   | Akhir ronde, heksa dibalik berurutan            | `round:reveal` → `tile:resolved` (per pemain) → `invite:resolved` → `doom:triggered` → `player:eliminated` → `game:patch` |
+| **Popup Ganti Bulan**                 | Bulan berganti, geser slider Bayar Hutang       | `month:summary` → `month:pay-debt`                                                                                        |
+| **Popup Event Tanggal**               | Event muncul serentak                           | `calendar:event` → `calendar:answer` → `calendar:result`                                                                  |
+| **Overlay Doom Spending**             | Level Stress ≥ 9 di Fase Pembalikan             | `doom:triggered`                                                                                                          |
+| **Banner musim / Petak Emas**         | Musim ganti, Petak Emas muncul/hilang           | `season:changed`, `gold:spawned`, `gold:expired`                                                                          |
+| **Layar Eliminasi**                   | Bangkrut / Burnout Total                        | `player:eliminated` → `reflection:ready` → Kembali ke Lobby: `room:leave`                                                 |
+| **Ajakan** (pilih target)             | Fase Pilihan sendiri: kartu → pion → konfirmasi | `invite:send`                                                                                                             |
+| Ajakan (masuk)                        | Popup diterima, Ikut / Tolak                    | `invite:incoming` → `invite:respond`                                                                                      |
+| Ajakan (hasil)                        | Fase Pembalikan, motif terbuka                  | `invite:resolved`                                                                                                         |
+| **Emote**                             | Tekan ikon smiley                               | `emote:send` → `emote:shown`                                                                                              |
+| **Hasil Akhir Multiplayer**           | Langkah 24 selesai atau tinggal 1 pemain        | `game:finished`, lalu `reflection:ready`                                                                                  |
+| Hasil Akhir                           | Main Lagi (host)                                | `room:rematch` [+]                                                                                                        |
+| Hasil Akhir                           | Kembali ke Lobby                                | `room:leave`                                                                                                              |
+| Hasil Akhir                           | Bagikan hasil                                   | Tidak ada request (gambar dibuat di klien dari `game:finished`)                                                           |
+| **Pengaturan**                        | Musik, Efek suara, Notifikasi Ajakan            | Tidak ada request (disimpan di `localStorage`)                                                                            |
+| **Cara Main**                         | Buka                                            | Tidak ada request (konten statis)                                                                                         |
+| **Error / Reconnect**                 | Event `error`, `connect_error`, ack gagal       | Lihat Bagian 15                                                                                                           |
+>>>>>>> 2e8b98ba769ebef8e776fea8381ab8115e47b466
 
 ---
 
@@ -161,12 +216,9 @@ type Category = "work" | "social" | "health" | "finance" | "gold";
 type Outcome = "zonk" | "safe" | "lucky";
 type Risk = "low" | "medium" | "high"; // Rendah / Sedang / Tinggi
 type Season = "rainy" | "dry" | "transition";
-type PawnId =
-  | "cream-circle"
-  | "iceblue-square"
-  | "mint-triangle"
-  | "salmon-diamond";
-type AvatarId = string; // "avatar-01" ... "avatar-08" (usulan)
+type AvatarId = string; // id karakter; karakter juga menjadi pion. Daftar di shared (minimal 4)
+type TurnSeconds = 15 | 30 | 60; // v1.12
+type Motive = "sincere" | "commission"; // Tulus / Komisi (v1.12)
 
 type Stat = "wealth" | "debt" | "health" | "stress";
 type Effect = { stat: Stat; delta: number }; // wealth/debt dalam Rupiah, health/stress poin
@@ -174,8 +226,7 @@ type Effect = { stat: Stat; delta: number }; // wealth/debt dalam Rupiah, health
 type PublicPlayer = {
   playerId: string;
   name: string;
-  avatarId: AvatarId;
-  pawn: PawnId | null;
+  avatarId: AvatarId; // karakter di room ini, unik dalam room (v1.12)
   connected: boolean;
 };
 
@@ -189,18 +240,30 @@ type RoomState = {
   code: string; // "UMR-4821"
   status: "waiting" | "countdown" | "playing" | "finished";
   hostId: string;
+<<<<<<< HEAD
   turnSeconds: 15 | 30 | 60;
+=======
+  turnSeconds: TurnSeconds;
+>>>>>>> 2e8b98ba769ebef8e776fea8381ab8115e47b466
   players: RoomPlayer[]; // maksimal 4
   maxPlayers: 4;
   canStart: boolean;
   startBlockReason: null | "NEED_MIN_PLAYERS" | "WAITING_READY";
 };
 
+type RevealedReality = {
+  outcome: Outcome;
+  text: string; // "Bos marah"
+  effects: Effect[];
+  seasonal: boolean;
+};
+
 type OpenedHex = {
   hex: HexCoord;
   category: Category;
   title: string; // "Lembur Proyek"
-  outcome: Outcome | null; // null untuk Petak Emas
+  plan: Effect[]; // v1.12: untuk popup detail heksa terbuka
+  reality: RevealedReality | null; // null sampai Fase Pembalikan, atau untuk Petak Emas
   byPlayerId: string;
   step: number;
 };
@@ -210,14 +273,14 @@ type GoldTile = {
   hex: HexCoord;
   title: string; // "Beasiswa Penuh"
   plan: Effect[];
-  expiresAtStep: number; // hangus saat langkah ini dimulai
+  expiresAtStep: number; // hilang saat langkah ini dimulai, heksa kembali ke petak asli
 };
 
 type ScoreRow = {
   playerId: string;
-  provisionalScore: number; // Skor Sementara (Rupiah)
+  provisionalScore: number; // Skor Sementara 0-100 (desimal), diperbarui di Fase Pembalikan
   rank: number;
-  eliminated: boolean;
+  eliminated: boolean; // skor dibekukan saat eliminasi
 };
 
 type CalendarInfo = {
@@ -233,26 +296,24 @@ type CalendarInfo = {
 type PublicGameState = {
   version: number;
   gameId: string;
-  boardRadius: 4 | 5 | 6;
+  boardRadius: 6; // v1.12: selalu 127 heksa
   calendar: CalendarInfo;
+  phase: "calendar" | "turn" | "reveal" | "finished"; // v1.12
   turnOrder: string[];
   activePlayerId: string | null;
   turnDeadline: number | null;
-  turnPaused: boolean;
   pawns: { playerId: string; hex: HexCoord }[];
   openedHexes: OpenedHex[];
-  deadHexes: HexCoord[];
   gold: GoldTile | null;
   scores: ScoreRow[];
   rankOneBurden: string[]; // playerId yang kena (bisa >1 jika seri)
   eliminated: string[];
-  spectators: string[];
 };
 
 type PrivateStatus = {
   wealth: number;
   debt: number;
-  debtLimit: 25000000;
+  debtLimit: 25000000; // batas Bangkrut: lebih dari angka ini saat Fase Pembalikan = tereliminasi
   health: number;
   stress: number;
 };
@@ -261,7 +322,7 @@ type TileOption = {
   hex: HexCoord;
   category: Category;
   title: string;
-  plan: Effect[]; // efek Rencana (nilai Multiplayer)
+  plan: Effect[]; // efek Rencana (1×)
   risk: Risk | null; // null untuk Petak Emas
   riskTags: Array<
     | { type: "rankOne"; plusPct: 15 }
@@ -273,10 +334,16 @@ type TileOption = {
 
 type InviteCard = {
   cardId: string;
-  plan: "hangout" | "morningRun" | "jointProject" | "staycation";
+  plan: "hangout" | "morningRun" | "jointProject" | "staycation"; // diacak bersama kartu
   planEffects: Effect[];
-  motive: "sincere" | "commission" | "trap"; // Tulus / Komisi / Jebakan, hanya pemilik kartu
+  motive: Motive; // hanya pemilik kartu
   expiresAtMonth: number;
+};
+
+type Reflection = {
+  source: "ai" | "rules"; // "rules" = fallback insight berbasis aturan
+  summary: string;
+  insights: Array<{ title: string; body: string; reference?: string }>; // reference: judul buku dan penulis
 };
 ```
 
@@ -294,8 +361,8 @@ Format error REST sama dengan ack: `{ ok: false, error: ErrorCode, message?: str
 
 |       |                                                                                                                           |
 | ----- | ------------------------------------------------------------------------------------------------------------------------- |
-| Layar | Popup "Masuk sebagai tamu", popup yang sama dalam mode "Ubah nama"                                                        |
-| Aksi  | Pertama kali membuka Lobby, menekan Mabar tanpa sesi, atau menekan "Ubah nama" di Kartu Identitas Pemain                  |
+| Layar | Popup "Masuk sebagai tamu", popup yang sama dalam mode "Edit Profile"                                                     |
+| Aksi  | Pertama kali membuka Lobby, menekan Mabar tanpa sesi, atau menekan "Edit Profile" di Kartu Identitas Pemain               |
 | Auth  | Tidak wajib. Jika header `Authorization: Bearer <token>` valid, server **mengubah** nama/avatar dan `playerId` tetap sama |
 
 Request:
@@ -322,18 +389,18 @@ Respons `201`:
 }
 ```
 
-Error: `400 INVALID_PAYLOAD`, `401 UNAUTHORIZED` (token tidak valid), `409 ALREADY_IN_ROOM` (ubah nama saat di Room atau game), `422 NAME_REJECTED` (kata kasar), `429 RATE_LIMITED` (usulan 10 request/menit per IP).
+Error: `400 INVALID_PAYLOAD`, `401 UNAUTHORIZED` (token tidak valid), `409 ALREADY_IN_ROOM` (Edit Profile saat di Room atau game), `422 NAME_REJECTED` (kata kasar), `429 RATE_LIMITED` (usulan 10 request/menit per IP).
 
 Catatan:
 
 - Klien menyimpan `{ playerId, name, avatarId, token }` di `localStorage` (usulan key `pejuang.guest`).
-- **Ubah nama hanya di Lobby** (GDD 9.1 v1.10), tidak saat berada di Room atau game, supaya nama di Papan Skor tidak berubah di tengah permainan. Jika request membawa token valid dan pemain itu sedang tercatat di Room atau game, server menolak dengan `409`:
+- **Edit Profile hanya di Lobby** (GDD 9.1 v1.10, v1.12), tidak saat berada di Room atau game, supaya nama dan karakter di Papan Skor tidak berubah di tengah permainan. Jika request membawa token valid dan pemain itu sedang tercatat di Room atau game, server menolak dengan `409`:
 
 ```ts
 {
   ok: false;
   error: "ALREADY_IN_ROOM";
-  message: "Ubah nama hanya bisa di Lobby.";
+  message: "Edit Profile hanya bisa di Lobby.";
 }
 ```
 
@@ -423,14 +490,14 @@ Ack<{ snapshot: Snapshot }>;
 ```
 
 Error: `ROOM_NOT_FOUND`, `NOT_IN_ROOM`.
-Catatan: server juga mengirim ulang popup yang masih berjalan (Event Tanggal, Ajakan masuk, `turn:options`) di dalam snapshot, supaya pemain bisa melanjutkan.
+Catatan: server juga mengirim ulang popup yang masih berjalan (popup Ganti Bulan, Event Tanggal, Ajakan masuk, `turn:options`) beserta `deadline`-nya di dalam snapshot, supaya pemain bisa melanjutkan (GDD 9.4 v1.12).
 
 ### `session:snapshot` · S→C (P)
 
-|       |                                                                                                    |
-| ----- | -------------------------------------------------------------------------------------------------- |
-| Layar | Semua layar room/game (dipakai untuk menggambar ulang)                                             |
-| Aksi  | Dikirim sebagai isi ack `session:resume` dan `spectate:enter`, dan bisa didorong server bila perlu |
+|       |                                                                               |
+| ----- | ----------------------------------------------------------------------------- |
+| Layar | Semua layar room/game (dipakai untuk menggambar ulang)                        |
+| Aksi  | Dikirim sebagai isi ack `session:resume`, dan bisa didorong server bila perlu |
 
 ```ts
 type Snapshot = {
@@ -442,9 +509,10 @@ type Snapshot = {
     status: PrivateStatus | null; // null jika belum mulai
     inviteCard: InviteCard | null;
     pendingTurn: TurnOptionsPayload | DeadEndPayload | null;
+    pendingMonth: MonthSummaryPayload | null; // v1.12: popup Ganti Bulan yang masih terbuka
     pendingCalendar: CalendarEventPayload | null;
     pendingInvite: InviteIncomingPayload | null;
-    isSpectator: boolean;
+    reflection: Reflection | null; // v1.12
   };
   result: GameFinishedPayload | null; // terisi jika game sudah selesai
 };
@@ -461,7 +529,7 @@ type Snapshot = {
 { version?: number; playerId: string; connected: boolean; at: number }
 ```
 
-Catatan: pemain yang putus tetap punya giliran. Jika timer habis, heksa dipilih acak (GDD 4.3, 9.4). Tidak ada bot pengganti (GDD 9.4 v1.10).
+Catatan: pemain yang putus tetap punya giliran. Jika timer habis, heksa dipilih acak (GDD 4.3, 9.4). Popup Ganti Bulan = bayar Rp0, Event Tanggal = Tidak ikut, Ajakan = Tolak (GDD 9.4 v1.12). Tidak ada bot pengganti (GDD 9.4 v1.10).
 
 ### `error` · S→C
 
@@ -499,7 +567,7 @@ Room ditutup karena tidak aktif (GDD 9.3 v1.11): `{ code: "ROOM_NOT_FOUND", mess
 Ack<{ room: RoomState }>;
 ```
 
-Error: `ALREADY_IN_ROOM`. Pengirim menjadi Host, `turnSeconds` default 30. Klien pindah ke `/room/[code]`.
+Error: `ALREADY_IN_ROOM`. Pengirim menjadi Host, `turnSeconds` default 30. Klien pindah ke `/room/[code]`. Karakter pemain diambil dari profil tamunya.
 
 ### `room:join` · C→S
 
@@ -518,7 +586,7 @@ Ack<{ room: RoomState }>;
 ```
 
 Error: `ROOM_NOT_FOUND` ("Kode room tidak ketemu."), `ROOM_FULL`, `ROOM_LOCKED`, `ALREADY_IN_ROOM`.
-Catatan: pemain yang terputus dan sudah terdaftar di room yang terkunci memakai `session:resume`, bukan `room:join`.
+Catatan: pemain yang terputus dan sudah terdaftar di room yang terkunci memakai `session:resume`, bukan `room:join`. Jika karakter profilnya sudah dipakai pemain lain di room, server memberi karakter kosong pertama (GDD 9.3 v1.12).
 
 ### `room:leave` · C→S
 
@@ -538,7 +606,8 @@ Ack;
 Catatan:
 
 - Host keluar sebelum game: host pindah ke pemain yang masuk paling awal. Room kosong ditutup.
-- Keluar saat game berjalan (`status` `playing`): **tidak ditolak**, ack `{ ok: true }`. Diperlakukan sama seperti koneksi putus (GDD 9.4 v1.10): pemain tetap di game dan di papan, gilirannya menunggu Timer Giliran habis lalu heksa dipilih acak, Event Tanggal otomatis Tidak ikut, dan ia bisa kembali lewat `session:resume` selama game belum selesai. Pemain lain menerima `player:connection` dengan `connected: false`.
+- Pemain yang **tereliminasi** lalu menekan Kembali ke Lobby: dikeluarkan dari room dan tidak ikut Main Lagi. Pionnya tetap di papan (GDD 9.4 v1.12).
+- Keluar saat game berjalan (`status` `playing`) oleh pemain yang belum tereliminasi: **tidak ditolak**, ack `{ ok: true }`. Diperlakukan sama seperti koneksi putus (GDD 9.4 v1.10): pemain tetap di game dan di papan, gilirannya menunggu Timer Giliran habis lalu heksa dipilih acak, popup Ganti Bulan bayar Rp0, Event Tanggal otomatis Tidak ikut, Ajakan dihitung Tolak, dan ia bisa kembali lewat `session:resume` selama game belum selesai. Pemain lain menerima `player:connection` dengan `connected: false`.
 
 ### `room:ready` · C→S
 
@@ -558,35 +627,46 @@ Ack;
 
 Host tidak perlu Siap. Host yang mengirim event ini mendapat `INVALID_PAYLOAD`.
 
-### `room:pawn` · C→S
+### `room:avatar` · C→S
 
-|       |                               |
-| ----- | ----------------------------- |
-| Layar | Room                          |
-| Aksi  | Memilih warna dan bentuk pion |
+|       |                                                        |
+| ----- | ------------------------------------------------------ |
+| Layar | Room                                                   |
+| Aksi  | Memilih karakter (pion) yang belum dipakai pemain lain |
 
 ```ts
 {
   requestId: string;
-  pawn: PawnId;
+  avatarId: AvatarId;
 }
 // ack
 Ack;
 ```
 
-Error: `PAWN_TAKEN`. Warna dan bentuk dipasangkan tetap (krem-lingkaran, biru es-kotak, mint-segitiga, salmon-wajik) supaya pion selalu berbeda warna **dan** bentuk (02_DESIGN aturan warna #6). Saat bergabung, server memberi pion pertama yang kosong.
+Error: `AVATAR_TAKEN`, `ROOM_LOCKED`. Menggantikan `room:pawn` (GDD 9.3 v1.12). Karakter unik dalam satu room dan juga tampil di Papan Skor. Saat bergabung, server memakai karakter dari profil tamu; jika sudah dipakai, server memberi karakter kosong pertama. Perubahan ini hanya berlaku di room, profil tamu tidak berubah.
 
 ### `room:timer` · C→S
 
+<<<<<<< HEAD
 |       |                                                      |
 | ----- | ---------------------------------------------------- |
 | Layar | Room, kartu "TIMER GILIRAN (diatur host)"            |
 | Aksi  | Host memilih "15 dtk - Kilat", "30 dtk - Cepat", atau "60 dtk - Santai" |
+=======
+|       |                                                                 |
+| ----- | --------------------------------------------------------------- |
+| Layar | Room, kartu "TIMER GILIRAN (diatur host)"                       |
+| Aksi  | Host memilih "15 dtk", "30 dtk - Cepat", atau "60 dtk - Santai" |
+>>>>>>> 2e8b98ba769ebef8e776fea8381ab8115e47b466
 
 ```ts
 {
   requestId: string;
+<<<<<<< HEAD
   turnSeconds: 15 | 30 | 60;
+=======
+  turnSeconds: TurnSeconds;
+>>>>>>> 2e8b98ba769ebef8e776fea8381ab8115e47b466
 }
 // ack
 Ack;
@@ -610,7 +690,7 @@ Error: `NOT_HOST`, `ROOM_LOCKED` (tidak bisa diubah setelah game mulai, GDD 4.3)
 Ack;
 ```
 
-Error: `NOT_HOST`, `INVALID_TARGET` (diri sendiri atau bukan anggota), `ROOM_LOCKED` (room sudah mulai). Hanya bisa saat status `waiting`. Pion pemain yang dikeluarkan kembali kosong (GDD 9.3 v1.11).
+Error: `NOT_HOST`, `INVALID_TARGET` (diri sendiri atau bukan anggota), `ROOM_LOCKED` (room sudah mulai). Hanya bisa saat status `waiting`. Karakter pemain yang dikeluarkan kembali tersedia (GDD 9.3 v1.11).
 
 ### `room:kicked` · S→C (P) **[+]**
 
@@ -642,14 +722,14 @@ Alasan ditambahkan: tanpa event ini, pemain yang dikeluarkan hanya melihat dirin
 Ack<{ room: RoomState }>;
 ```
 
-Error: `NOT_HOST`, `INVALID_PAYLOAD` (status bukan `finished`). Sesi game lama dihapus, room kembali ke `waiting`, pion tetap, semua `ready` jadi `false`, pemain yang tidak tersambung dikeluarkan, lalu `room:state` dikirim. Game berikutnya memulai `version` dari 1. Pemain lain yang menekan Main Lagi hanya pindah ke tampilan Room dan menunggu. Jika host sudah putus saat game selesai, peran host berpindah ke pemain paling awal yang masih tersambung (GDD 9.5 v1.11).
+Error: `NOT_HOST`, `INVALID_PAYLOAD` (status bukan `finished`). Sesi game lama dihapus, room kembali ke `waiting`, karakter tetap, semua `ready` jadi `false`, pemain yang tidak tersambung dikeluarkan (pemain yang tereliminasi sudah keluar lebih dulu), lalu `room:state` dikirim. Game berikutnya memulai `version` dari 1. Pemain lain yang menekan Main Lagi hanya pindah ke tampilan Room dan menunggu. Jika host sudah putus saat game selesai, peran host berpindah ke pemain paling awal yang masih tersambung (GDD 9.5 v1.11).
 
 ### `room:state` · S→R
 
-|       |                                                                      |
-| ----- | -------------------------------------------------------------------- |
-| Layar | Room (semua varian), Lobby setelah create/join berhasil              |
-| Aksi  | Setiap perubahan room: masuk, keluar, siap, pion, timer, host pindah |
+|       |                                                                          |
+| ----- | ------------------------------------------------------------------------ |
+| Layar | Room (semua varian), Lobby setelah create/join berhasil                  |
+| Aksi  | Setiap perubahan room: masuk, keluar, siap, karakter, timer, host pindah |
 
 ```ts
 RoomState;
@@ -706,10 +786,15 @@ Error: `NOT_HOST`, `NOT_ENOUGH_PLAYERS`, `PLAYERS_NOT_READY`.
   version: number;
   serverTime: number;
   gameId: string;
+<<<<<<< HEAD
   boardRadius: 4 | 5 | 6;            // 2 pemain = 4, 3 = 5, 4 = 6
   turnSeconds: 15 | 30 | 60;
+=======
+  boardRadius: 6;                   // v1.12: selalu 127 heksa
+  turnSeconds: TurnSeconds;
+>>>>>>> 2e8b98ba769ebef8e776fea8381ab8115e47b466
   turnOrder: string[];
-  startPositions: { playerId: string; hex: HexCoord }[];  // cincin radius 2
+  startPositions: { playerId: string; hex: HexCoord }[];  // 4 pemain: cincin radius 2; 2-3 pemain: cincin radius 3
   calendar: CalendarInfo;
 }
 ```
@@ -730,11 +815,10 @@ type GameFinishedPayload = {
     rank: number;
     playerId: string;
     name: string;
-    pawn: PawnId;
-    finalScore: number; // Skor Kesejahteraan
-    netWorth: number; // Harta Bersih
-    modifier: "penalty" | "bonus" | "none";
-    modifierPct: -50 | 20 | 0;
+    avatarId: AvatarId;
+    finalScore: number; // Skor Kesejahteraan 0-100
+    netWorth: number; // Harta Bersih (Rupiah)
+    points: { finance: number; health: number; calm: number }; // Poin Keuangan, Kesehatan, Ketenangan
     eliminated: boolean;
     eliminatedAtStep: number | null;
   }>;
@@ -743,9 +827,10 @@ type GameFinishedPayload = {
 
 Catatan:
 
-- Dikirim langsung setelah aksi yang menyebabkan tinggal 1 pemain yang belum tereliminasi (atau tidak ada sama sekali), tanpa menunggu Langkah 24. Pemain yang tersisa otomatis peringkat 1 (GDD 1.2 v1.10).
-- Peringkat: yang bertahan di atas yang tereliminasi. Antar yang tereliminasi, yang bertahan lebih lama lebih tinggi. Tie-breaker (Hutang lebih kecil, lalu Level Stress lebih rendah) dihitung server.
-- Rincian berisi Harta Bersih dan modifier sesuai GDD 9.5. Empat indikator lawan **tidak** dikirim (lihat Keputusan Terbuka #4). Indikator milik sendiri ada di `player:status` terakhir.
+- Dikirim di akhir Fase Pembalikan saat Langkah 24 selesai, atau saat tinggal 1 pemain (atau tidak ada) yang belum tereliminasi (GDD 1.2 v1.12). Pemain yang tersisa otomatis peringkat 1.
+- Peringkat: yang bertahan di atas yang tereliminasi. Antar yang tereliminasi, yang bertahan lebih lama lebih tinggi. Yang tereliminasi di Fase Pembalikan yang sama diurutkan menurut skor beku, lalu tie-breaker (Hutang lebih kecil, lalu Level Stress lebih rendah). Semua dihitung server.
+- Rincian berisi Harta Bersih dan tiga poin skor (GDD 9.5 v1.12). Karena Poin Kesehatan dan Poin Ketenangan diturunkan langsung dari Kesehatan dan Level Stress, keduanya ikut terbuka setelah game selesai. Kekayaan dan Hutang lawan **tidak** dikirim terpisah.
+- Refleksi AI menyusul lewat `reflection:ready` (privat).
 
 ---
 
@@ -756,7 +841,7 @@ Catatan:
 |       |                                                                                    |
 | ----- | ---------------------------------------------------------------------------------- |
 | Layar | Game Board: Papan Skor, mahkota, kalender, chip "Kondangan Teman - 2 langkah lagi" |
-| Aksi  | Setelah setiap Fase Realita (skor), di awal ronde (kalender, Beban Peringkat 1)    |
+| Aksi  | Akhir Fase Pembalikan (skor), di awal ronde (kalender, Beban Peringkat 1, fase)    |
 
 ```ts
 {
@@ -765,11 +850,7 @@ Catatan:
     | { type: "scores"; scores: ScoreRow[] }
     | { type: "rankOneBurden"; playerIds: string[] }
     | { type: "calendar"; calendar: CalendarInfo }
-    | {
-        type: "inviteSincereDeclined";
-        fromPlayerId: string;
-        targetPlayerId: string;
-      }
+    | { type: "phase"; phase: PublicGameState["phase"] }
   >;
 }
 ```
@@ -787,11 +868,13 @@ Aturan pembagian: perubahan yang punya event sendiri (heksa terbuka, Petak Emas,
 PrivateStatus;
 ```
 
-Klien menampilkan peringatan "Awas Doom Spending" jika `stress >= 8` (usulan, karena Doom terpicu di ≥ 9).
+Klien menampilkan peringatan "Awas Doom Spending" jika `stress >= 8` (usulan, karena Doom terpicu di ≥ 9 saat Fase Pembalikan).
+
+Efek Rencana langsung mengubah status saat Fase Berjalan, jadi `player:status` dikirim setelah `tile:opened` dan lagi setelah Fase Pembalikan.
 
 ---
 
-## 10. Kalender dan bulan (5 event)
+## 10. Kalender dan bulan (6 event)
 
 ### `calendar:event` · S→R
 
@@ -816,7 +899,7 @@ type CalendarEventPayload = {
 };
 ```
 
-Catatan: efek di popup sudah nilai Multiplayer. `note` untuk efek peluang (misalnya "25% menang lomba: +Rp1.500.000"). Pilihan `joinPaylater` hanya ada di Harbolnas (lihat Keputusan Terbuka #5). Giliran pertama ronde dimulai setelah semua menjawab atau waktu habis.
+Catatan: efek di popup memakai nilai 1×. `note` untuk efek peluang (misalnya "25% menang lomba: +Rp750.000"). Pilihan `joinPaylater` hanya ada di Harbolnas (lihat Keputusan Terbuka #5). Jika di ronde yang sama ada ganti bulan, event ini dikirim setelah popup Ganti Bulan ditutup (GDD 3.3 v1.12). Giliran pertama ronde dimulai setelah semua menjawab atau waktu habis.
 
 ### `calendar:answer` · C→S
 
@@ -858,36 +941,55 @@ Error: `EVENT_CLOSED` (waktu habis), `INVALID_PAYLOAD`. Waktu habis = otomatis `
 | Aksi  | Awal ronde saat musim berganti (Mar, Jun, Sep, Des) dan saat `game:started` |
 
 ```ts
-{ version: number; season: Season; vulnerableCategories: Category[]; zonkFocus: "vehicleWash" | "vehicleBreakdown" | "sick" }
+{ version: number; season: Season; vulnerableCategories: Category[]; zonkFocus: "floodRain" | "heatPollution" | "sick"; hint: string } // hint: "Pancaroba: petak Kesehatan lebih rawan"
 ```
 
 Hujan: rawan `work`. Kemarau: `finance`, `social`. Pancaroba: `health` (pemain dengan Kesehatan ≥ 8 kebal, dihitung per pemain di `turn:options`).
 
 ### `month:summary` · S→C (P)
 
-|       |                                                       |
-| ----- | ----------------------------------------------------- |
-| Layar | Ringkasan Ganti Bulan ("Gajian masuk. Tagihan juga.") |
-| Aksi  | Awal ronde pada Langkah 3, 5, 7, ..., 23 (bulan baru) |
+|       |                                                                                          |
+| ----- | ---------------------------------------------------------------------------------------- |
+| Layar | Popup Ganti Bulan (rincian dan slider Bayar Hutang dalam satu popup)                     |
+| Aksi  | Awal ronde pada Langkah 3, 5, 7, ..., 23 (bulan baru), serentak untuk semua pemain hidup |
 
 ```ts
-{
+type MonthSummaryPayload = {
   month: number;
   salary: 5730000;
   livingCost: 4600000;
-  interest: number; // 10% dari Hutang
-  interestAddedToDebt: number; // bagian bunga yang masuk pokok karena Kekayaan kurang
-  doomAmount: number | null; // jika Doom Spending terpicu di proses ini
+  interest: number; // 3% dari Hutang (GDD 2.3 v1.12)
+  interestAddedToDebt: number; // bagian bunga yang menjadi Hutang karena Kekayaan kurang
   before: PrivateStatus;
-  after: PrivateStatus;
-}
+  after: PrivateStatus; // setelah gaji, biaya hidup, dan bunga
+  payDebt: { max: number; deadline: number } | null; // null jika Hutang 0; max = min(Kekayaan, Hutang); deadline 15 detik
+};
 ```
 
-Urutan proses mengikuti GDD 2.4: gaji → biaya hidup → bunga → Doom Spending → cek Bangkrut dan Burnout.
+Urutan proses mengikuti GDD 2.4 v1.12: gaji → biaya hidup → bunga → slider Bayar Hutang. Doom Spending, Bangkrut, dan Burnout **tidak** dicek di sini, tetapi di Fase Pembalikan. Jika `payDebt` `null`, popup tetap tampil sebagai ringkasan dan ditutup pemain atau otomatis saat popup pemain lain selesai.
+
+### `month:pay-debt` · C→S **(v1.12)**
+
+|       |                                           |
+| ----- | ----------------------------------------- |
+| Layar | Popup Ganti Bulan                         |
+| Aksi  | Geser slider lalu tekan tombol konfirmasi |
+
+```ts
+{
+  requestId: string;
+  month: number;
+  amount: number; // 0 sampai payDebt.max, kelipatan Rp1 (klien membulatkan slider)
+}
+// ack
+Ack<{ paid: number; debtCleared: boolean; stressDelta: 0 | -2 }>;
+```
+
+Error: `PAYMENT_CLOSED` (waktu habis atau sudah dibayar), `INVALID_PAYLOAD` (`amount` di luar batas). Waktu habis atau pemain putus = bayar Rp0. Hanya satu pembayaran per bulan. Jika Hutang menjadi 0 dari lebih dari 0, Level Stress -2 (GDD 2.4 v1.12). Setelah ack, server mengirim `player:status`.
 
 ---
 
-## 11. Giliran (7 + 1 event)
+## 11. Giliran (6 event)
 
 ### `turn:start` · S→R
 
@@ -902,16 +1004,20 @@ Urutan proses mengikuti GDD 2.4: gaji → biaya hidup → bunga → Doom Spendin
   turnId: string;
   playerId: string;
   deadline: number;
+<<<<<<< HEAD
   turnSeconds: 15 | 30 | 60;
+=======
+  turnSeconds: TurnSeconds;
+>>>>>>> 2e8b98ba769ebef8e776fea8381ab8115e47b466
 }
 ```
 
 ### `turn:options` · S→C (P, hanya pemain aktif)
 
-|       |                                                                                                                          |
-| ----- | ------------------------------------------------------------------------------------------------------------------------ |
-| Layar | Game Board (3 heksa menyala, "Klik heksa untuk lihat detail"), Detail Heksa (tab 1-3, Rencana, meter risiko, tag risiko) |
-| Aksi  | Dikirim bersamaan dengan `turn:start` jika ada heksa yang bisa dimasuki                                                  |
+|       |                                                                                                                                                            |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Layar | Game Board (3 heksa menyala dengan Rencana singkat, "Klik heksa untuk lihat detail"), Popup Detail Heksa (Rencana, meter risiko, tag risiko, tombol Pilih) |
+| Aksi  | Dikirim bersamaan dengan `turn:start` jika ada heksa yang bisa dimasuki                                                                                    |
 
 ```ts
 type TurnOptionsPayload = { turnId: string; options: TileOption[] }; // 1-3 opsi
@@ -919,8 +1025,8 @@ type TurnOptionsPayload = { turnId: string; options: TileOption[] }; // 1-3 opsi
 
 Catatan:
 
-- Membuka detail heksa **tidak** memanggil server. Ketiga detail sudah ada di payload ini.
-- Bagian REALITA di panel selalu terkunci ("Terungkap setelah kamu melangkah"). Server tidak mengirim varian Realita sebelum heksa dipilih.
+- Membuka detail heksa **tidak** memanggil server. Ketiga detail sudah ada di payload ini. Tidak ada hover; klik heksa menyala lain mengganti isi popup (GDD 4.3 v1.12).
+- Bagian REALITA di popup selalu terkunci ("Terungkap di akhir ronde"). Server tidak mengirim varian Realita sebelum Fase Pembalikan.
 - Petak Emas yang bersebelahan dan bisa dimasuki **selalu** termasuk di `options` (`isGold: true`), mengisi satu dari maksimal 3 slot (GDD 4.7 v1.11).
 
 ### `turn:choose` · C→S
@@ -942,12 +1048,14 @@ Ack;
 
 Error: `NOT_YOUR_TURN`, `TILE_NOT_LIT`, `INVALID_TILE`, `STALE_VERSION` (`turnId` sudah lewat, misalnya waktu habis duluan), `GAME_FINISHED`.
 
+Jika waktu habis, server memilih **acak** dari heksa yang menyala, termasuk saat popup sedang terbuka tetapi Pilih belum ditekan (GDD 4.3 v1.12). Klien tidak mengirim heksa yang sedang dibuka ke server. Saat `turn:choose` diterima, server langsung mengundi hasil Realita (memakai Beban Peringkat 1, musim, dan imunitas saat itu) dan menyimpannya sampai Fase Pembalikan.
+
 ### `turn:dead-end` · S→C (P, hanya pemain aktif)
 
-|       |                                                                                           |
-| ----- | ----------------------------------------------------------------------------------------- |
-| Layar | Overlay Jalan Buntu ("kena macet dan nyasar")                                             |
-| Aksi  | Dikirim **sebagai pengganti** `turn:options` jika semua tetangga sudah terinjak atau mati |
+|       |                                                                                 |
+| ----- | ------------------------------------------------------------------------------- |
+| Layar | Overlay Jalan Buntu ("kena macet dan nyasar")                                   |
+| Aksi  | Dikirim **sebagai pengganti** `turn:options` jika semua tetangga sudah terinjak |
 
 ```ts
 type DeadEndPayload = {
@@ -957,7 +1065,7 @@ type DeadEndPayload = {
 };
 ```
 
-3 heksa tertutup terdekat (kurang dari 3 jika memang tidak ada).
+3 heksa tertutup terdekat, berapa pun jaraknya (kurang dari 3 jika memang tidak ada).
 
 ### `turn:jump` · C→S
 
@@ -978,6 +1086,7 @@ Ack;
 
 Error sama dengan `turn:choose`. Lompatan menggantikan langkah, Level Stress +1, lalu petak tujuan dijalankan seperti biasa.
 
+<<<<<<< HEAD
 ### `turn:timer` · legacy
 
 Event legacy; tidak dikirim oleh server. GDD 4.8 v1.12 menetapkan Ajakan tidak menjeda Timer Giliran.
@@ -992,12 +1101,14 @@ Event legacy; tidak dikirim oleh server. GDD 4.8 v1.12 menetapkan Ajakan tidak m
 }
 ```
 
+=======
+>>>>>>> 2e8b98ba769ebef8e776fea8381ab8115e47b466
 ### `tile:opened` · S→R
 
-|       |                                                                                              |
-| ----- | -------------------------------------------------------------------------------------------- |
-| Layar | Game Board: pion bergerak (spring), heksa terbuka, efek Rencana. Awal animasi Reveal Realita |
-| Aksi  | Fase Berjalan setelah `turn:choose`, `turn:jump`, atau waktu habis                           |
+|       |                                                                                     |
+| ----- | ----------------------------------------------------------------------------------- |
+| Layar | Game Board: pion bergerak (spring), heksa terbuka dengan sisi Rencana, efek Rencana |
+| Aksi  | Fase Berjalan setelah `turn:choose`, `turn:jump`, atau waktu habis                  |
 
 ```ts
 {
@@ -1015,17 +1126,39 @@ Event legacy; tidak dikirim oleh server. GDD 4.8 v1.12 menetapkan Ajakan tidak m
 }
 ```
 
-### `tile:resolved` · S→R
+Efek Rencana langsung berlaku (GDD 4.2 v1.12). Setelah ini server mengirim `player:status` ke pemain aktif, lalu `turn:start` berikutnya atau `round:reveal` jika semua pemain sudah jalan. Realita **tidak** dikirim di sini.
 
-|       |                                                                                              |
-| ----- | -------------------------------------------------------------------------------------------- |
-| Layar | Reveal Realita (Zonk: "Realita datang tanpa permisi.", Hoki: "Sekali-sekali, semesta baik.") |
-| Aksi  | Fase Realita, langsung setelah `tile:opened` (tidak dikirim untuk Petak Emas)                |
+---
+
+## 11a. Fase Pembalikan (2 event) **(v1.12)**
+
+### `round:reveal` · S→R
+
+|       |                                                            |
+| ----- | ---------------------------------------------------------- |
+| Layar | Game Board: banner Fase Pembalikan, animasi membalik heksa |
+| Aksi  | Semua pemain yang masih hidup sudah melangkah di ronde ini |
 
 ```ts
 {
   version: number;
-  turnId: string;
+  round: number;
+  step: number;
+  order: Array<{ playerId: string; hex: HexCoord }>; // urutan giliran ronde ini
+}
+```
+
+### `tile:resolved` · S→R
+
+|       |                                                                                               |
+| ----- | --------------------------------------------------------------------------------------------- |
+| Layar | Animasi Realita (Zonk: "Realita datang tanpa permisi.", Hoki: "Sekali-sekali, semesta baik.") |
+| Aksi  | Fase Pembalikan, satu event per pemain sesuai `order` (tidak dikirim untuk Petak Emas)        |
+
+```ts
+{
+  version: number;
+  round: number;
   playerId: string;
   hex: HexCoord;
   outcome: Outcome;
@@ -1035,7 +1168,16 @@ Event legacy; tidak dikirim oleh server. GDD 4.8 v1.12 menetapkan Ajakan tidak m
 }
 ```
 
-Setelah ini server mengirim `player:status` (P) ke pemain aktif, lalu `game:patch` (`scores`), lalu `turn:start` berikutnya.
+Urutan lengkap Fase Pembalikan (GDD 4.2 v1.12):
+
+1. `round:reveal`
+2. `tile:resolved` untuk tiap pemain sesuai `order`, lalu `player:status` (P) ke pemain itu
+3. `invite:resolved` (P) untuk setiap Ajakan di ronde ini
+4. `doom:triggered` (P) bagi pemain dengan Level Stress ≥ 9
+5. `player:eliminated` untuk pemain yang Bangkrut atau Burnout
+6. `game:patch` (`scores`), lalu `game:finished` jika Langkah 24 selesai atau tersisa 1 pemain atau kurang
+
+Klien boleh mempercepat animasi, tetapi urutan event tidak berubah.
 
 ---
 
@@ -1043,10 +1185,10 @@ Setelah ini server mengirim `player:status` (P) ke pemain aktif, lalu `game:patc
 
 ### `gold:spawned` · S→R
 
-|       |                                                                                                         |
-| ----- | ------------------------------------------------------------------------------------------------------- |
-| Layar | Game Board (heksa emas berkilau, label "Petak Emas"), kartu "Petak Emas - Hangus dalam 3 ronde", banner |
-| Aksi  | Awal Langkah 1, 5, 9, 13, 17, 21                                                                        |
+|       |                                                                                                             |
+| ----- | ----------------------------------------------------------------------------------------------------------- |
+| Layar | Game Board (heksa emas berkilau, label "Petak Emas"), kartu "Petak Emas - Hilang dalam 3 ronde", notifikasi |
+| Aksi  | Awal Langkah 1, 5, 9, 13, 17, 21                                                                            |
 
 ```ts
 {
@@ -1055,13 +1197,13 @@ Setelah ini server mengirim `player:status` (P) ke pemain aktif, lalu `game:patc
 }
 ```
 
-Sisa ronde dihitung klien: `gold.expiresAtStep - calendar.step`.
+Sisa ronde dihitung klien: `gold.expiresAtStep - calendar.step`. Posisi dipilih server: heksa tertutup di radius ≤ 4, tidak bersebelahan dengan pion mana pun, dengan jarak paling seimbang ke pemain yang masih bertahan (GDD 4.7 v1.12).
 
 ### `gold:expired` · S→R
 
 |       |                                                                       |
 | ----- | --------------------------------------------------------------------- |
-| Layar | Game Board (heksa berubah menjadi Heksa Mati, retak), banner          |
+| Layar | Game Board (heksa kembali menjadi heksa tertutup biasa)               |
 | Aksi  | Petak Emas tidak diambil sampai kemunculan berikutnya atau akhir game |
 
 ```ts
@@ -1072,23 +1214,23 @@ Sisa ronde dihitung klien: `gold.expiresAtStep - calendar.step`.
 }
 ```
 
-Jika diambil, tidak ada `gold:expired`. Pengambilan terlihat dari `tile:opened` dengan `isGold: true`.
+Heksa kembali ke petak aslinya dan bisa menyala lagi (GDD 4.7 v1.12). Isi petak asli tidak dikirim. Jika diambil, tidak ada `gold:expired`. Pengambilan terlihat dari `tile:opened` dengan `isGold: true`.
 
 ---
 
-## 13. Doom Spending dan eliminasi (3 event)
+## 13. Doom Spending, eliminasi, dan Refleksi AI (3 event)
 
 ### `doom:triggered` · S→C (P)
 
-|       |                                                                |
-| ----- | -------------------------------------------------------------- |
-| Layar | Overlay Doom Spending ("Checkout dulu, nyesel belakangan.")    |
-| Aksi  | Level Stress ≥ 9 saat ganti bulan atau setelah menginjak petak |
+|       |                                                             |
+| ----- | ----------------------------------------------------------- |
+| Layar | Overlay Doom Spending ("Checkout dulu, nyesel belakangan.") |
+| Aksi  | Level Stress ≥ 9 saat dicek di Fase Pembalikan              |
 
 ```ts
 {
   amount: number;
-  trigger: "month" | "tile";
+  round: number;
   stressAfter: number;
 }
 ```
@@ -1098,7 +1240,7 @@ Jika diambil, tidak ada `gold:expired`. Pengambilan terlihat dari `tile:opened` 
 |       |                                                                                                                 |
 | ----- | --------------------------------------------------------------------------------------------------------------- |
 | Layar | Pemain sendiri: Layar Eliminasi ("Hari ini kamu perlu istirahat."). Pemain lain: banner dan tanda di Papan Skor |
-| Aksi  | Bangkrut atau Burnout Total                                                                                     |
+| Aksi  | Bangkrut (Hutang lebih dari Rp25.000.000) atau Burnout Total, dicek di Fase Pembalikan                          |
 
 ```ts
 {
@@ -1106,31 +1248,37 @@ Jika diambil, tidak ada `gold:expired`. Pengambilan terlihat dari `tile:opened` 
   playerId: string;
   reason: "bankrupt" | "burnout";
   step: number;
+  frozenScore: number; // Skor Sementara saat eliminasi
 }
 ```
 
-Pion tetap di papan dan heksanya tetap terisi. Pemain ini dilewati di urutan giliran.
+Pion tetap di papan dan heksanya tetap terisi. Pemain ini dilewati di urutan giliran. Layar Eliminasi berisi ringkasan pribadi (dari `player:status` terakhir) dan Refleksi AI (`reflection:ready`), lalu tombol Kembali ke Lobby (`room:leave`). Tidak ada mode penonton (GDD 9.4 v1.12).
 
-### `spectate:enter` · C→S
+### `reflection:ready` · S→C (P) **(v1.12)**
 
-|       |                        |
-| ----- | ---------------------- |
-| Layar | Layar Eliminasi        |
-| Aksi  | Tombol "Jadi penonton" |
+|       |                                                                        |
+| ----- | ---------------------------------------------------------------------- |
+| Layar | Kartu Refleksi AI di Layar Eliminasi dan Hasil Akhir                   |
+| Aksi  | Server selesai membuat refleksi setelah eliminasi atau `game:finished` |
 
 ```ts
 {
-  requestId: string;
+  gameId: string;
+  playerId: string;
+  reflection: Reflection;
 }
-// ack
-Ack<{ snapshot: Snapshot }>;
 ```
 
-Error: `NOT_ELIMINATED`. Penonton tetap menerima event S→R, tidak pernah menerima data privat pemain lain, dan tidak lagi menerima `turn:options`, `turn:dead-end`, `calendar:event`, atau `invite:incoming`. Penonton boleh mengirim emote. Penonton yang putus lalu `session:resume` tetap berstatus penonton (GDD 9.4 v1.11). Tombol "Lihat hasil" menampilkan ringkasan status sendiri dari `player:status` terakhir (tanpa request).
+Catatan (GDD 6.5 v1.12):
+
+- Dibuat di server dari log keputusan pemain itu. Kunci API LLM hanya di server.
+- Jika LLM gagal atau melewati batas waktu (usulan 15 detik), server mengirim `source: "rules"` berisi insight berbasis aturan. Klien menampilkan status memuat sampai event ini datang.
+- Gagasan buku ditulis sebagai parafrase. Field `reference` berisi judul dan penulis, bukan kutipan panjang.
+- Juga dikirim ulang di `session:snapshot` (`me.reflection`) jika pemain masuk kembali.
 
 ---
 
-## 14. Ajakan (5 event) dan Emote (2 event)
+## 14. Ajakan (5 event) dan Emote (2 event) (v1.12)
 
 ### `invite:card` · S→C (P)
 
@@ -1146,18 +1294,19 @@ Error: `NOT_ELIMINATED`. Penonton tetap menerima event S→R, tidak pernah mener
 }
 ```
 
-`expiresAtMonth` maksimal 12: kartu dari Bulan 11 berlaku sampai game selesai. Hanya pemain yang belum tereliminasi yang menerima kartu.
+`expiresAtMonth` maksimal 12: kartu dari Bulan 11 berlaku sampai game selesai. Hanya pemain yang belum tereliminasi yang menerima kartu. Rencana dan motif (Tulus 50%, Komisi 50%) diacak saat kartu diterima. Kartu pemain yang tereliminasi hangus.
 
 ### `invite:send` · C→S
 
-|       |                                                                               |
-| ----- | ----------------------------------------------------------------------------- |
-| Layar | Ajakan (pilih target)                                                         |
-| Aksi  | Pilih satu lawan lalu kirim. Boleh kapan saja, tidak harus di giliran sendiri |
+|       |                                                                                      |
+| ----- | ------------------------------------------------------------------------------------ |
+| Layar | Ajakan (pilih target)                                                                |
+| Aksi  | Di Fase Pilihan sendiri sebelum memilih heksa: kartu → klik pion target → konfirmasi |
 
 ```ts
 {
   requestId: string;
+  turnId: string;
   cardId: string;
   targetPlayerId: string;
 }
@@ -1165,9 +1314,13 @@ Error: `NOT_ELIMINATED`. Penonton tetap menerima event S→R, tidak pernah mener
 Ack<{ inviteId: string; deadline: number }>;
 ```
 
-Error: `GAME_FINISHED`, `NO_INVITE_CARD`, `INVITE_LIMIT` (sudah ada 1 Ajakan di ronde ini atau Ajakan lain masih menunggu jawaban; kartu tidak terpakai), `INVALID_TARGET` (diri sendiri, target tereliminasi, atau pengirim sudah tereliminasi).
+Error: `GAME_FINISHED`, `NO_INVITE_CARD`, `INVITE_NOT_ALLOWED` (bukan Fase Pilihan pengirim, atau heksa sudah dipilih), `INVALID_TARGET` (diri sendiri, target tereliminasi, pengirim tereliminasi, atau target sedang punya popup Ajakan aktif).
 
+<<<<<<< HEAD
 Aturan (GDD 4.8 v1.11): boleh dikirim di fase apa pun selama game belum selesai, termasuk saat Event Tanggal. Target yang sedang putus tetap boleh diajak (dihitung Tolak setelah 15 detik).
+=======
+Aturan (GDD 4.8 v1.12): hanya di Fase Pilihan giliran pengirim, sebelum `turn:choose`. Jika Timer Giliran habis sebelum ack, Ajakan batal dan kartu tidak terpakai. Ajakan yang sudah terkirim tetap berjalan meski giliran pengirim berakhir. Target yang sedang putus tetap boleh diajak; popup tidak ditahan dan dihitung Tolak setelah 15 detik. Tidak ada batas jumlah Ajakan per ronde selain 1 kartu per pemain.
+>>>>>>> 2e8b98ba769ebef8e776fea8381ab8115e47b466
 
 ### `invite:incoming` · S→C (P, target)
 
@@ -1187,7 +1340,11 @@ type InviteIncomingPayload = {
 };
 ```
 
+<<<<<<< HEAD
 `fromName` dan `deadline` diisi server (engine tidak tahu nama pemain dan waktu). Ajakan tidak menjeda Timer Giliran.
+=======
+`fromName` dan `deadline` diisi server (engine tidak tahu nama pemain dan waktu). **Tidak ada timer yang dijeda.** Jika giliran target dimulai saat popup masih terbuka, Timer Giliran target tetap berjalan bersamaan.
+>>>>>>> 2e8b98ba769ebef8e776fea8381ab8115e47b466
 
 ### `invite:respond` · C→S
 
@@ -1206,14 +1363,14 @@ type InviteIncomingPayload = {
 Ack;
 ```
 
-Error: `INVITE_EXPIRED`. Waktu habis = `decline`.
+Error: `INVITE_EXPIRED`. Waktu habis = `decline`. Ack hanya mengonfirmasi jawaban tercatat; hasil dan motif baru dikirim di Fase Pembalikan.
 
 ### `invite:resolved` · S→C (P, pengirim dan target)
 
-|       |                                         |
-| ----- | --------------------------------------- |
-| Layar | Hasil Ajakan (motif terbuka atau tidak) |
-| Aksi  | Target menjawab atau waktu habis        |
+|       |                                                 |
+| ----- | ----------------------------------------------- |
+| Layar | Hasil Ajakan di Fase Pembalikan (motif terbuka) |
+| Aksi  | Fase Pembalikan, setelah semua `tile:resolved`  |
 
 ```ts
 {
@@ -1222,20 +1379,25 @@ Error: `INVITE_EXPIRED`. Waktu habis = `decline`.
   targetPlayerId: string;
   answer: "join" | "decline";
   autoDeclined: boolean;
-  motive: "sincere" | "commission" | "trap" | null;   // null jika tidak dibuka
-  effectsForYou: Effect[];                            // efek untuk penerima event ini
+  motive: Motive;           // dibuka untuk pengirim dan target
+  effectsForYou: Effect[];  // efek untuk penerima event ini
 }
 ```
 
-Kapan motif dibuka (GDD 4.8):
+Hasil (GDD 4.8 v1.12):
 
-- Target **ikut**: motif dibuka ke target.
-- Target **menolak** Komisi/Jebakan: motif tidak dibuka (`null`), tidak ada efek.
-- Target **menolak** Tulus: target Kekayaan -Rp3.000.000 dan motif dibuka ke semua lewat `game:patch` (`inviteSincereDeclined`).
+| Motif        | Target ikut                                                                             | Target menolak         |
+| ------------ | --------------------------------------------------------------------------------------- | ---------------------- |
+| `sincere`    | Efek Rencana pada target. Level Stress -1 untuk target dan pengirim                     | Target Level Stress +1 |
+| `commission` | Efek Rencana pada target, plus target Kekayaan -Rp500.000. Pengirim Kekayaan +Rp500.000 | Target Level Stress -1 |
 
+<<<<<<< HEAD
 Setelah ini server mengirim `player:status` ke pihak yang berubah.
 
 Efek Ajakan dicek Burnout (bukan Bangkrut, bukan Doom Spending). Jika ada yang tereliminasi, server mengirim `player:eliminated`, dan game bisa langsung berakhir (`game:finished`) jika tinggal 1 pemain. Jika target yang sedang giliran tereliminasi, giliran berpindah ke pemain berikutnya (GDD 4.8 v1.11).
+=======
+Motif hanya dikirim ke pengirim dan target. Pemain lain tidak menerima event ini _(asumsi GDD 4.8)_. Setelah ini server mengirim `player:status` ke pihak yang berubah. Efek Ajakan ikut dicek Doom Spending, Bangkrut, dan Burnout di Fase Pembalikan yang sama. Jika pengirim tereliminasi di ronde yang sama, hasilnya tetap diterapkan.
+>>>>>>> 2e8b98ba769ebef8e776fea8381ab8115e47b466
 
 ### `emote:send` · C→S
 
@@ -1255,7 +1417,7 @@ Ack;
 
 `emoteId` harus cocok `^[a-z0-9-]{1,24}$`. Daftar emote yang tampil ditentukan klien.
 
-Error: `INVALID_PAYLOAD`, `RATE_LIMITED` (1 emote per 3 detik per pemain), `NOT_IN_ROOM`. Berlaku di Room dan saat game, termasuk untuk penonton.
+Error: `INVALID_PAYLOAD`, `RATE_LIMITED` (1 emote per 3 detik per pemain), `NOT_IN_ROOM`. Berlaku di Room dan saat game.
 
 ### `emote:shown` · S→R
 
@@ -1275,77 +1437,88 @@ Tidak memakai `version` karena tidak mengubah state game.
 
 Kode bertanda **[+]** adalah tambahan dari daftar 03_REKOMENDASI.
 
-| Kode                     | Arti                               | Teks UI (usulan)                                                            | Muncul di         |
-| ------------------------ | ---------------------------------- | --------------------------------------------------------------------------- | ----------------- |
-| `INVALID_PAYLOAD`        | Data tidak sesuai skema Zod        | "Ada yang salah. Coba lagi."                                                | Semua             |
-| `UNAUTHORIZED` [+]       | Token tidak valid/kedaluwarsa      | "Sesi habis. Masuk sebagai tamu lagi."                                      | Handshake, REST   |
-| `NAME_REJECTED` [+]      | Nama tidak lolos penyaring         | "Nama ini tidak bisa dipakai."                                              | Popup tamu        |
-| `RATE_LIMITED` [+]       | Terlalu sering                     | "Pelan-pelan dulu, coba sebentar lagi."                                     | `/guest`, emote   |
-| `ROOM_NOT_FOUND`         | Kode salah                         | "Kode room tidak ketemu."                                                   | Lobby             |
-| `ROOM_FULL`              | Room 4/4                           | "Room sudah penuh (4/4)."                                                   | Lobby             |
-| `ROOM_LOCKED`            | Game sudah mulai                   | "Permainan sudah berjalan."                                                 | Lobby, Room       |
-| `ALREADY_IN_ROOM` [+]    | Masih tercatat di room lain        | "Kamu masih ada di room lain." (`/guest`: "Ubah nama hanya bisa di Lobby.") | Lobby, `/guest`   |
-| `NOT_IN_ROOM` [+]        | Resume ke room yang bukan miliknya | "Kamu tidak terdaftar di room ini."                                         | Resume            |
-| `NOT_HOST`               | Aksi khusus host                   | "Hanya host yang bisa melakukan ini."                                       | Room, Hasil Akhir |
-| `PAWN_TAKEN` [+]         | Pion sudah dipakai                 | "Pion ini sudah dipilih pemain lain."                                       | Room              |
-| `NOT_ENOUGH_PLAYERS` [+] | Kurang dari 2 pemain               | "Menunggu minimal 2 pemain"                                                 | Room              |
-| `PLAYERS_NOT_READY` [+]  | Ada yang belum Siap                | "Menunggu pemain siap"                                                      | Room              |
-| `NOT_YOUR_TURN`          | Bukan giliranmu                    | "Belum giliranmu."                                                          | Game Board        |
-| `TILE_NOT_LIT`           | Heksa tidak menyala                | "Pilih salah satu heksa yang menyala."                                      | Detail Heksa      |
-| `INVALID_TILE`           | Heksa tidak ada/terinjak           | "Heksa ini tidak bisa dipilih."                                             | Detail Heksa      |
-| `STALE_VERSION`          | State klien tertinggal             | (diam-diam memanggil `session:resume`)                                      | Game Board        |
-| `EVENT_CLOSED` [+]       | Waktu Event Tanggal habis          | "Waktu habis, otomatis tidak ikut."                                         | Event Tanggal     |
-| `NO_INVITE_CARD`         | Tidak punya kartu                  | "Kamu belum punya Kartu Ajakan."                                            | Ajakan            |
-| `INVITE_LIMIT`           | Sudah ada Ajakan di ronde ini      | "Sudah ada Ajakan di ronde ini. Kartumu tidak terpakai."                    | Ajakan            |
-| `INVALID_TARGET` [+]     | Target tidak sah                   | "Pemain ini tidak bisa dipilih."                                            | Ajakan, kick      |
-| `INVITE_EXPIRED` [+]     | Jawaban terlambat                  | "Waktu menjawab habis."                                                     | Ajakan masuk      |
-| `NOT_ELIMINATED` [+]     | Belum tereliminasi                 | -                                                                           | Spectate          |
-| `GAME_FINISHED`          | Game sudah selesai                 | "Permainan sudah selesai."                                                  | Game Board        |
-| `INTERNAL` [+]           | Error server                       | "Server lagi bermasalah. Coba lagi."                                        | Semua             |
+| Kode                     | Arti                               | Teks UI (usulan)                                                               | Muncul di         |
+| ------------------------ | ---------------------------------- | ------------------------------------------------------------------------------ | ----------------- |
+| `INVALID_PAYLOAD`        | Data tidak sesuai skema Zod        | "Ada yang salah. Coba lagi."                                                   | Semua             |
+| `UNAUTHORIZED` [+]       | Token tidak valid/kedaluwarsa      | "Sesi habis. Masuk sebagai tamu lagi."                                         | Handshake, REST   |
+| `NAME_REJECTED` [+]      | Nama tidak lolos penyaring         | "Nama ini tidak bisa dipakai."                                                 | Popup tamu        |
+| `RATE_LIMITED` [+]       | Terlalu sering                     | "Pelan-pelan dulu, coba sebentar lagi."                                        | `/guest`, emote   |
+| `ROOM_NOT_FOUND`         | Kode salah                         | "Kode room tidak ketemu."                                                      | Lobby             |
+| `ROOM_FULL`              | Room 4/4                           | "Room sudah penuh (4/4)."                                                      | Lobby             |
+| `ROOM_LOCKED`            | Game sudah mulai                   | "Permainan sudah berjalan."                                                    | Lobby, Room       |
+| `ALREADY_IN_ROOM` [+]    | Masih tercatat di room lain        | "Kamu masih ada di room lain." (`/guest`: "Edit Profile hanya bisa di Lobby.") | Lobby, `/guest`   |
+| `NOT_IN_ROOM` [+]        | Resume ke room yang bukan miliknya | "Kamu tidak terdaftar di room ini."                                            | Resume            |
+| `NOT_HOST`               | Aksi khusus host                   | "Hanya host yang bisa melakukan ini."                                          | Room, Hasil Akhir |
+| `AVATAR_TAKEN` [+]       | Karakter sudah dipakai             | "Karakter ini sudah dipilih pemain lain."                                      | Room              |
+| `NOT_ENOUGH_PLAYERS` [+] | Kurang dari 2 pemain               | "Menunggu minimal 2 pemain"                                                    | Room              |
+| `PLAYERS_NOT_READY` [+]  | Ada yang belum Siap                | "Menunggu pemain siap"                                                         | Room              |
+| `NOT_YOUR_TURN`          | Bukan giliranmu                    | "Belum giliranmu."                                                             | Game Board        |
+| `TILE_NOT_LIT`           | Heksa tidak menyala                | "Pilih salah satu heksa yang menyala."                                         | Detail Heksa      |
+| `INVALID_TILE`           | Heksa tidak ada/terinjak           | "Heksa ini tidak bisa dipilih."                                                | Detail Heksa      |
+| `STALE_VERSION`          | State klien tertinggal             | (diam-diam memanggil `session:resume`)                                         | Game Board        |
+| `EVENT_CLOSED` [+]       | Waktu Event Tanggal habis          | "Waktu habis, otomatis tidak ikut."                                            | Event Tanggal     |
+| `PAYMENT_CLOSED` [+]     | Waktu bayar Hutang habis           | "Waktu habis, Hutang tidak dibayar bulan ini."                                 | Popup Ganti Bulan |
+| `NO_INVITE_CARD`         | Tidak punya kartu                  | "Kamu belum punya Kartu Ajakan."                                               | Ajakan            |
+| `INVITE_NOT_ALLOWED` [+] | Di luar Fase Pilihan sendiri       | "Ajakan hanya bisa dikirim di giliranmu sebelum memilih heksa."                | Ajakan            |
+| `INVALID_TARGET` [+]     | Target tidak sah                   | "Pemain ini tidak bisa dipilih."                                               | Ajakan, kick      |
+| `INVITE_EXPIRED` [+]     | Jawaban terlambat                  | "Waktu menjawab habis."                                                        | Ajakan masuk      |
+| `GAME_FINISHED`          | Game sudah selesai                 | "Permainan sudah selesai."                                                     | Game Board        |
+| `INTERNAL` [+]           | Error server                       | "Server lagi bermasalah. Coba lagi."                                           | Semua             |
 
 ---
 
-## 16. Contoh alur satu ronde (Multiplayer, 3 pemain)
+## 16. Contoh alur satu ronde (Multiplayer, 3 pemain) (v1.12)
 
-Contoh: awal Langkah 9 (1 Mei, Bulan 5). Ada ganti bulan, Kartu Ajakan, Petak Emas, dan Event Tanggal (Libur Hari Buruh).
+Contoh: Langkah 9 (1 Mei, Bulan 5). Ada ganti bulan, Kartu Ajakan, Petak Emas, dan Event Tanggal (Libur Hari Buruh).
 
 ```
 Fase Kalender (sekali per ronde)
-S→R  game:patch          { ops: [calendar, rankOneBurden] }
-S→C  month:summary       (tiap pemain, privat)
-S→C  player:status       (tiap pemain)
+S→R  game:patch          { ops: [calendar, rankOneBurden, phase] }
 S→C  invite:card         (Bulan 5 = bulan ganjil)
-S→R  gold:expired        (Petak Emas Langkah 5 hangus jika belum diambil)
-S→R  gold:spawned        (Petak Emas baru)
-S→R  calendar:event      (deadline 15 dtk)
+S→R  gold:expired        (Petak Emas Langkah 5 hilang jika belum diambil)
+S→R  gold:spawned        (Petak Emas baru, klien menampilkan notifikasi)
+S→C  month:summary       (tiap pemain, privat, payDebt.deadline 15 dtk)
+C→S  month:pay-debt      (tiap pemain yang punya Hutang)
+S→C  player:status
+S→R  calendar:event      (setelah popup Ganti Bulan selesai, deadline 15 dtk)
 C→S  calendar:answer     (tiap pemain)
 S→C  calendar:result + player:status
 
 Giliran pemain A
 S→R  turn:start          { playerId: A, deadline }
 S→C  turn:options        (hanya A)
-     ... A membuka detail (tanpa request) ...
-C→S  turn:choose         → ack { ok: true }
+     ... A membuka popup detail (tanpa request) ...
+C→S  invite:send         (opsional, sebelum memilih heksa) → S→C invite:incoming (target)
+C→S  turn:choose         → ack { ok: true }   (Realita diundi, disimpan)
 S→R  tile:opened
-S→R  tile:resolved
-S→C  player:status       (hanya A)
-S→R  game:patch          { ops: [scores] }
+S→C  player:status       (hanya A, efek Rencana)
 
 Giliran pemain B, C: pola sama
+
+Fase Pembalikan
+S→R  round:reveal        { order: [A, B, C] }
+S→R  tile:resolved       (A, lalu B, lalu C) + player:status ke pemiliknya
+S→C  invite:resolved     (pengirim dan target)
+S→C  doom:triggered      (jika Level Stress ≥ 9)
+S→R  player:eliminated   (jika ada)
+S→R  game:patch          { ops: [scores] }
 ```
 
 ---
 
 ## 17. Keputusan terbuka
 
-Status mengikuti GDD v1.10. Butir yang sudah diputuskan berlaku sebagai kontrak. Butir yang masih asumsi memakai usulan di kolom kanan sampai diputuskan.
+Status mengikuti GDD v1.12. Butir yang sudah diputuskan berlaku sebagai kontrak. Butir yang masih asumsi memakai usulan di kolom kanan sampai diputuskan.
 
 | #   | Pertanyaan                                                             | Status dan keputusan                                                                                                                                                                           |
 | --- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | Pemain menekan Keluar saat game berjalan: dianggap apa?                | **Diputuskan (GDD 9.4 v1.10).** Sama seperti koneksi putus: tetap di papan, giliran menunggu timer lalu dipilih acak, bisa kembali lewat `session:resume` (lihat `room:leave`)                 |
 | 2   | Room tanpa aktivitas ditutup setelah berapa lama?                      | **Diputuskan (GDD 9.3 v1.11).** 10 menit untuk room `waiting`/`finished`; 2 menit jika semua anggota putus; room `playing` hanya dihapus jika semua pemain putus 10 menit. Lihat event `error` |
-| 3   | Game berakhir lebih cepat jika tinggal 1 pemain hidup?                 | **Diputuskan (GDD 1.2 v1.10).** Ya, `game:finished` dikirim saat tinggal 1 pemain (atau tidak ada) yang belum tereliminasi                                                                     |
-| 4   | Hasil Akhir menampilkan empat indikator semua pemain?                  | Tidak. Hanya Harta Bersih dan modifier (sesuai GDD 9.5). Jika ingin dibuka setelah game selesai, cukup tambah field di `ranking`                                                               |
+| 3   | Game berakhir lebih cepat jika tinggal 1 pemain hidup?                 | **Diputuskan (GDD 1.2 v1.12).** Ya, `game:finished` dikirim di akhir Fase Pembalikan saat tinggal 1 pemain (atau tidak ada) yang belum tereliminasi                                            |
+| 4   | Hasil Akhir menampilkan empat indikator semua pemain?                  | **Diputuskan (GDD 9.5 v1.12).** Harta Bersih dan tiga poin skor. Kesehatan dan Level Stress lawan ikut terbaca dari poin, Kekayaan dan Hutang tidak dikirim terpisah                           |
 | 5   | Harbolnas: Paylater dipilih pemain atau otomatis saat Kekayaan kurang? | **Diputuskan (GDD 3.3 v1.10, berlaku sejak v1.8).** Pilihan terpisah (`joinPaylater`) di popup                                                                                                 |
 | 6   | Ambang level risiko Rendah/Sedang/Tinggi                               | **Diputuskan (GDD 4.3 v1.10).** ≤15% / 16-34% / ≥35%                                                                                                                                           |
 | 7   | Masa berlaku token tamu                                                | Asumsi: 7 hari                                                                                                                                                                                 |
+| 8   | Motif Ajakan dibuka untuk siapa di Fase Pembalikan?                    | Asumsi (GDD 4.8 v1.12): hanya pengirim dan target                                                                                                                                              |
+| 9   | Tampilan skor                                                          | Asumsi (GDD 6.2 v1.12): disimpan desimal, ditampilkan bilangan bulat                                                                                                                           |
+| 10  | Provider dan model LLM untuk Refleksi AI                               | Belum dipilih. Lihat 03_REKOMENDASI Bagian 1                                                                                                                                                   |
