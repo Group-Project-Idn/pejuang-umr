@@ -448,7 +448,7 @@ describe("chooseHex", () => {
   it("Hutang tepat Rp25jt setelah Fase Pembalikan belum Bangkrut", () => {
     const first = makeGame().public.turnOrder[0]!;
     const game = withStatus(forceTile(makeGame(), "hanging-out"), first, {
-      wealth: 1_000_000,
+      wealth: 500_000,
       debt: 25_000_000,
     });
     const revealed = reveal(choose(game).state);

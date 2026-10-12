@@ -83,8 +83,8 @@ type Ctx = Awaited<ReturnType<typeof setup>>;
 type Plan = "hangout";
 
 const HANGOUT = [
-  { stat: "wealth", delta: -1_000_000 },
-  { stat: "stress", delta: -3 },
+  { stat: "wealth", delta: -500_000 },
+  { stat: "stress", delta: -2 },
 ] as const;
 
 function giveCard(ctx: Ctx, playerId: string, motive: "sincere" | "commission") {
