@@ -29,6 +29,7 @@ import type { CalendarChoiceId, GameState } from "../game/game-state";
 import { withPhase } from "../game/phase";
 import { pickGoldHex } from "../gold/placement";
 import { dealInviteCard, isInviteCardStep } from "../invite/deal-invite";
+import { appendDecision } from "../log/decision-log";
 import type { RandomSource } from "../random";
 
 export interface RoundResult {
@@ -186,7 +187,7 @@ export function startRound(state: GameState, random: RandomSource): RoundResult 
     players,
     public: publicState,
     movedThisRound: [],
-    inviteUsedThisRound: false,
+    roundInvites: [],
   };
   publicState.turnOrder = orderForStep(next, step);
 
@@ -351,6 +352,14 @@ export function answerMonthPayment(
     ok: true,
     state: {
       ...state,
+      decisionLog: appendDecision(state.decisionLog, playerId, {
+        kind: "debtPayment",
+        step: state.public.calendar.step,
+        month,
+        amount: result.paid,
+        debtBefore: player.status.debt,
+        cleared: result.debtCleared,
+      }),
       players: { ...state.players, [playerId]: { ...player, status: result.status } },
       pendingMonth: { ...pending, answers: { ...pending.answers, [playerId]: result.paid } },
     },
@@ -380,7 +389,21 @@ export function allMonthPaymentsAnswered(state: GameState): boolean {
 export function closeMonthChange(state: GameState): RoundResult {
   if (state.phase !== "monthChange") return { state, events: [] };
   const events: DomainEvent[] = [];
-  const next = enterCalendarEventOrTurn({ ...state, pendingMonth: null }, events);
+  // Debtor yang tidak menjawab dicatat membayar Rp0.
+  let decisionLog = state.decisionLog;
+  const pending = state.pendingMonth;
+  for (const playerId of pending?.debtorIds ?? []) {
+    if (pending && playerId in pending.answers) continue;
+    decisionLog = appendDecision(decisionLog, playerId, {
+      kind: "debtPayment",
+      step: state.public.calendar.step,
+      month: pending!.month,
+      amount: 0,
+      debtBefore: state.players[playerId]!.status.debt,
+      cleared: false,
+    });
+  }
+  const next = enterCalendarEventOrTurn({ ...state, decisionLog, pendingMonth: null }, events);
   return { state: next, events };
 }
 
@@ -430,6 +453,7 @@ export function closeCalendarEvent(state: GameState, random: RandomSource): Roun
   }
   const events: DomainEvent[] = [];
   const players = { ...state.players };
+  let decisionLog = state.decisionLog;
   for (const playerId of state.public.turnOrder) {
     const player = players[playerId];
     if (!player || player.eliminated) continue;
@@ -444,6 +468,13 @@ export function closeCalendarEvent(state: GameState, random: RandomSource): Roun
     }
     const status = applyEffects(player.status, effects).status;
     players[playerId] = { ...player, status };
+    decisionLog = appendDecision(decisionLog, playerId, {
+      kind: "calendar",
+      step: state.public.calendar.step,
+      eventId: def.id,
+      choice: choiceId,
+      autoChosen,
+    });
     const target = { kind: "player", playerId } as const;
     events.push({
       type: "calendar:result",
@@ -459,7 +490,7 @@ export function closeCalendarEvent(state: GameState, random: RandomSource): Roun
     events.push({ type: "player:status", target, payload: status });
   }
   return {
-    state: withPhase({ ...state, players, pendingCalendarEvent: null }, "turn"),
+    state: withPhase({ ...state, players, decisionLog, pendingCalendarEvent: null }, "turn"),
     events,
   };
 }

@@ -10,6 +10,7 @@ import {
   hasMonthDebtors,
   expireInvite,
   finishGame,
+  hasOpenInvites,
   respondInvite,
   sendInvite,
   startRound,
@@ -116,12 +117,17 @@ export class GameSession {
   /** Payload game:finished persis seperti yang dikirim (dengan version), untuk snapshot. */
   result: FinishedPayload | null = null;
   private turnDeadline: number | null = null;
-  private inviteTimer: TimerHandle | null = null;
-  private inviteDeadline: number | null = null;
-  /** Akhir ronde menunggu Ajakan aktif selesai tanpa menjeda countdown Ajakan. */
-  private waitingForInviteAtRoundEnd = false;
-  /** Payload invite:incoming yang sedang menunggu jawaban (untuk snapshot). */
-  private pendingInviteInfo: { targetId: string; payload: InviteIncomingPayload } | null = null;
+  /** Timer 15 detik per Ajakan terbuka. */
+  private readonly inviteTimers = new Map<string, TimerHandle>();
+  /** Payload invite:incoming yang menunggu jawaban, per inviteId (untuk snapshot). */
+  private readonly openInvites = new Map<
+    string,
+    { targetId: string; payload: InviteIncomingPayload }
+  >();
+  /** Semua pemain sudah melangkah tetapi Fase Pembalikan menunggu Ajakan terbuka (D6). */
+  private awaitingInvites = false;
+  /** Batas waktu (epoch ms) tiap Ajakan terbuka, untuk menolak jawaban yang terlambat. */
+  private readonly inviteDeadlines = new Map<string, number>();
   /** Pemain tereliminasi yang memilih jadi penonton (public.spectators). */
   private readonly spectators = new Set<string>();
 
@@ -136,7 +142,7 @@ export class GameSession {
     this.clearMonthTimer();
     this.clearRevealTimer();
     this.clearTurnTimer();
-    this.clearInviteTimer();
+    this.clearInviteTimers();
   }
 
   /** month:pay-debt: jawaban slider Bayar Hutang. Popup ditutup cepat bila semua debtor sudah menjawab. */
@@ -203,19 +209,24 @@ export class GameSession {
     return { ok: true };
   }
 
-  /** invite:send. Mengisi fromName dan deadline 15 detik. */
+  /**
+   * invite:send (GDD 4.8 v1.12). Mengisi fromName dan deadline 15 detik. Tiap Ajakan punya
+   * timer sendiri; beberapa Ajakan bisa terbuka sekaligus. `turnId` opsional (klien lama):
+   * bila kosong, dipakai giliran pemain aktif saat ini.
+   */
   sendInvite(
     senderId: string,
     cardId: string,
     targetId: string,
+    turnId?: string,
   ): Ack<{ inviteId: string; deadline: number }> {
     if (this.finished) return { ok: false, error: "GAME_FINISHED" };
-    const result = sendInvite(this.state, senderId, cardId, targetId);
+    const result = sendInvite(this.state, senderId, cardId, targetId, turnId);
     if (!result.ok) return { ok: false, error: result.code, message: result.message };
     const now = this.runtime.clock.now();
     const deadline = now + INVITE_SECONDS * 1000;
-    this.inviteDeadline = deadline;
-    const inviteId = result.state.pendingInvite?.inviteId ?? "";
+    const inviteId = result.state.roundInvites[result.state.roundInvites.length - 1]!.inviteId;
+    this.inviteDeadlines.set(inviteId, deadline);
     const events = result.events.map((event): DomainEvent => {
       if (event.type !== "invite:incoming") return event;
       const payload = {
@@ -223,72 +234,73 @@ export class GameSession {
         fromName: this.identities[senderId]?.name ?? senderId,
         deadline,
       };
-      this.pendingInviteInfo = { targetId, payload };
+      this.openInvites.set(inviteId, { targetId, payload });
       return { ...event, payload } as DomainEvent;
     });
     this.state = result.state;
-    this.inviteTimer = this.runtime.clock.setTimeout(
-      () => this.onInviteTimeout(inviteId),
-      INVITE_SECONDS * 1000 + DEADLINE_GRACE_MS + 1,
+    this.inviteTimers.set(
+      inviteId,
+      this.runtime.clock.setTimeout(
+        () => this.onInviteTimeout(inviteId),
+        INVITE_SECONDS * 1000 + DEADLINE_GRACE_MS + 1,
+      ),
     );
     this.emit(events, now);
     return { ok: true, inviteId, deadline };
   }
 
-  /** invite:respond. */
+  /** invite:respond. Hanya mencatat jawaban; hasilnya muncul di Fase Pembalikan. */
   respondInvite(playerId: string, inviteId: string, answer: "join" | "decline"): Ack {
     if (this.finished) return { ok: false, error: "GAME_FINISHED" };
-    if (this.isPastDeadline(this.inviteDeadline)) {
-      this.onInviteTimeout(this.state.pendingInvite?.inviteId ?? inviteId);
+    if (this.isPastDeadline(this.inviteDeadlines.get(inviteId) ?? null)) {
+      this.onInviteTimeout(inviteId);
       return { ok: false, error: "INVITE_EXPIRED" };
     }
     const result = respondInvite(this.state, playerId, inviteId, answer);
     if (!result.ok) return { ok: false, error: result.code, message: result.message };
-    this.afterInvite(result);
+    this.state = result.state;
+    this.closeInvite(inviteId);
     return { ok: true };
   }
 
   private onInviteTimeout(inviteId: string): void {
-    this.inviteTimer = null;
+    this.inviteTimers.delete(inviteId);
     if (this.finished) return;
     const result = expireInvite(this.state, inviteId);
-    if (result.ok) this.afterInvite(result);
-  }
-
-  /** Ajakan selesai (dijawab atau habis waktu): terapkan hasil, lalu lanjutkan atau hentikan giliran. */
-  private afterInvite(result: RoundResult): void {
-    this.clearInviteTimer();
-    this.pendingInviteInfo = null;
+    if (!result.ok) return;
     this.state = result.state;
-    this.emit(result.events);
-    if (result.nextAction === "finished") return this.finish();
+    this.closeInvite(inviteId);
+  }
 
-    const pending = this.state.pendingTurn;
-    if (pending && this.state.players[pending.playerId]?.eliminated) {
-      // Engine tidak membersihkan pendingTurn pemain yang Burnout karena Ajakan.
-      this.clearTurnTimer();
-      this.state = { ...this.state, pendingTurn: null };
-      return this.runTurn();
-    }
-    if (this.waitingForInviteAtRoundEnd) {
-      this.waitingForInviteAtRoundEnd = false;
-      this.nextRound();
+  /** Ajakan dijawab atau habis waktu: bersihkan, lalu lanjutkan Fase Pembalikan bila ia yang ditunggu. */
+  private closeInvite(inviteId: string): void {
+    const timer = this.inviteTimers.get(inviteId);
+    if (timer !== undefined) this.runtime.clock.clearTimeout(timer);
+    this.inviteTimers.delete(inviteId);
+    this.inviteDeadlines.delete(inviteId);
+    this.openInvites.delete(inviteId);
+    if (this.awaitingInvites && !hasOpenInvites(this.state)) {
+      this.awaitingInvites = false;
+      this.revealRound();
     }
   }
 
-  private clearInviteTimer(): void {
-    if (this.inviteTimer !== null) this.runtime.clock.clearTimeout(this.inviteTimer);
-    this.inviteTimer = null;
-    this.inviteDeadline = null;
+  private clearInviteTimers(): void {
+    for (const timer of this.inviteTimers.values()) this.runtime.clock.clearTimeout(timer);
+    this.inviteTimers.clear();
+    this.inviteDeadlines.clear();
   }
 
   inviteCardFor(playerId: string): Snapshot["me"]["inviteCard"] {
     return this.state.players[playerId]?.inviteCard ?? null;
   }
 
+  /** Ajakan terbuka milik pemain ini (sebagai target), dengan deadline aslinya. */
   pendingInviteFor(playerId: string): InviteIncomingPayload | null {
-    const info = this.pendingInviteInfo;
-    return info && info.targetId === playerId ? info.payload : null;
+    for (const info of this.openInvites.values()) {
+      if (info.targetId === playerId) return info.payload;
+    }
+    return null;
   }
 
   private runRound(): void {
@@ -369,12 +381,20 @@ export class GameSession {
     else this.finish();
   }
 
-  /** Fase Pembalikan (selalu, termasuk Langkah 24), lalu jeda animasi sebelum ronde berikutnya. */
+  /**
+   * Semua pemain sudah melangkah. Bila masih ada Ajakan terbuka, Fase Pembalikan ditunda
+   * sampai semuanya dijawab atau habis waktu (maksimal 15 detik, D6).
+   */
   private nextRound(): void {
-    if (this.state.pendingInvite) {
-      this.waitingForInviteAtRoundEnd = true;
+    if (hasOpenInvites(this.state)) {
+      this.awaitingInvites = true;
       return;
     }
+    this.revealRound();
+  }
+
+  /** Fase Pembalikan (selalu, termasuk Langkah 24), lalu jeda animasi sebelum ronde berikutnya. */
+  private revealRound(): void {
     const result = endRound(this.state, this.random);
     this.state = result.state;
     this.emit(result.events);

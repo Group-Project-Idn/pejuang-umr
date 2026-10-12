@@ -1,11 +1,10 @@
 import {
   InvitePlanDefinitionSchema,
   type InviteMotive,
-  type InviteMotiveReveal,
   type InvitePlanDefinition,
 } from "./schema";
 
-// 4 Rencana Ajakan dari GDD 4.8. Nilai berlaku sama di semua mode.
+// 4 Rencana Ajakan dari GDD 4.8 v1.12. Nilai dipakai apa adanya (1×).
 
 const INVITE_PLAN_DEFINITIONS: InvitePlanDefinition[] = [
   {
@@ -53,37 +52,30 @@ export const INVITE_MOTIVE_WEIGHTS: Record<InviteMotive, number> = {
   commission: 50,
 };
 
-type InviteMotiveEffects = {
+type InviteOutcomeRule = {
   /** Efek Rencana berlaku pada target? */
   planAppliesToTarget: boolean;
   /** Efek tambahan untuk target (selain efek Rencana). */
   targetExtra: InvitePlanDefinition["effects"];
-  /** Efek untuk pengirim (selain Level Stress -1 pada ajakan tulus). */
+  /** Efek untuk pengirim. */
   senderExtra: InvitePlanDefinition["effects"];
-  /** Efek bagi target saat menolak. */
-  declineTarget: InvitePlanDefinition["effects"];
-  /** Kepada siapa motif dibuka setelah jawaban. */
-  revealMotiveTo: InviteMotiveReveal;
 };
 
+/** Hasil Ajakan per motif dan jawaban (GDD 4.8 v1.12). Motif dibuka ke pengirim dan target. */
 export const INVITE_MOTIVE_EFFECTS: Record<
   InviteMotive,
-  { join: InviteMotiveEffects; decline: InviteMotiveEffects }
+  { join: InviteOutcomeRule; decline: InviteOutcomeRule }
 > = {
   sincere: {
     join: {
       planAppliesToTarget: true,
       targetExtra: [{ stat: "stress", delta: -1 }],
       senderExtra: [{ stat: "stress", delta: -1 }],
-      declineTarget: [],
-      revealMotiveTo: "target",
     },
     decline: {
       planAppliesToTarget: false,
-      targetExtra: [],
+      targetExtra: [{ stat: "stress", delta: 1 }],
       senderExtra: [],
-      declineTarget: [{ stat: "stress", delta: 1 }],
-      revealMotiveTo: "target",
     },
   },
   commission: {
@@ -91,15 +83,11 @@ export const INVITE_MOTIVE_EFFECTS: Record<
       planAppliesToTarget: true,
       targetExtra: [{ stat: "wealth", delta: -500_000 }],
       senderExtra: [{ stat: "wealth", delta: 500_000 }],
-      declineTarget: [],
-      revealMotiveTo: "target",
     },
     decline: {
       planAppliesToTarget: false,
-      targetExtra: [],
+      targetExtra: [{ stat: "stress", delta: -1 }],
       senderExtra: [],
-      declineTarget: [{ stat: "stress", delta: -1 }],
-      revealMotiveTo: "target",
     },
   },
 };

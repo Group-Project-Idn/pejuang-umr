@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, it } from "vitest";
-import { hexKey } from "@pejuang/shared";
+import { ReflectionSchema, hexKey } from "@pejuang/shared";
+import { buildPlayerReflection } from "../reflection/rules-insight";
 import type { DomainEvent } from "../game/domain-events";
 import { DEBT_LIMIT } from "../economy/constants";
 import { playRandomGame } from "./simulation-helpers";
@@ -13,34 +14,49 @@ function ofType<T extends DomainEvent["type"]>(events: readonly DomainEvent[], t
 }
 
 const finalScores: number[] = [];
+const pointSums = { finance: 0, health: 0, calm: 0 };
+const finalWealth: number[] = [];
+const finalDebts: number[] = [];
+let doomCount = 0;
+let doomTotal = 0;
+/** Statistik Ajakan per motif dan jawaban (dari invite:resolved milik pengirim). */
+const inviteStats: Record<string, number> = {};
 const inviteCounts: number[] = [];
 let inviteJoin = 0;
 let inviteDecline = 0;
 let inviteAuto = 0;
-let inviteLimitRejections = 0;
-const senderDeltas: number[] = [];
-const targetDeltas: number[] = [];
 
+const rupiah = (value: number) => Math.round(value).toLocaleString("id-ID");
 const mean = (values: readonly number[]) =>
   values.length === 0 ? 0 : values.reduce((sum, v) => sum + v, 0) / values.length;
-const rupiah = (value: number) => Math.round(value).toLocaleString("id-ID");
 const reasons: Record<string, number> = {};
 let totalPlayers = 0;
 let eliminatedPlayers = 0;
 
 afterAll(() => {
-  const average = finalScores.reduce((sum, score) => sum + score, 0) / finalScores.length;
   const topReason = Object.entries(reasons).sort((a, b) => b[1] - a[1])[0];
+  const pct = (count: number) => `${((count / (totalPlayers || 1)) * 100).toFixed(1)}%`;
+  const indebted = finalDebts.filter((debt) => debt > 0);
+  const inviteTotal = inviteJoin + inviteDecline;
+  const motiveLines = ["sincere", "commission"].map((motive) => {
+    const join = inviteStats[`${motive}:join`] ?? 0;
+    const decline = inviteStats[`${motive}:decline`] ?? 0;
+    const auto = inviteStats[`${motive}:auto`] ?? 0;
+    return `  ${motive}: Ikut ${join}, Tolak ${decline} (habis waktu ${auto})`;
+  });
   console.info(
     [
       `Simulasi ${GAME_COUNT} game (${totalPlayers} pemain)`,
-      `- rata-rata skor akhir: ${Math.round(average).toLocaleString("id-ID")}`,
-      `- pemain tereliminasi: ${((eliminatedPlayers / totalPlayers) * 100).toFixed(1)}%`,
-      `- alasan eliminasi terbanyak: ${topReason ? `${topReason[0]} (${topReason[1]})` : "tidak ada"}`,
-      `- rincian: ${JSON.stringify(reasons)}`,
-      `Ajakan: ${mean(inviteCounts).toFixed(2)} per game (${inviteJoin + inviteDecline} total, ${inviteLimitRejections} ditolak INVITE_LIMIT)`,
-      `- Ikut ${((inviteJoin / (inviteJoin + inviteDecline || 1)) * 100).toFixed(1)}%, Tolak ${((inviteDecline / (inviteJoin + inviteDecline || 1)) * 100).toFixed(1)}% (termasuk habis waktu ${inviteAuto})`,
-      `- dampak rata-rata ke Skor Sementara sesaat setelah dijawab: pengirim ${rupiah(mean(senderDeltas))}, target ${rupiah(mean(targetDeltas))}`,
+      `- rata-rata Skor Kesejahteraan akhir: ${mean(finalScores).toFixed(2)}`,
+      `  Poin Keuangan ${(pointSums.finance / (totalPlayers || 1)).toFixed(2)}, Kesehatan ${(pointSums.health / (totalPlayers || 1)).toFixed(2)}, Ketenangan ${(pointSums.calm / (totalPlayers || 1)).toFixed(2)}`,
+      `- pemain tereliminasi: ${pct(eliminatedPlayers)}; alasan terbanyak: ${topReason ? `${topReason[0]} (${topReason[1]})` : "tidak ada"}`,
+      `  rincian per alasan: ${Object.entries(reasons).map(([reason, count]) => `${reason} ${pct(count)}`).join(", ") || "tidak ada"}`,
+      `- Doom Spending: ${(doomCount / (totalPlayers || 1)).toFixed(2)}x per pemain, rata-rata Rp${rupiah(doomTotal / (totalPlayers || 1))} per pemain`,
+      `- berhutang di akhir: ${pct(indebted.length)}; rata-rata Hutang (yang berhutang) Rp${rupiah(mean(indebted))}`,
+      `- rata-rata Kekayaan akhir: Rp${rupiah(mean(finalWealth))}`,
+      `Ajakan: ${mean(inviteCounts).toFixed(2)} per game (${inviteTotal} total)`,
+      `- Ikut ${((inviteJoin / (inviteTotal || 1)) * 100).toFixed(1)}%, Tolak ${((inviteDecline / (inviteTotal || 1)) * 100).toFixed(1)}% (termasuk habis waktu ${inviteAuto})`,
+      ...motiveLines,
     ].join("\n"),
   );
 });
@@ -57,7 +73,7 @@ describe("simulasi game penuh", () => {
       const eliminatedSoFar = new Set<string>();
       const revealedRounds = new Set<number>();
 
-      const { state, events, initialUsedHexKeys, playerIds, inviteLog, inviteLimitRejections: limited } =
+      const { state, events, initialUsedHexKeys, playerIds, inviteLog } =
         playRandomGame(
         playerCount,
         seed,
@@ -122,6 +138,20 @@ describe("simulasi game penuh", () => {
               fail(`event memuat Realita tersembunyi ${hidden.playerId}`);
             }
           }
+          // Log keputusan privat: tidak di state publik dan tidak di payload event mana pun.
+          if (index % 4 === 0 && JSON.stringify(current.public).includes("decisionLog")) {
+            fail("public memuat decisionLog");
+          }
+          for (const e of index % 4 === 0 ? produced : []) {
+            const json = JSON.stringify(e.payload);
+            if (json.includes("decisionLog") || json.includes('"kind":"roundEnd"') || json.includes('"tileId"')) {
+              fail(`event ${e.type} memuat log keputusan`);
+            }
+            // Motif tidak keluar sebelum Fase Pembalikan: hanya invite:resolved dan invite:card yang boleh memuatnya.
+            if (json.includes('"motive"') && e.type !== "invite:resolved" && e.type !== "invite:card") {
+              fail(`event ${e.type} memuat motive`);
+            }
+          }
           if (
             current.phase === "monthChange" &&
             produced.some((e) => e.type === "calendar:event" || e.type === "turn:start")
@@ -138,6 +168,18 @@ describe("simulasi game penuh", () => {
               }
               if (round !== current.public.calendar.step && round !== current.public.calendar.step - 1) {
                 fail(`tile:resolved ronde ${round} di langkah ${current.public.calendar.step}`);
+              }
+            }
+            // invite:resolved selalu di batch yang sama dengan, dan setelah, round:reveal ronde itu.
+            if (event.type === "invite:resolved") {
+              const batchReveal = produced.findIndex((e) => e.type === "round:reveal");
+              if (batchReveal < 0 || batchReveal > produced.indexOf(event)) {
+                fail("invite:resolved tidak setelah round:reveal");
+              }
+              // Motif hanya ke pengirim dan target, tidak ke pemain ketiga.
+              const receiver = event.target.kind === "player" ? event.target.playerId : null;
+              if (receiver !== event.payload.fromPlayerId && receiver !== event.payload.targetPlayerId) {
+                fail(`invite:resolved (motif) dikirim ke pihak ketiga ${receiver}`);
               }
             }
             // Motif rahasia: tidak boleh ada di event room maupun invite:incoming.
@@ -162,23 +204,18 @@ describe("simulasi game penuh", () => {
         },
       );
 
-      // Maksimal 1 Ajakan sukses per ronde (langkah).
-      const perStep = new Map<number, number>();
-      for (const entry of inviteLog) perStep.set(entry.step, (perStep.get(entry.step) ?? 0) + 1);
-      for (const [step, count] of perStep) {
-        if (count > 1) fail(`${count} Ajakan sukses di langkah ${step}`);
-      }
+      // Setiap Ajakan terkirim dihitung sekali dan diselesaikan di Fase Pembalikan.
       if (ofType(events, "invite:incoming").length !== inviteLog.length) {
-        fail("jumlah invite:incoming tidak sama dengan Ajakan sukses");
+        fail("jumlah invite:incoming tidak sama dengan Ajakan terkirim");
+      }
+      if (ofType(events, "invite:resolved").length !== inviteLog.length * 2) {
+        fail("invite:resolved bukan 2 per Ajakan (pengirim dan target)");
       }
       inviteCounts.push(inviteLog.length);
-      inviteLimitRejections += limited;
       for (const entry of inviteLog) {
         if (entry.answer === "join") inviteJoin += 1;
         else inviteDecline += 1;
         if (entry.autoDeclined) inviteAuto += 1;
-        senderDeltas.push(entry.senderScoreDelta);
-        targetDeltas.push(entry.targetScoreDelta);
       }
 
       // Selesai dengan satu game:finished.
@@ -223,8 +260,38 @@ describe("simulasi game penuh", () => {
 
       for (const row of ranking) {
         finalScores.push(row.finalScore);
+        pointSums.finance += row.points?.finance ?? 0;
+        pointSums.health += row.points?.health ?? 0;
+        pointSums.calm += row.points?.calm ?? 0;
         totalPlayers += 1;
         if (row.eliminated) eliminatedPlayers += 1;
+      }
+      // Log keputusan: langkah tidak menurun, indikator akhir ronde ada, dan insight valid.
+      for (const playerId of playerIds) {
+        const entries = state.decisionLog[playerId] ?? [];
+        for (let i = 1; i < entries.length; i += 1) {
+          if (entries[i]!.step < entries[i - 1]!.step) fail(`log ${playerId} langkah menurun`);
+        }
+        if (!entries.some((entry) => entry.kind === "roundEnd")) fail(`log ${playerId} tanpa roundEnd`);
+        const reflection = buildPlayerReflection(state, playerId);
+        if (!ReflectionSchema.safeParse(reflection).success || reflection?.source !== "rules") {
+          fail(`insight ${playerId} tidak lolos ReflectionSchema`);
+        }
+        const status = state.players[playerId]!.status;
+        finalWealth.push(status.wealth);
+        finalDebts.push(status.debt);
+        for (const entry of entries) {
+          if (entry.kind === "doom") {
+            doomCount += 1;
+            doomTotal += entry.amount;
+          }
+        }
+      }
+      for (const resolved of ofType(events, "invite:resolved")) {
+        if (resolved.target.kind !== "player" || resolved.target.playerId !== resolved.payload.fromPlayerId) continue;
+        const outcome = resolved.payload.autoDeclined ? "auto" : resolved.payload.answer;
+        const key = `${resolved.payload.motive}:${outcome}`;
+        inviteStats[key] = (inviteStats[key] ?? 0) + 1;
       }
       for (const playerId of playerIds) {
         const reason = state.players[playerId]!.eliminatedReason;
@@ -233,5 +300,5 @@ describe("simulasi game penuh", () => {
     }
 
     expect(violations.slice(0, 20)).toEqual([]);
-  }, 20_000);
+  }, 30_000);
 });

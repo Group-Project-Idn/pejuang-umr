@@ -3,6 +3,7 @@ import { INITIAL_STATUS } from "../economy/constants";
 import type { RandomSource } from "../random";
 import type { DomainEvent } from "./domain-events";
 import type { GameState, PlayerState } from "./game-state";
+import { emptyDecisionLog } from "../log/decision-log";
 import { createGameSetup } from "./initial-state";
 
 export function createGame(
@@ -31,8 +32,8 @@ export function createGame(
     pendingMonth: null,
     movedThisRound: [],
     phase: "roundStart",
-    inviteUsedThisRound: false,
-    pendingInvite: null,
+    roundInvites: [],
+    decisionLog: emptyDecisionLog(playerIds),
     pendingRealities: [],
   };
   const events: DomainEvent[] = playerIds.map((playerId) => ({

@@ -92,6 +92,8 @@ function collectKeys(value: unknown, keys = new Set<string>()): Set<string> {
 
 /** Urutan deterministik (tanpa Math.random): peluang kirim Ajakan 3 dari 4 kartu, jawaban bergantian. */
 const SEND_PATTERN = [true, true, false, true];
+/** Ack semua invite:send bot, untuk memastikan tidak ada INVITE_LIMIT atau INVITE_NOT_ALLOWED. */
+const inviteAcks: Array<{ ok: boolean; error?: string }> = [];
 
 const MOTIVE_ALLOWED_TYPES = new Set(["invite:card", "invite:resolved"]);
 
@@ -99,6 +101,7 @@ describe("game penuh 3 bot", () => {
   it("berjalan sampai game:finished tanpa kebocoran dan tanpa lompatan version", async () => {
     const startedAt = Date.now();
     tap.events.length = 0;
+    inviteAcks.length = 0;
     const clock = new ManualClock();
     const server = createPejuangServer(
       { port: 0, webOrigin: "http://localhost:3000", guestTokenSecret: secret, version: "test", trustProxy: false },
@@ -141,19 +144,12 @@ describe("game penuh 3 bot", () => {
           choice: choice.id,
         });
       });
-      // Bot menerima kartu -> mengajak bot lain (bergantian bot aktif dan bot pasif).
+      // Bot menyimpan kartu; mengajak bot lain hanya di Fase Pilihan gilirannya sendiri, sebelum memilih
+      // heksa (bergantian bot aktif dan bot pasif).
+      let heldCard: { cardId: string } | null = null;
       let cardsSeen = 0;
       socket.on("invite:card", ({ card }) => {
-        if (!card || index === 2) return;
-        const k = cardsSeen++;
-        if (!SEND_PATTERN[k % SEND_PATTERN.length]) return;
-        const target = bots[(index + 1 + (k % 2)) % 3];
-        if (!target) return;
-        void socket.emitWithAck("invite:send", {
-          requestId: rid(),
-          cardId: card.cardId,
-          targetPlayerId: target.playerId,
-        });
+        heldCard = card ?? null;
       });
       // Target menjawab bergantian Ikut/Tolak; bot pasif tidak pernah menjawab (timeout 15 detik).
       let incomingSeen = 0;
@@ -162,9 +158,24 @@ describe("game penuh 3 bot", () => {
         const answer = incomingSeen++ % 2 === 0 ? "join" : "decline";
         void socket.emitWithAck("invite:respond", { requestId: rid(), inviteId: payload.inviteId, answer });
       });
-      socket.on("turn:options", (payload) => {
+      socket.on("turn:options", async (payload) => {
         if (index === 2) return;
-        void socket.emitWithAck("turn:choose", {
+        const card = heldCard;
+        if (card) {
+          heldCard = null;
+          const k = cardsSeen++;
+          const target = bots[(index + 1 + (k % 2)) % 3];
+          if (SEND_PATTERN[k % SEND_PATTERN.length] && target) {
+            const ack = await socket.emitWithAck("invite:send", {
+              requestId: rid(),
+              turnId: payload.turnId,
+              cardId: card.cardId,
+              targetPlayerId: target.playerId,
+            });
+            inviteAcks.push(ack as { ok: boolean; error?: string });
+          }
+        }
+        await socket.emitWithAck("turn:choose", {
           requestId: rid(),
           turnId: payload.turnId,
           hex: payload.options[0]!.hex,
@@ -315,6 +326,22 @@ describe("game penuh 3 bot", () => {
     }
     // Bot pasif tidak menjawab: Ajakan ke dia habis waktu.
     expect(resolvedAll.some((e) => e.payload.autoDeclined === true)).toBe(true);
+
+    // Ajakan v1.12: dikirim di giliran sendiri, jadi tidak ada penolakan INVITE_NOT_ALLOWED/INVITE_LIMIT.
+    expect(inviteAcks.length).toBeGreaterThan(0);
+    expect(inviteAcks.some((ack) => ack.ok)).toBe(true);
+    for (const ack of inviteAcks) {
+      expect(["INVITE_LIMIT", "INVITE_NOT_ALLOWED"]).not.toContain(ack.error);
+    }
+    expect(JSON.stringify(bots.map((bot) => bot.log))).not.toContain("INVITE_LIMIT");
+    // invite:resolved selalu datang setelah round:reveal ronde yang sama.
+    for (const bot of bots) {
+      let revealed = false;
+      for (const entry of bot.log) {
+        if (entry.type === "round:reveal") revealed = true;
+        if (entry.type === "invite:resolved") expect(revealed).toBe(true);
+      }
+    }
 
     // GDD 4.8: Ajakan tidak pernah menjeda Timer Giliran.
     expect(bots.flatMap((bot) => bot.log).filter((entry) => entry.type === "turn:timer")).toHaveLength(0);
