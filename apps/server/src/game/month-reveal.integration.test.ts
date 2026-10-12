@@ -390,6 +390,24 @@ describe("Fase Pembalikan", () => {
     expect(reveal.round).toBe(reveal.step);
   });
 
+  it("pilihan otomatis akibat timeout tetap dibuka sesuai urutan di Fase Pembalikan", async () => {
+    const ctx = await setup();
+    driveToBeforeRound(ctx, 3);
+    await until(() => ctx.find(ctx.host, "round:reveal").length >= 2, "pembalikan langkah 2");
+    const entries = ctx.host.log;
+    const revealAt = entries.findIndex((event) => event.type === "round:reveal" && event.payload.step === 2);
+    const reveal = entries[revealAt]!.payload;
+    const opened = entries.filter((event) => event.type === "tile:opened" && event.payload.autoPicked);
+    expect(opened).toHaveLength(4); // dua pemain x dua langkah, keduanya habis waktu
+    const resolved = entries.slice(revealAt + 1).filter((event) => event.type === "tile:resolved" && event.payload.round === 2);
+    expect(resolved.map((event) => event.payload.playerId)).toEqual(reveal.order.map((entry: { playerId: string }) => entry.playerId));
+    expect(resolved).toHaveLength(2);
+    for (const event of resolved) {
+      const openedAt = entries.findIndex((entry) => entry.type === "tile:opened" && entry.payload.turnId === event.payload.turnId);
+      expect(openedAt).toBeLessThan(revealAt);
+    }
+  });
+
   it("Realita tidak ada di state publik atau event sebelum round:reveal", async () => {
     const ctx = await setup();
     drive(

@@ -10,6 +10,7 @@ import {
   applyPlayerEliminated,
   applyPublicGameEvent,
   applyRealtimeTurnTimer,
+  applyRoundReveal,
   applyTileOpened,
   applyTileResolved,
   applyTurnTimer,
@@ -221,6 +222,7 @@ describe("reducer event publik (B01)", () => {
   const resolved: TileResolved = {
     version: 4,
     turnId: "turn-1",
+    round: 1,
     playerId: "p1",
     hex: { q: 1, r: 0 },
     outcome: "safe",
@@ -262,6 +264,8 @@ describe("reducer event publik (B01)", () => {
       category: "work",
       title: "Lembur",
       outcome: null,
+      plan: tileOpened.plan,
+      reality: null,
       byPlayerId: "p1",
       step: 1,
     });
@@ -273,6 +277,30 @@ describe("reducer event publik (B01)", () => {
     })!;
     expect(repeated.openedHexes).toHaveLength(1);
     expect(repeated.openedHexes[0]?.byPlayerId).toBe("p2");
+  });
+
+  it("round:reveal menjaga versi dan menutup timer; Realita baru terlihat setelah tile:resolved", () => {
+    const chosen = applyTileOpened(applyTurnStart(baseGame(), turnStart), tileOpened)!;
+    expect(chosen.openedHexes[0]?.outcome).toBeNull();
+    expect(chosen.openedHexes[0]?.reality).toBeNull();
+    const revealed = applyPublicGameEvent(chosen, {
+      type: "round:reveal",
+      payload: { version: 4, round: 1, step: 1, order: [{ playerId: "p1", hex: tileOpened.to }] },
+    })!;
+    expect(revealed).toMatchObject({ version: 4, phase: "reveal", activePlayerId: null, turnDeadline: null });
+    expect(revealed.openedHexes[0]?.reality).toBeNull();
+    expect(applyRoundReveal(revealed, { version: 3, round: 1, step: 1, order: [] })).toBe(revealed);
+
+    const after = applyTileResolved(revealed, { ...resolved, version: 5, round: 1 })!;
+    expect(after.openedHexes[0]?.reality).toEqual({
+      outcome: "safe", text: "Aman", effects: [], seasonal: false,
+    });
+    expect(after.openedHexes[0]?.outcome).toBe("safe");
+    expect(applyTileResolved(after, { ...resolved, version: 4, round: 1, text: "usang" })).toBe(after);
+    const wrongStep = applyTileResolved(revealed, { ...resolved, version: 5, round: 2 })!;
+    expect(wrongStep.openedHexes[0]?.reality).toBeNull();
+    const wrongPlayer = applyTileResolved(revealed, { ...resolved, version: 5, round: 1, playerId: "p2" })!;
+    expect(wrongPlayer.openedHexes[0]?.reality).toBeNull();
   });
 
   it("menolak event versi lebih lama dan tidak mengulang efek", () => {

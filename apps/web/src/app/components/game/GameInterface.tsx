@@ -125,6 +125,9 @@ export default function GameInterface({
         <div className="game-layout">
           <StatusPanel status={me?.status ?? null} />
           <section className="board-stage">
+            {game.phase === "reveal" ? (
+              <div role="status" className="gold-badge">Fase Pembalikan · Realita dibuka sesuai urutan giliran</div>
+            ) : null}
             {game.gold ? <div className="gold-badge">✦<strong>Petak<br />Emas</strong></div> : null}
             <GameBoard game={game} room={room} />
             {pendingTurn ? (
