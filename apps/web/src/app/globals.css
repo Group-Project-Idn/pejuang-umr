@@ -71,6 +71,55 @@
 }
 .lobby-comic-btn:disabled { cursor: not-allowed; opacity: 0.55; }
 
+/* The lobby fills a widescreen viewport; narrower screens scroll instead of clipping actions. */
+.lobby-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  padding: 0;
+  background: #202a38;
+}
+.lobby-viewport { display: flex; flex: 1; min-width: 0; }
+.lobby-window { display: flex; flex: 1; min-width: 0; flex-direction: column; border: 0; border-radius: 0; box-shadow: none; }
+.lobby-stage { display: flex; flex: 1; min-height: 0; flex-direction: column; }
+.lobby-main-folder {
+  flex: 1;
+  min-width: 0;
+  align-content: center;
+  gap: clamp(20px, 3vw, 64px);
+  padding: clamp(24px, 4vw, 80px);
+  border-radius: 14px;
+  background: #f5d56b;
+  box-shadow: none;
+}
+.lobby-main-title { font-size: clamp(2.75rem, 5vw, 6rem); letter-spacing: -.045em; }
+.lobby-main-folder > section { gap: clamp(12px, 1.5vw, 24px); }
+.lobby-main-folder > section:first-child > p:not(.lobby-stamp) { font-size: clamp(1rem, 1.3vw, 1.375rem); }
+.lobby-main-folder .lobby-paper-card { padding: clamp(14px, 1.5vw, 28px); background: #f9e8ad; }
+.lobby-main-folder .lobby-paper-card p { font-size: clamp(.875rem, 1vw, 1.125rem); }
+.lobby-main-folder .lobby-paper-card h2,
+.lobby-main-folder .lobby-paper-card label { font-size: clamp(1.125rem, 1.35vw, 1.5rem); }
+.lobby-main-folder .lobby-comic-btn { min-height: 48px; padding: 12px 20px; box-shadow: none; }
+.lobby-main-folder .lobby-primary-action { min-height: 64px; font-size: clamp(1.25rem, 2vw, 1.75rem); }
+.lobby-main-folder .lobby-code-actions { flex-wrap: wrap; }
+.lobby-main-folder .lobby-code-actions input { min-width: min(100%, 220px); min-height: 52px; }
+.lobby-main-folder .lobby-code-actions button { min-height: 52px; }
+.lobby-main-folder button:focus-visible,
+.lobby-main-folder input:focus-visible { outline: 3px solid #243040; outline-offset: 3px; }
+@media (min-width: 900px) {
+  .lobby-main-folder { grid-template-columns: minmax(0, .85fr) minmax(0, 1fr); }
+}
+@media (max-width: 899px), (max-height: 700px) {
+  .lobby-page { min-height: 100dvh; height: auto; }
+  .lobby-viewport, .lobby-window, .lobby-stage { min-height: 0; }
+  .lobby-main-folder { align-content: start; }
+}
+@media (max-width: 640px) {
+  .lobby-main-folder { padding: 20px 16px; }
+  .lobby-main-folder > section:first-child { padding-left: 0; }
+  .lobby-main-folder .lobby-code-actions input { flex-basis: 100%; }
+}
+
 /* Room multiplayer: ruang rapat kantor dengan map manila sebagai panel utama. */
 .room-office {
   position: relative;

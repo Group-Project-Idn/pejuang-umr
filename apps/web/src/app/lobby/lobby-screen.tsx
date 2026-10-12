@@ -204,22 +204,16 @@ export function LobbyScreen({ initialCode = "", hideHomeButton = false }: { init
         : "Bermasalah";
 
   return (
-    <main className="lobby-desk min-h-screen px-4 py-6 text-[#3b2a12] sm:px-6">
-      <div className="mx-auto w-full max-w-5xl">
-        <div className="overflow-hidden rounded-2xl border-2 border-[#3b2a12]/70 bg-[#2b3a4e]">
-          <div className="flex items-center gap-2 border-b border-white/10 bg-[#e8e4da] px-3 py-2">
-            <span aria-hidden="true" className="h-3 w-3 rounded-full bg-[#e0614a]" />
-            <span aria-hidden="true" className="h-3 w-3 rounded-full bg-[#f5a623]" />
-            <span aria-hidden="true" className="h-3 w-3 rounded-full bg-[#3fb871]" />
-            <span className="ml-2 hidden flex-1 rounded-full bg-white/70 px-3 py-1 text-xs text-[#85837c] sm:block">pejuang-umr.id/lobby</span>
-          </div>
-          <div className="grid gap-2 border-b border-black/20 bg-[#2b3a4e] px-4 py-3 sm:flex sm:items-center sm:justify-between">
+    <main className="lobby-desk lobby-page min-h-screen text-[#3b2a12]">
+      <div className="lobby-viewport mx-auto w-full">
+        <div className="lobby-window overflow-hidden border-2 border-[#3b2a12]/70 bg-[#2b3a4e]">
+          <div className="grid gap-2 border-b border-black/20 bg-[#2b3a4e] px-3 py-2 sm:flex sm:items-center sm:justify-between">
             {hideHomeButton ? null : (<button type="button" onClick={() => router.push("/lobby")} className="lobby-comic-btn w-fit rounded-lg bg-[#f5a623] px-3 py-2 text-sm font-bold">← Kembali ke Lobby</button>)}
-            <p role="status" className={`w-fit rounded-lg px-3 py-2 text-sm font-semibold ${serverTrouble ? "bg-[#f4b7ae] text-[#7c2a19]" : "bg-[#cde9cf] text-[#1e4622]"}`}>
+            <p role="status" className={`w-fit rounded-lg px-3 py-1.5 text-sm font-semibold ${serverTrouble ? "bg-[#f4b7ae] text-[#7c2a19]" : "bg-[#cde9cf] text-[#1e4622]"}`}>
               Server Jakarta Pusat: {serverLabel}
             </p>
           </div>
-          <div className="relative bg-[#202a38] p-3 sm:p-5">
+          <div className="lobby-stage relative bg-[#202a38] p-3 sm:p-4">
             <div aria-hidden="true" className="lobby-folder-tab absolute -top-1 left-6 h-7 w-44" />
             {/* RESUME-DI-SINI */}
             {resumeCode ? (
@@ -231,37 +225,37 @@ export function LobbyScreen({ initialCode = "", hideHomeButton = false }: { init
                 <button type="button" onClick={() => router.push(`/room/${resumeCode}`)} className="lobby-comic-btn rounded-lg bg-[#7fb0f5] px-4 py-2 font-bold text-[#1f3f73]">Lanjutkan</button>
               </section>
             ) : null}
-            <div className="lobby-folder relative grid gap-5 rounded-xl border-2 border-[#3b2a12]/70 p-4 sm:p-6 lg:grid-cols-[1.05fr_1fr]">
-              <section aria-labelledby="ruang-rapat-title" className="grid content-start gap-3 pl-6">
-                <h1 id="ruang-rapat-title" className="text-4xl font-black leading-[1.05] sm:text-5xl">{LOBBY_COPY.title}</h1>
-                <p className="text-base font-semibold">{LOBBY_COPY.playerCount}</p>
-                <p className="lobby-stamp w-fit rounded px-3 py-1 text-xl font-black">CONFIDENTIAL</p>
-                <div className="lobby-paper-card grid gap-2 rounded-xl p-3 text-sm font-medium">
+            <div className="lobby-folder lobby-main-folder relative grid gap-3 rounded-xl border-2 border-[#3b2a12]/70 p-3 sm:p-4 md:grid-cols-[0.8fr_1fr]">
+              <section aria-labelledby="ruang-rapat-title" className="grid content-start gap-2 pl-4">
+                <h1 id="ruang-rapat-title" className="lobby-main-title font-black leading-[1.05]">{LOBBY_COPY.title}</h1>
+                <p className="text-sm font-semibold">{LOBBY_COPY.playerCount}</p>
+                <p className="lobby-stamp w-fit rounded px-3 py-1 text-lg font-black">CONFIDENTIAL</p>
+                <div className="lobby-paper-card grid gap-1.5 rounded-xl p-2 text-xs font-medium sm:text-sm">
                   <p>{LOBBY_COPY.gameSummary}</p>
                   <p>1 permainan = 12 bulan. Timer giliran diatur host di Room.</p>
                 </div>
               </section>
-              <section aria-label="Kartu identitas dan room" className="grid content-start gap-3">
-                <div className="lobby-paper-card grid gap-3 rounded-xl p-3">
-                  <div className="flex items-start gap-3">
-                    <span className="relative block h-24 w-20 shrink-0 overflow-hidden rounded-md border-2 border-[#3b2a12] bg-[#cfd8e6]">
+              <section aria-label="Kartu identitas dan room" className="grid content-start gap-2">
+                <div className="lobby-paper-card grid gap-2 rounded-xl p-2">
+                  <div className="flex items-start gap-2">
+                    <span className="relative block h-20 w-16 shrink-0 overflow-hidden rounded-md border-2 border-[#3b2a12] bg-[#cfd8e6]">
                       {session ? (<Image src={getAvatarSrc(session.avatarId)} alt={`Avatar ${session.name}`} fill sizes="80px" className="object-cover" />) : (<span className="grid h-full w-full place-items-center text-2xl" aria-hidden="true">🙂</span>)}
                     </span>
                     <div className="min-w-0">
                       <h2 className="text-base font-extrabold">{LOBBY_COPY.identityCardTitle}</h2>
                       <p className="truncate text-lg font-bold leading-tight">{session?.name ?? "Belum masuk"}</p>
                       <p className="text-sm">Pegawai Biasa</p>
-                      <button type="button" onClick={() => setGuestOpen(true)} className="lobby-comic-btn mt-2 min-h-11 rounded-lg bg-[#7fb0f5] px-4 py-2 text-sm font-bold text-[#1f3f73]">{LOBBY_COPY.editName}</button>
+                      <button type="button" onClick={() => setGuestOpen(true)} className="lobby-comic-btn mt-1 min-h-9 rounded-lg bg-[#7fb0f5] px-3 py-1.5 text-sm font-bold text-[#1f3f73]">{LOBBY_COPY.editName}</button>
                     </div>
                   </div>
                 </div>
-                <button type="button" onClick={createRoom} disabled={!session || working || serverTrouble} className="lobby-comic-btn min-h-14 rounded-xl bg-[#8bd450] text-2xl font-black text-[#2d5a12]">{busy === "buat" ? "MEMBUAT..." : "BUAT ROOM (HOST)"}</button>
-                <form onSubmit={joinRoom} className="lobby-paper-card grid gap-2 rounded-xl p-3">
-                  <label htmlFor="kode-room" className="text-lg font-extrabold tracking-wide">KODE ROOM</label>
-                  <div className="flex gap-2">
-                    <input id="kode-room" value={roomCode} onChange={(e) => setRoomCode(e.target.value.toUpperCase())} placeholder={LOBBY_COPY.roomCodePlaceholder} maxLength={8} autoComplete="off" aria-invalid={codeError ? true : undefined} aria-describedby={codeError ? "kode-room-error" : undefined} className="min-h-12 flex-1 rounded-lg border-2 border-[#3b2a12]/70 bg-[#fbf3dd] px-3 py-2 text-xl font-bold uppercase tracking-wider placeholder:text-sm placeholder:font-medium placeholder:normal-case placeholder:text-[#85837c]" />
-                    <button type="button" onClick={pasteCode} className="lobby-comic-btn min-h-12 rounded-lg bg-[#efe0b8] px-3 text-sm font-bold">Tempel</button>
-                    <button type="submit" disabled={!session || working || serverTrouble} className="lobby-comic-btn min-h-12 rounded-lg bg-[#7fb0f5] px-4 text-lg font-black text-[#1f3f73]">{busy === "cek" || busy === "gabung" ? "..." : "GABUNG"}</button>
+                <button type="button" onClick={createRoom} disabled={!session || working || serverTrouble} className="lobby-comic-btn lobby-primary-action rounded-xl bg-[#8bd450] font-black text-[#2d5a12]">{busy === "buat" ? "MEMBUAT..." : "BUAT ROOM (HOST)"}</button>
+                <form onSubmit={joinRoom} className="lobby-paper-card grid gap-1.5 rounded-xl p-2">
+                  <label htmlFor="kode-room" className="text-base font-extrabold tracking-wide">KODE ROOM</label>
+                  <div className="lobby-code-actions flex gap-2">
+                    <input id="kode-room" value={roomCode} onChange={(e) => setRoomCode(e.target.value.toUpperCase())} placeholder={LOBBY_COPY.roomCodePlaceholder} maxLength={8} autoComplete="off" aria-invalid={codeError ? true : undefined} aria-describedby={codeError ? "kode-room-error" : undefined} className="min-h-10 min-w-0 flex-1 rounded-lg border-2 border-[#3b2a12]/70 bg-[#fbf3dd] px-2 py-1.5 text-lg font-bold uppercase tracking-wider placeholder:text-xs placeholder:font-medium placeholder:normal-case placeholder:text-[#85837c] sm:px-3 sm:placeholder:text-sm" />
+                    <button type="button" onClick={pasteCode} className="lobby-comic-btn min-h-10 rounded-lg bg-[#efe0b8] px-2 text-xs font-bold sm:px-3 sm:text-sm">Tempel</button>
+                    <button type="submit" disabled={!session || working || serverTrouble} className="lobby-comic-btn min-h-10 rounded-lg bg-[#7fb0f5] px-3 text-base font-black text-[#1f3f73] sm:px-4">{busy === "cek" || busy === "gabung" ? "..." : "GABUNG"}</button>
                   </div>
                   {codeError ? (<p id="kode-room-error" role="alert" className="rounded-lg bg-[#fae2dc] px-3 py-2 text-sm font-semibold text-[#7c2a19]">{codeError}</p>) : null}
                 </form>
@@ -306,4 +300,3 @@ export function LobbyScreen({ initialCode = "", hideHomeButton = false }: { init
     </main>
   );
 }
-
