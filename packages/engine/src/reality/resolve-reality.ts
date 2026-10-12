@@ -6,7 +6,6 @@ import {
   type RealityVariant,
   type SeasonZonkDefinition,
 } from "../data";
-import { toMultiplayerEffects } from "../data/multiplier";
 import type { RandomSource } from "../random";
 import { rollOutcome } from "./roll-outcome";
 import { calculateZonkChance } from "./zonk-chance";
@@ -21,7 +20,7 @@ export interface RealityContext {
   health: number;
 }
 
-/** Hasil {@link resolveReality}, sudah dalam nilai Multiplayer. */
+/** Hasil {@link resolveReality}; efek dipakai apa adanya (1×, GDD 1.3). */
 export interface ResolvedReality {
   outcome: Outcome;
   text: string;
@@ -70,7 +69,7 @@ function variantsOfOutcome(
  * `seasonApplied` false, cabang Zonk Musim tidak pernah terpilih, jadi pemain
  * Pancaroba dengan Kesehatan >= 8 tidak akan melihat Zonk Musim Sakit.
  *
- * Semua efek dikali ke nilai Multiplayer memakai `toMultiplayerEffects`.
+ * Semua efek dipakai apa adanya (1×, GDD 1.3 v1.12).
  */
 export function resolveReality(
   tileId: string,
@@ -99,7 +98,7 @@ export function resolveReality(
     return {
       outcome,
       text: seasonal.title,
-      effects: toMultiplayerEffects(seasonal.effects),
+      effects: seasonal.effects,
       seasonal: true,
       variantId: seasonal.id,
       zonkPct: chance.pct,
@@ -118,7 +117,7 @@ export function resolveReality(
   return {
     outcome,
     text: variant.text,
-    effects: toMultiplayerEffects(variant.effects),
+    effects: variant.effects,
     seasonal: false,
     variantId: variant.id,
     zonkPct: chance.pct,

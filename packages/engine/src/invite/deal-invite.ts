@@ -35,7 +35,7 @@ export function dealInviteCard(
   return {
     cardId: `invite-${input.step}-${input.playerId}`,
     plan: plan.id,
-    // Nilai sudah nilai Multiplayer (GDD 1.3), tidak dikali lagi.
+    // Nilai dipakai apa adanya (1×, GDD 1.3).
     planEffects: plan.effects.map((effect) => ({ ...effect })),
     motive,
     // Skema membatasi bulan 1-12; kartu Bulan 11 dijepit ke Bulan 12.

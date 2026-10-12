@@ -11,13 +11,13 @@ function context(season: RealityContext["season"]): RealityContext {
 const FORBIDDEN_FIELDS = ["outcome", "realities", "zonkPct", "variantId"];
 
 describe("buildTileOption - petak biasa (API_CONTRACT 3.2)", () => {
-  it("Lembur Proyek: plan wealth +2.500.000 menjadi +5.000.000", () => {
+  it("Lembur Proyek: plan wealth +2.500.000 apa adanya", () => {
     const option = buildTileOption(HEX, "overtime-project", context("dry"));
 
     expect(option.hex).toEqual(HEX);
     expect(option.category).toBe("work");
     expect(option.title).toBe("Lembur Proyek");
-    expect(option.plan).toEqual([{ stat: "wealth", delta: 5_000_000 }]);
+    expect(option.plan).toEqual([{ stat: "wealth", delta: 2_500_000 }]);
     expect(option.isGold).toBe(false);
     expect(option.risk).toBe("medium");
     expect(option.riskTags).toEqual([]);

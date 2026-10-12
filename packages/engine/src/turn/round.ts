@@ -21,10 +21,13 @@ import {
   type CalendarChoice,
   type CalendarEventDefinition,
 } from "../data";
-import { toMultiplayerEffects } from "../data/multiplier";
 import { applyEffects } from "../economy/apply-effects";
 import { processMonthChange } from "../economy/month-change";
-import { isBurnout } from "../economy/elimination";
+import {
+  isBankrupt,
+  isBurnout,
+  type EliminationReason,
+} from "../economy/elimination";
 import { isMonthChangeStep } from "../economy/schedule";
 import type { DomainEvent } from "../game/domain-events";
 import type { CalendarChoiceId, GameState } from "../game/game-state";
@@ -45,10 +48,17 @@ export type AnswerResult =
   | { ok: false; code: ErrorCode; message: string };
 
 const ZONK_FOCUS_BY_SEASON = {
-  rainy: "vehicleWash",
-  dry: "vehicleBreakdown",
+  rainy: "floodRain",
+  dry: "heatPollution",
   transition: "sick",
-} as const satisfies Record<Season, "vehicleWash" | "vehicleBreakdown" | "sick">;
+} as const satisfies Record<Season, "floodRain" | "heatPollution" | "sick">;
+
+/** GDD 3.2: petunjuk HUD saat musim berganti. */
+const SEASON_HINT: Record<Season, string> = {
+  rainy: "Hujan: petak Kerja lebih rawan",
+  dry: "Kemarau: petak Keuangan dan Sosial lebih rawan",
+  transition: "Pancaroba: petak Kesehatan lebih rawan",
+};
 
 const CHOICE_ORDER: readonly CalendarChoiceId[] = ["join", "joinPaylater", "skip"];
 
@@ -87,7 +97,7 @@ function describeEffect(effect: Effect): string {
 
 function chanceNote(choice: CalendarChoice): string | undefined {
   if (!choice.chance) return undefined;
-  const effects = toMultiplayerEffects(choice.chance.effects).map(describeEffect);
+  const effects = choice.chance.effects.map(describeEffect);
   return `${choice.chance.pct}% ${choice.chance.text}: ${effects.join(", ")}`;
 }
 
@@ -100,7 +110,7 @@ function buildCalendarEvent(def: CalendarEventDefinition): DomainEvent {
     choices.push({
       id,
       label: choiceLabel(def.id, id),
-      effects: toMultiplayerEffects(choice.effects),
+      effects: choice.effects,
       ...(note ? { note } : {}),
     });
   }
@@ -171,6 +181,7 @@ export function startRound(state: GameState, random: RandomSource): RoundResult 
         season,
         vulnerableCategories: [...VULNERABLE_CATEGORIES[season]],
         zonkFocus: ZONK_FOCUS_BY_SEASON[season],
+        hint: SEASON_HINT[season],
       },
     });
   }
@@ -179,29 +190,24 @@ export function startRound(state: GameState, random: RandomSource): RoundResult 
     for (const playerId of state.baseTurnOrder) {
       const player = players[playerId];
       if (!player || player.eliminated) continue;
-      const result = processMonthChange(player.status, calendar.month, random);
+      const result = processMonthChange(player.status, calendar.month);
+      // Sementara (sampai G3): eliminasi dicek di sini seperti sebelumnya.
+      const eliminated: EliminationReason | null = isBankrupt(result.status)
+        ? "bankrupt"
+        : isBurnout(result.status)
+          ? "burnout"
+          : null;
       const target = { kind: "player", playerId } as const;
       events.push({ type: "month:summary", target, payload: result.summary as MonthSummaryPayload });
       events.push({ type: "player:status", target, payload: result.status });
-      if (result.summary.doomAmount !== null) {
-        events.push({
-          type: "doom:triggered",
-          target,
-          payload: {
-            amount: result.summary.doomAmount,
-            trigger: "month",
-            stressAfter: result.status.stress,
-          },
-        });
-      }
       players[playerId] = {
         status: result.status,
-        eliminated: result.eliminated !== null,
-        eliminatedAtStep: result.eliminated ? step : null,
-        eliminatedReason: result.eliminated,
-        inviteCard: result.eliminated ? null : player.inviteCard,
+        eliminated: eliminated !== null,
+        eliminatedAtStep: eliminated ? step : null,
+        eliminatedReason: eliminated,
+        inviteCard: eliminated ? null : player.inviteCard,
       };
-      if (result.eliminated) {
+      if (eliminated) {
         publicState = {
           ...publicState,
           eliminated: [...publicState.eliminated, playerId],
@@ -212,7 +218,7 @@ export function startRound(state: GameState, random: RandomSource): RoundResult 
         events.push({
           type: "player:eliminated",
           target: { kind: "room" },
-          payload: { version: 0, playerId, reason: result.eliminated, step },
+          payload: { version: 0, playerId, reason: eliminated, step },
         });
       }
     }
@@ -364,10 +370,10 @@ export function closeCalendarEvent(state: GameState, random: RandomSource): Roun
     const autoChosen = !(playerId in pending.answers);
     const choiceId = pending.answers[playerId] ?? "skip";
     const choice = def.choices[choiceId] ?? def.choices.skip;
-    const effects = toMultiplayerEffects(choice.effects);
+    const effects = [...choice.effects];
     let flavor: string | undefined;
     if (choice.chance && random.chance(choice.chance.pct)) {
-      effects.push(...toMultiplayerEffects(choice.chance.effects));
+      effects.push(...choice.chance.effects);
       flavor = choice.chance.text;
     }
     // Kekurangan Kekayaan dari Event Tanggal tidak menyebabkan Bangkrut (GDD 1.4);

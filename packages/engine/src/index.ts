@@ -8,6 +8,7 @@ export * from "./economy/constants";
 export * from "./economy/doom";
 export * from "./economy/elimination";
 export * from "./economy/month-change";
+export * from "./economy/pay-debt";
 export * from "./economy/schedule";
 export * from "./game/create-game";
 export * from "./game/domain-events";

@@ -7,7 +7,6 @@ export interface DoomSpendingResult {
   status: PrivateStatus;
   amount: number;
   triggered: boolean;
-  shortfallWrittenOff: number;
 }
 
 export function applyDoomSpending(
@@ -15,7 +14,7 @@ export function applyDoomSpending(
   random: RandomSource,
 ): DoomSpendingResult {
   if (status.stress < DOOM_THRESHOLD) {
-    return { status, amount: 0, triggered: false, shortfallWrittenOff: 0 };
+    return { status, amount: 0, triggered: false };
   }
   const amount = random.pick(DOOM_AMOUNTS);
   const result = applyEffects(status, [
@@ -26,6 +25,5 @@ export function applyDoomSpending(
     status: result.status,
     amount,
     triggered: true,
-    shortfallWrittenOff: result.shortfallWrittenOff,
   };
 }

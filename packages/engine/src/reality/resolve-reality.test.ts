@@ -20,7 +20,7 @@ function realitiesOf(tileId: string, outcome: string) {
 }
 
 describe("resolveReality (GDD 4.4)", () => {
-  it("Lembur Proyek dipaksa zonk -> varian Zonk Lembur dengan efek dikali", () => {
+  it("Lembur Proyek dipaksa zonk -> varian Zonk Lembur dengan efek apa adanya", () => {
     const result = resolveReality(
       LEMBUR,
       noBurden("dry"),
@@ -31,11 +31,11 @@ describe("resolveReality (GDD 4.4)", () => {
     expect(result.seasonal).toBe(false);
     expect(result.zonkPct).toBe(30);
 
-    // "Bos marah": stress +3 (batas) dan health -2 -> -3 (GDD 1.3).
+    // "Bos marah": stress +3, health -2 apa adanya (GDD 1.3 v1.12).
     expect(result.text).toBe("Bos marah");
     expect(result.effects).toEqual([
       { stat: "stress", delta: 3 },
-      { stat: "health", delta: -3 },
+      { stat: "health", delta: -2 },
     ]);
     expect(result.variantId).toBe("overtime-project-zonk-1");
   });
@@ -69,7 +69,7 @@ describe("resolveReality (GDD 4.4)", () => {
       new SequenceRandomSource([0.35, 0.1]),
     );
     expect(lucky.outcome).toBe("lucky");
-    expect(lucky.effects).toEqual([{ stat: "wealth", delta: 2_000_000 }]);
+    expect(lucky.effects).toEqual([{ stat: "wealth", delta: 1_000_000 }]);
     expect(lucky.variantId).toBe("overtime-project-lucky-1");
   });
 
@@ -100,13 +100,13 @@ describe("resolveReality - Zonk Musim (GDD 3.4, 4.5)", () => {
     );
     expect(rainyTitles).toContain(result.text);
 
-    // "Motor Kena Lumpur Banjir": wealth -250rb -> -500rb, stress +1 -> +2.
-    expect(result.text).toBe("Motor Kena Lumpur Banjir");
+    // "Motor Mogok Terendam Banjir": wealth -500rb, stress +1 apa adanya.
+    expect(result.text).toBe("Motor Mogok Terendam Banjir");
     expect(result.effects).toEqual([
       { stat: "wealth", delta: -500_000 },
-      { stat: "stress", delta: 2 },
+      { stat: "stress", delta: 1 },
     ]);
-    expect(result.variantId).toBe("rainy-mud-engine");
+    expect(result.variantId).toBe("rainy-flooded-motorbike");
   });
 
   it("acak menolak musim -> pakai varian Zonk bawaan petak", () => {

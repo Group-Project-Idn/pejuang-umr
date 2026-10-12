@@ -85,8 +85,10 @@ describe("simulasi game penuh", () => {
               fail(`Level Stress ${stress} di luar 0-10 (${playerId})`);
             }
             if (!Number.isInteger(wealth) || wealth < 0) fail(`Kekayaan ${wealth} (${playerId})`);
-            if (!Number.isInteger(debt) || debt < 0 || debt > DEBT_LIMIT) {
-              fail(`Hutang ${debt} di luar 0-${DEBT_LIMIT} (${playerId})`);
+            // Hutang tanpa batas atas (GDD 2.3 v1.12); Bangkrut bila > DEBT_LIMIT.
+            if (!Number.isInteger(debt) || debt < 0) fail(`Hutang ${debt} (${playerId})`);
+            if (player.eliminatedReason === "bankrupt" && debt <= DEBT_LIMIT) {
+              fail(`Bangkrut dengan Hutang ${debt} <= ${DEBT_LIMIT} (${playerId})`);
             }
           }
           for (const event of produced) {

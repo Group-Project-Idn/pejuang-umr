@@ -1,9 +1,6 @@
 import type { PrivateStatus } from "@pejuang/shared";
-import type { RandomSource } from "../random";
 import { applyEffects } from "./apply-effects";
-import { applyDoomSpending } from "./doom";
 import { DEBT_INTEREST_PCT, LIVING_COST, SALARY } from "./constants";
-import { isBurnout, type EliminationReason } from "./elimination";
 
 export interface MonthSummary {
   month: number;
@@ -11,6 +8,7 @@ export interface MonthSummary {
   livingCost: number;
   interest: number;
   interestAddedToDebt: number;
+  /** @deprecated v1.12: Doom Spending dicek di Fase Pembalikan; selalu null. */
   doomAmount: number | null;
   before: PrivateStatus;
   after: PrivateStatus;
@@ -19,13 +17,15 @@ export interface MonthSummary {
 export interface MonthChangeResult {
   status: PrivateStatus;
   summary: MonthSummary;
-  eliminated: EliminationReason | null;
 }
 
+/**
+ * Ganti bulan (GDD 2.4 v1.12): gaji, Biaya Hidup Wajib, lalu bunga Hutang.
+ * Bayar Hutang, Doom Spending, Bangkrut, dan Burnout tidak diproses di sini.
+ */
 export function processMonthChange(
   status: PrivateStatus,
   month: number,
-  random: RandomSource,
 ): MonthChangeResult {
   const interest = Math.round((status.debt * DEBT_INTEREST_PCT) / 100);
 
@@ -36,29 +36,18 @@ export function processMonthChange(
   const interestStep = applyEffects(wages.status, [
     { stat: "wealth", delta: -interest },
   ]);
-  const doom = applyDoomSpending(interestStep.status, random);
-
-  const final = doom.status;
-  const bankrupt =
-    wages.shortfallWrittenOff + interestStep.shortfallWrittenOff + doom.shortfallWrittenOff > 0;
-  const eliminated: EliminationReason | null = bankrupt
-    ? "bankrupt"
-    : isBurnout(final)
-      ? "burnout"
-      : null;
 
   return {
-    status: final,
+    status: interestStep.status,
     summary: {
       month,
       salary: SALARY,
       livingCost: LIVING_COST,
       interest,
       interestAddedToDebt: interestStep.debtAdded,
-      doomAmount: doom.triggered ? doom.amount : null,
+      doomAmount: null,
       before: status,
-      after: final,
+      after: interestStep.status,
     },
-    eliminated,
   };
 }

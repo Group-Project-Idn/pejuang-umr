@@ -38,6 +38,23 @@ describe("startRound", () => {
     });
   });
 
+  it("season:changed memuat zonkFocus dan hint per musim (GDD 3.4)", () => {
+    const seen = new Map<string, { zonkFocus: string; hint?: string }>();
+    for (let step = 1; step <= 24; step++) {
+      const { events } = startRound(gameAtStep(step), rand());
+      for (const e of ofType(events, "season:changed")) {
+        seen.set(e.payload.season, e.payload);
+      }
+    }
+    expect(seen.get("rainy")?.zonkFocus).toBe("floodRain");
+    expect(seen.get("dry")?.zonkFocus).toBe("heatPollution");
+    expect(seen.get("transition")?.zonkFocus).toBe("sick");
+    expect(seen.get("transition")?.hint).toBe(
+      "Pancaroba: petak Kesehatan lebih rawan",
+    );
+    for (const payload of seen.values()) expect(payload.hint).toBeTruthy();
+  });
+
   it("langkah 2 tanpa event: phase turn", () => {
     const { state, events } = startRound(gameAtStep(2), rand());
     expect(state.phase).toBe("turn");
@@ -87,13 +104,13 @@ describe("startRound", () => {
     expect(ofType(events, "player:eliminated")[0]?.payload.playerId).toBe(id);
   });
 
-  it("popup Harbolnas punya tiga pilihan dengan efek Multiplayer", () => {
+  it("popup Harbolnas punya tiga pilihan dengan efek apa adanya (1×)", () => {
     const { events } = startRound(gameAtStep(21), rand());
     const choices = ofType(events, "calendar:event")[0]!.payload.choices;
     expect(choices.map((c) => c.id)).toEqual(["join", "joinPaylater", "skip"]);
     expect(choices[0]?.effects).toContainEqual({
       stat: "wealth",
-      delta: -3_000_000,
+      delta: -1_500_000,
     });
   });
 });
@@ -257,13 +274,13 @@ describe("Event Tanggal", () => {
     return state.players[id]!.status;
   }
 
-  it("Tahun Baru join: Kekayaan -1.500.000, stress tetap 0", () => {
+  it("Tahun Baru join: Kekayaan -750.000, stress tetap 0", () => {
     const opened = startRound(gameAtStep(1), rand()).state;
     const answered = answerCalendarEvent(opened, "a", "new-year", "join");
     expect(answered.ok).toBe(true);
     if (!answered.ok) return;
     const { state, events } = closeCalendarEvent(answered.state, rand());
-    expect(status(state, "a").wealth).toBe(6_000_000);
+    expect(status(state, "a").wealth).toBe(6_750_000);
     expect(status(state, "a").stress).toBe(0);
     const result = ofType(events, "calendar:result").find(
       (e) => e.target.kind === "player" && e.target.playerId === "a",
@@ -273,13 +290,13 @@ describe("Event Tanggal", () => {
     expect(state.pendingCalendarEvent).toBeNull();
   });
 
-  it("Lebaran skip: Kekayaan +5.000.000, stress +2", () => {
+  it("Lebaran skip: Kekayaan +2.500.000, stress +1", () => {
     const opened = startRound(gameAtStep(6), rand()).state;
     const answered = answerCalendarEvent(opened, "a", "lebaran-thr", "skip");
     if (!answered.ok) throw new Error("jawaban ditolak");
     const { state } = closeCalendarEvent(answered.state, rand());
-    expect(status(state, "a").wealth).toBe(12_500_000);
-    expect(status(state, "a").stress).toBe(2);
+    expect(status(state, "a").wealth).toBe(10_000_000);
+    expect(status(state, "a").stress).toBe(1);
   });
 
   it("pemain tidak menjawab: autoChosen true, choice skip", () => {
@@ -304,7 +321,7 @@ describe("Event Tanggal", () => {
       (e) => e.target.kind === "player" && e.target.playerId === "a",
     );
     expect(result?.payload.flavor).toBe("Menang lomba");
-    expect(status(state, "a").wealth).toBe(7_500_000 - 500_000 + 1_500_000);
+    expect(status(state, "a").wealth).toBe(7_500_000 - 250_000 + 750_000);
   });
 
   it("menolak jawaban yang tidak valid", () => {
@@ -435,7 +452,7 @@ describe("Burnout dan game selesai lebih cepat", () => {
 
   // Data: "Tidak ikut" Libur Hari Buruh = Kesehatan -1 (Solo), dikali 2 di Multiplayer = -2.
   it("Libur Hari Buruh 'Tidak ikut' menurunkan Kesehatan ke 0 -> burnout", () => {
-    const opened = startRound(withHealth(twoPlayers(9), "a", 2), rand()).state;
+    const opened = startRound(withHealth(twoPlayers(9), "a", 1), rand()).state;
     const answered = answerCalendarEvent(opened, "a", "labour-day", "skip");
     if (!answered.ok) throw new Error("jawaban ditolak");
     const closed = closeCalendarEvent(withHealth(answered.state, "b", 10), rand());
@@ -472,7 +489,7 @@ describe("Burnout dan game selesai lebih cepat", () => {
   });
 
   it("2 pemain, satu Burnout di Event Tanggal -> game:finished, pemain lain rank 1", () => {
-    const opened = startRound(withHealth(twoPlayers(9), "a", 2), rand()).state;
+    const opened = startRound(withHealth(twoPlayers(9), "a", 1), rand()).state;
     const answered = answerCalendarEvent(opened, "a", "labour-day", "skip");
     if (!answered.ok) throw new Error("jawaban ditolak");
     const closed = closeCalendarEvent(answered.state, rand());
@@ -481,6 +498,23 @@ describe("Burnout dan game selesai lebih cepat", () => {
     const ranking = ofType(closed.events, "game:finished")[0]!.payload.ranking;
     expect(ranking.find((row) => row.playerId === "b")?.rank).toBe(1);
     expect(ranking.find((row) => row.playerId === "a")?.rank).toBe(2);
+  });
+
+  it("ganti bulan: Hutang di atas Rp25jt -> Bangkrut, dan tidak ada Doom Spending", () => {
+    const game = gameAtStep(3);
+    const a = game.players.a!;
+    game.players.a = { ...a, status: { ...a.status, debt: 26_000_000, stress: 9 } };
+    const { state, events } = startRound(game, rand());
+    expect(state.players.a?.eliminated).toBe(true);
+    expect(state.players.a?.eliminatedReason).toBe("bankrupt");
+    expect(ofType(events, "player:eliminated")[0]?.payload).toMatchObject({
+      playerId: "a",
+      reason: "bankrupt",
+    });
+    expect(ofType(events, "doom:triggered")).toHaveLength(0);
+    for (const e of ofType(events, "month:summary")) {
+      expect(e.payload.doomAmount).toBeNull();
+    }
   });
 
   it("semua pemain tereliminasi sekaligus saat ganti bulan -> game selesai", () => {
