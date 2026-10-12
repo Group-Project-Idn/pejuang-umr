@@ -13,7 +13,6 @@ import {
   applySessionPublicEvent,
   applySessionSnapshot,
   applySessionTurnOptions,
-  applySessionTurnTimer,
   clearAcceptedPrivateAction,
   createRoomSessionView,
   createSingleFlightGate,
@@ -236,17 +235,10 @@ describe("room session recovery", () => {
       version: 5,
       ops: [{ type: "rankOneBurden", playerIds: ["p1"] }],
     });
-    const timed = applySessionTurnTimer(patched.state, {
-      version: 6,
-      turnId: "turn-1",
-      paused: true,
-      deadline: null,
-      remainingMs: 12_000,
-    });
-    const started = applySessionPublicEvent(timed.state, {
+    const started = applySessionPublicEvent(patched.state, {
       type: "turn:start",
       payload: {
-        version: 7,
+        version: 6,
         turnId: "turn-2",
         playerId: "p1",
         deadline: 30_000,
@@ -254,8 +246,10 @@ describe("room session recovery", () => {
       },
     });
     expect(started.needsResume).toBe(false);
-    expect(started.state.gameView.game?.version).toBe(7);
-    expect(started.state.gameView.timerRemainingMs).toBeNull();
+    expect(started.state.gameView.game).toMatchObject({
+      version: 6,
+      turnDeadline: 30_000,
+    });
   });
 
   it("calendar event memajukan versi dan menyimpan pending sebelum event berikutnya", () => {
@@ -442,15 +436,6 @@ describe("room session recovery", () => {
     );
     expect(eliminated.state.gameView.game?.version).toBe(11);
     expect(eliminated.state.me?.pendingCalendar).toBeNull();
-
-    const spectatorSnapshot = snapshot(10);
-    spectatorSnapshot.me.isSpectator = true;
-    const spectator = applySessionCalendarEvent(
-      applySessionSnapshot(createRoomSessionView(), spectatorSnapshot, 10_000),
-      payload,
-    );
-    expect(spectator.state.gameView.game?.version).toBe(11);
-    expect(spectator.state.me?.pendingCalendar).toBeNull();
   });
 
   it("gate hanya mengizinkan satu resume in-flight", () => {

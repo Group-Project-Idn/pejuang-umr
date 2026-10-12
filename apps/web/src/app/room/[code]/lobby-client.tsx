@@ -10,6 +10,7 @@ import type {
   Snapshot,
   TurnOptionsPayload,
 } from "@pejuang/shared";
+import { CharacterIdSchema } from "@pejuang/shared";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import GameInterface from "@/app/components/game/GameInterface";
@@ -29,7 +30,6 @@ import {
   type TileOpened,
   type TileResolved,
   type TurnStart,
-  type TurnTimer,
 } from "@/lib/game-view";
 import { createRequestId } from "@/lib/request-id";
 import { clearRoomCode, writeRoomCode } from "@/lib/room-session";
@@ -42,7 +42,6 @@ import {
   applySessionPublicEvent,
   applySessionSnapshot,
   applySessionTurnOptions,
-  applySessionTurnTimer,
   clearAcceptedPrivateAction,
   createRoomSessionView,
   type RoomSessionView,
@@ -51,7 +50,7 @@ import {
 import { createSessionResumeController } from "@/lib/session-resume-controller";
 import { disconnectSocket, getSocket, type GameSocket } from "@/lib/socket";
 import { subscribeSocketEvents } from "@/lib/socket-subscriptions";
-import { WaitingRoom } from "./waiting-room";
+import { getRoomActionMessage, WaitingRoom } from "./waiting-room";
 
 export { getStartHelper, ROOM_COPY } from "./waiting-room";
 
@@ -186,9 +185,6 @@ export function LobbyClient({ code }: { code: string }) {
         applySessionPlayerConnection(current, payload),
       );
     };
-    const onTurnTimer = (timer: TurnTimer) => {
-      commitTransition((current) => applySessionTurnTimer(current, timer));
-    };
     const onCalendarEvent = (payload: CalendarEventPayload) => {
       commitTransition((current) => applySessionCalendarEvent(current, payload));
     };
@@ -225,7 +221,6 @@ export function LobbyClient({ code }: { code: string }) {
       ["calendar:event", onCalendarEvent],
       ["turn:options", onTurnOptions],
       ["turn:dead-end", onDeadEnd],
-      ["turn:timer", onTurnTimer],
       ["player:connection", onConnection],
       ["game:started", onGameStarted],
       ["turn:start", onTurnStart],
@@ -250,7 +245,7 @@ export function LobbyClient({ code }: { code: string }) {
 
   const handleResponse = useCallback((action: string, response: Ack) => {
     setPending(null);
-    setMessage(response.ok ? `${action} berhasil.` : `Gagal: ${response.error}`);
+    setMessage(getRoomActionMessage(action, response));
   }, []);
 
   function leaveRoom() {
@@ -342,7 +337,6 @@ export function LobbyClient({ code }: { code: string }) {
         me={sessionView.me}
         connectionStatus={status}
         serverClockOffsetMs={sessionView.serverClockOffsetMs}
-        timerRemainingMs={sessionView.gameView.timerRemainingMs}
         actionMessage={message}
         actionPending={pending === "calendar" || pending === "turn"}
         onAnswerCalendar={answerCalendar}
@@ -363,11 +357,13 @@ export function LobbyClient({ code }: { code: string }) {
       onLeave={leaveRoom}
       onOpenGuide={() => router.push("/cara-main")}
       onCopyCode={copyRoomCode}
-      onSelectPawn={(pawn) => emitRoomAction("pawn", (gameSocket) => {
+      onSelectAvatar={(avatarId) => emitRoomAction("avatar", (gameSocket) => {
+        const parsed = CharacterIdSchema.safeParse(avatarId);
+        if (!parsed.success) return handleResponse("Pilih karakter", { ok: false, error: "INVALID_PAYLOAD" });
         gameSocket.timeout(3_000).emit(
-          "room:pawn",
-          { requestId: createRequestId(), pawn },
-          (error, response) => handleResponse("Pilih pion", error ? { ok: false, error: "INTERNAL" } : response),
+          "room:avatar",
+          { requestId: createRequestId(), avatarId: parsed.data },
+          (error, response) => handleResponse("Pilih karakter", error ? { ok: false, error: "INTERNAL" } : response),
         );
       })}
       onReady={() => emitRoomAction("ready", (gameSocket) => {

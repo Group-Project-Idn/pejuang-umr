@@ -1,9 +1,9 @@
 "use client";
 
-import type { PawnId, RoomPlayer, RoomState, StartBlockReason } from "@pejuang/shared";
+import type { Ack, RoomPlayer, RoomState, StartBlockReason } from "@pejuang/shared";
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { getAvatarSrc } from "@/lib/avatars";
+import { AVATAR_OPTIONS, getAvatarSrc } from "@/lib/avatars";
 
 export const ROOM_COPY = {
   title: "RUANG TUNGGU",
@@ -14,12 +14,29 @@ export const ROOM_COPY = {
   waitingReady: "Menunggu pemain siap",
 } as const;
 
-export const PAWNS: ReadonlyArray<{ id: PawnId; label: string }> = [
-  { id: "cream-circle", label: "Krim · Lingkaran" },
-  { id: "iceblue-square", label: "Biru es · Kotak" },
-  { id: "mint-triangle", label: "Mint · Segitiga" },
-  { id: "salmon-diamond", label: "Salmon · Wajik" },
-];
+export const AVATAR_TAKEN_MESSAGE = "Karakter ini sudah dipilih pemain lain.";
+
+/** Karakter yang dipakai pemain lain nonaktif; karakter sendiri tetap bisa dipilih. */
+export function getAvatarChoices(
+  players: readonly Pick<RoomPlayer, "playerId" | "avatarId">[],
+  playerId: string | null,
+) {
+  return AVATAR_OPTIONS.map((option) => ({
+    ...option,
+    taken: players.some(
+      (player) => player.playerId !== playerId && player.avatarId === option.id,
+    ),
+    selected: players.some(
+      (player) => player.playerId === playerId && player.avatarId === option.id,
+    ),
+  }));
+}
+
+export function getRoomActionMessage(action: string, response: Ack): string {
+  if (response.ok) return `${action} berhasil.`;
+  if (response.error === "AVATAR_TAKEN") return AVATAR_TAKEN_MESSAGE;
+  return `Gagal: ${response.error}`;
+}
 
 export function getStartHelper(
   canStart: boolean,
@@ -53,11 +70,6 @@ export function getCountdownPresentation(
     seconds,
     preparing: roomStatus === "countdown" && seconds === null,
   };
-}
-
-function PawnMark({ pawn }: { pawn: PawnId | null }) {
-  if (!pawn) return null;
-  return <span aria-label={PAWNS.find((option) => option.id === pawn)?.label} className={`room-pawn room-pawn-${pawn}`} />;
 }
 
 function CountdownProgress({
@@ -140,7 +152,6 @@ function PlayerSlot({
         </p>
         {!player.connected ? <small>Terputus</small> : null}
       </div>
-      <PawnMark pawn={player.pawn} />
       {canKick ? (
         <button type="button" onClick={onKick} disabled={disabled} className="room-more-button" aria-label={`Keluarkan ${player.name}`}>×</button>
       ) : null}
@@ -159,7 +170,7 @@ type WaitingRoomProps = {
   onLeave: () => void;
   onOpenGuide: () => void;
   onCopyCode: () => void;
-  onSelectPawn: (pawn: PawnId) => void;
+  onSelectAvatar: (avatarId: string) => void;
   onReady: () => void;
   onTimer: (seconds: 15 | 30 | 60) => void;
   onKick: (targetPlayerId: string) => void;
@@ -177,7 +188,7 @@ export function WaitingRoom({
   onLeave,
   onOpenGuide,
   onCopyCode,
-  onSelectPawn,
+  onSelectAvatar,
   onReady,
   onTimer,
   onKick,
@@ -251,17 +262,14 @@ export function WaitingRoom({
                   </div>
 
                   <section className="room-controls">
-                    <div className="room-pawn-picker">
-                      <h2>Pilih pion</h2>
+                    <div className="room-avatar-picker">
+                      <h2>Pilih karakter</h2>
                       <div>
-                        {PAWNS.map((pawn) => {
-                          const taken = room.players.some((player) => player.playerId !== playerId && player.pawn === pawn.id);
-                          return (
-                            <button key={pawn.id} type="button" onClick={() => onSelectPawn(pawn.id)} disabled={busy || taken} aria-pressed={roomPlayer?.pawn === pawn.id} aria-label={`${pawn.label}${taken ? ", sudah dipakai" : ""}`}>
-                              <PawnMark pawn={pawn.id} />
-                            </button>
-                          );
-                        })}
+                        {getAvatarChoices(room.players, playerId).map((avatar) => (
+                          <button key={avatar.id} type="button" onClick={() => onSelectAvatar(avatar.id)} disabled={busy || avatar.taken} aria-pressed={avatar.selected} aria-label={`${avatar.name}${avatar.taken ? ", sudah dipakai" : ""}`}>
+                            <Image src={avatar.src} alt="" width={40} height={40} className="size-10 object-contain" />
+                          </button>
+                        ))}
                       </div>
                     </div>
                     {roomPlayer?.isHost ? (
@@ -275,8 +283,8 @@ export function WaitingRoom({
                     ) : (
                       <div className="room-start-area">
                         <strong className="room-participant-count">{getParticipantLabel(room.players.length)}</strong>
-                        <small>{roomPlayer?.pawn ? "Konfirmasi jika kamu sudah siap." : "Pilih pion sebelum siap."}</small>
-                        <button type="button" onClick={onReady} disabled={busy || !roomPlayer?.pawn} className="lobby-comic-btn room-ready-button">
+                        <small>Konfirmasi jika kamu sudah siap.</small>
+                        <button type="button" onClick={onReady} disabled={busy} className="lobby-comic-btn room-ready-button">
                           {roomPlayer?.ready ? "BATAL SIAP" : "SIAP"}
                         </button>
                       </div>

@@ -11,12 +11,10 @@ import {
   applyGamePatch,
   applyPlayerConnection,
   applyPublicGameEvent,
-  applyRealtimeTurnTimer,
   type GamePatch,
   type PlayerConnection,
   type PublicGameEvent,
   type RealtimeGameView,
-  type TurnTimer,
 } from "./game-view";
 
 export type RoomSessionView = {
@@ -36,7 +34,7 @@ export type SessionTransition = {
 export function createRoomSessionView(): RoomSessionView {
   return {
     room: null,
-    gameView: { game: null, timerRemainingMs: null },
+    gameView: { game: null },
     me: null,
     result: null,
     serverClockOffsetMs: 0,
@@ -81,7 +79,7 @@ export function applySessionSnapshot(
 
   return {
     room: incoming.room,
-    gameView: { game: incoming.game, timerRemainingMs: null },
+    gameView: { game: incoming.game },
     me: preserveNewerStatus
       ? { ...incoming.me, status: current.me?.status ?? incoming.me.status }
       : incoming.me,
@@ -117,7 +115,7 @@ export function applySessionTurnOptions(
   current: RoomSessionView,
   payload: TurnOptionsPayload | DeadEndPayload,
 ): RoomSessionView {
-  if (!current.me || current.me.isSpectator) return current;
+  if (!current.me) return current;
   if (current.gameView.game?.activePlayerId !== current.me.playerId) return current;
   return {
     ...current,
@@ -201,7 +199,6 @@ export function applySessionPublicEvent(
         ...current,
         gameView: {
           game: applyPublicGameEvent(current.gameView.game, event),
-          timerRemainingMs: null,
         },
         me: clearPrivatePending(current.me, true),
         result: null,
@@ -230,13 +227,7 @@ export function applySessionPublicEvent(
         : state.me;
     return {
       ...state,
-      gameView: {
-        game: nextGame,
-        timerRemainingMs:
-          event.type === "turn:start" || finished
-            ? null
-            : state.gameView.timerRemainingMs,
-      },
+      gameView: { game: nextGame },
       me: nextMe,
       result: finished ? event.payload : state.result,
       privateRevision: finished || clearCalendar || clearTurn
@@ -259,16 +250,6 @@ export function applySessionGamePatch(
   }));
 }
 
-export function applySessionTurnTimer(
-  current: RoomSessionView,
-  timer: TurnTimer,
-): SessionTransition {
-  return versionTransition(current, timer.version, (state) => ({
-    ...state,
-    gameView: applyRealtimeTurnTimer(state.gameView, timer),
-  }));
-}
-
 export function applySessionCalendarEvent(
   current: RoomSessionView,
   payload: CalendarEventPayload,
@@ -279,9 +260,7 @@ export function applySessionCalendarEvent(
     const canAnswer = Boolean(
       state.me &&
         playerId &&
-        !state.me.isSpectator &&
-        !game.eliminated.includes(playerId) &&
-        !game.spectators.includes(playerId),
+        !game.eliminated.includes(playerId),
     );
     return {
       ...state,
