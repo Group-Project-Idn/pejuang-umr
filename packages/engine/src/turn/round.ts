@@ -154,7 +154,8 @@ function selectRankOneBurden(scores: readonly ScoreRow[]): string[] {
 
 /** GDD 2.4, 3.3, 4.2: awal ronde (kalender, musim, ganti bulan, urutan giliran, Event Tanggal). */
 export function startRound(state: GameState, random: RandomSource): RoundResult {
-  const step = state.public.calendar.step;
+  // Langkah baru disimpan di nextStep oleh endRound; kalender publik baru maju di sini (game:patch calendar).
+  const step = state.nextStep ?? state.public.calendar.step;
   const calendar = getCalendarInfo(step);
   const events: DomainEvent[] = [];
   const players = { ...state.players };
@@ -188,6 +189,7 @@ export function startRound(state: GameState, random: RandomSource): RoundResult 
     public: publicState,
     movedThisRound: [],
     roundInvites: [],
+    nextStep: null,
   };
   publicState.turnOrder = orderForStep(next, step);
 

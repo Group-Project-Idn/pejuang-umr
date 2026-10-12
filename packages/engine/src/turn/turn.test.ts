@@ -605,11 +605,26 @@ describe("endRound (Fase Pembalikan)", () => {
     const game = makeGame(5);
     game.public = { ...game.public, activePlayerId: "c" };
     const { state, events } = endRound(game, seeded());
-    expect(state.public.calendar.step).toBe(6);
+    // Kalender publik tetap di langkah yang baru selesai; langkah baru disimpan internal.
+    expect(state.public.calendar.step).toBe(5);
+    expect(state.nextStep).toBe(6);
     expect(state.phase).toBe("roundStart");
     expect(state.public.phase).toBe("reveal");
     expect(state.public.activePlayerId).toBeNull();
     expect(events.map((e) => e.type)).toEqual(["round:reveal", "game:patch"]);
+  });
+
+  it("startRound berikutnya memajukan kalender publik lewat game:patch calendar dan mengosongkan nextStep", () => {
+    const game = makeGame(5);
+    const ended = endRound(game, seeded());
+    expect(ended.events.some((e) => e.type === "game:patch" && e.payload.ops.some((op) => op.type === "calendar"))).toBe(false);
+    const started = startRound(ended.state, seeded());
+    expect(started.state.public.calendar.step).toBe(6);
+    expect(started.state.nextStep).toBeNull();
+    const patch = started.events.find(
+      (e) => e.type === "game:patch" && e.payload.ops.some((op) => op.type === "calendar"),
+    );
+    expect(patch).toBeDefined();
   });
 
   it("urutan event: round:reveal, tile:resolved + player:status, Doom, eliminasi, game:patch", () => {

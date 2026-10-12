@@ -128,8 +128,6 @@ export class GameSession {
   private awaitingInvites = false;
   /** Batas waktu (epoch ms) tiap Ajakan terbuka, untuk menolak jawaban yang terlambat. */
   private readonly inviteDeadlines = new Map<string, number>();
-  /** Pemain tereliminasi yang memilih jadi penonton (public.spectators). */
-  private readonly spectators = new Set<string>();
 
   /** Memulai ronde pertama. */
   start(): void {
@@ -493,23 +491,21 @@ export class GameSession {
   publicState(): PublicGameState {
     return structuredClone({
       ...toPublicState(this.state),
-      spectators: [...this.spectators],
+      spectators: [], // @deprecated v1.12: mode penonton dihapus
       version: this.version,
       turnDeadline: this.turnDeadline,
     });
   }
 
-  /** spectate:enter (GDD 9.4): hanya pemain yang sudah tereliminasi. Aman dipanggil ulang. */
-  enterSpectate(playerId: string): Ack {
-    if (!this.state.players[playerId]?.eliminated) {
-      return { ok: false, error: "NOT_ELIMINATED" };
-    }
-    this.spectators.add(playerId);
-    return { ok: true };
+  /** Id pemain yang sudah tereliminasi (untuk Main Lagi dan keluar dari room). */
+  eliminatedPlayerIds(): string[] {
+    return Object.entries(this.state.players)
+      .filter(([, player]) => player.eliminated)
+      .map(([playerId]) => playerId);
   }
 
-  isSpectator(playerId: string): boolean {
-    return this.spectators.has(playerId);
+  isEliminated(playerId: string): boolean {
+    return this.state.players[playerId]?.eliminated === true;
   }
 
   nextVersion(): number {
@@ -565,11 +561,21 @@ export class GameSession {
 }
 
 export function identitiesFromRoom(
-  players: ReadonlyArray<{ playerId: string; name: string; pawn: PawnId | null }>,
+  players: ReadonlyArray<{
+    playerId: string;
+    name: string;
+    pawn: PawnId | null;
+    avatarId?: string;
+  }>,
 ): Record<string, PlayerIdentity> {
   const identities: Record<string, PlayerIdentity> = {};
   for (const player of players) {
-    if (player.pawn) identities[player.playerId] = { name: player.name, pawn: player.pawn };
+    if (!player.pawn) continue;
+    identities[player.playerId] = {
+      name: player.name,
+      pawn: player.pawn,
+      ...(player.avatarId ? { avatarId: player.avatarId } : {}),
+    };
   }
   return identities;
 }

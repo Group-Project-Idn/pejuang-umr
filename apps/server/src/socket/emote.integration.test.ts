@@ -118,7 +118,7 @@ describe("emote", () => {
     expect(host.shown).toHaveLength(0);
   });
 
-  it("saat game: pemain tereliminasi dan penonton boleh mengirim", async () => {
+  it("saat game: pemain tereliminasi boleh mengirim", async () => {
     const { host, guest, server, send, clock } = await setup();
     await guest.socket.emitWithAck("room:ready", { requestId: rid(), ready: true });
     expect(await host.socket.emitWithAck("game:start", { requestId: rid() })).toEqual({ ok: true });
@@ -135,7 +135,6 @@ describe("emote", () => {
 
     expect(await send(guest, "sad")).toEqual({ ok: true });
     clock.advance(3_000);
-    expect(await guest.socket.emitWithAck("spectate:enter", { requestId: rid() })).toMatchObject({ ok: true });
     expect(await send(guest, "gg")).toEqual({ ok: true });
     await until(() => host.shown.length === 2, "emote:shown di game");
     expect(host.shown.map((e) => e.emoteId)).toEqual(["sad", "gg"]);
