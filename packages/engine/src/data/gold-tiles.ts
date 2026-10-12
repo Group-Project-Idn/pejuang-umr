@@ -1,7 +1,7 @@
 import { GoldTileDefinitionSchema, type GoldTileDefinition } from "./schema";
 
 // 2 Petak Emas dari GDD 5.1. Kata "Emas" hanya punya Rencana, tidak punya Realita.
-// Nilai disimpan seperti tabel tanpa dikali (sudah nilai Multiplayer).
+// Nilai disimpan seperti tabel tanpa dikali (1×).
 
 const GOLD_TILE_DEFINITIONS: GoldTileDefinition[] = [
   {

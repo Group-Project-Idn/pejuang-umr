@@ -3,7 +3,7 @@ import {
   type CalendarEventDefinition,
 } from "./schema";
 
-// 6 Event Tanggal dari GDD 3.3. Nilai disimpan dalam nilai Solo (persis tabel GDD).
+// 6 Event Tanggal dari GDD 3.3. Nilai persis tabel GDD (1×).
 
 const CALENDAR_EVENT_DEFINITIONS: CalendarEventDefinition[] = [
   {
@@ -74,7 +74,7 @@ const CALENDAR_EVENT_DEFINITIONS: CalendarEventDefinition[] = [
     choices: {
       join: {
         effects: [
-          { stat: "wealth", delta: -1_000_000 },
+          { stat: "wealth", delta: -250_000 },
           { stat: "stress", delta: -1 },
         ],
       },

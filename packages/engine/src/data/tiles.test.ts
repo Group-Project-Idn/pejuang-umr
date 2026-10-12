@@ -3,10 +3,11 @@ import { GOLD_TILES } from "./gold-tiles";
 import { TILES } from "./tiles";
 
 describe("katalog data petak", () => {
-  it("memuat 12 petak biasa dengan 3 petak per kategori", () => {
+  it("memuat 12 petak biasa: 3 Kerja, 4 Sosial, 3 Kesehatan, 2 Keuangan", () => {
     expect(TILES).toHaveLength(12);
-    for (const category of ["work", "social", "health", "finance"]) {
-      expect(TILES.filter((tile) => tile.category === category)).toHaveLength(3);
+    const expected = { work: 3, social: 4, health: 3, finance: 2 };
+    for (const [category, count] of Object.entries(expected)) {
+      expect(TILES.filter((tile) => tile.category === category)).toHaveLength(count);
     }
   });
 
