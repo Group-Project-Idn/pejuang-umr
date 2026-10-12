@@ -266,6 +266,44 @@ describe("room session recovery", () => {
     expect(next.state.me?.pendingCalendar).toBeNull();
   });
 
+  it("turn:start stale atau duplikat tidak menghapus pending calendar yang lebih baru", () => {
+    const incoming = snapshot(12);
+    incoming.me.pendingCalendar = {
+      version: 12,
+      eventId: "calendar-new",
+      name: "Tanggal Tua",
+      dateLabel: "Januari · Pekan 1",
+      choices: [{ id: "skip", label: "Lewati", effects: [] }],
+      deadline: 20_000,
+    };
+    const current = applySessionSnapshot(createRoomSessionView(), incoming, 10_000);
+    const turnStart = {
+      type: "turn:start" as const,
+      payload: {
+        version: 12,
+        turnId: "turn-old",
+        playerId: "p1",
+        deadline: 30_000,
+        turnSeconds: 30 as const,
+      },
+    };
+
+    for (const version of [11, 12]) {
+      expect(applySessionPublicEvent(current, {
+        ...turnStart,
+        payload: { ...turnStart.payload, version },
+      })).toEqual({ state: current, needsResume: false });
+    }
+    expect(current.me?.pendingCalendar?.eventId).toBe("calendar-new");
+
+    const next = applySessionPublicEvent(current, {
+      ...turnStart,
+      payload: { ...turnStart.payload, version: 13, turnId: "turn-new" },
+    });
+    expect(next.needsResume).toBe(false);
+    expect(next.state.me?.pendingCalendar).toBeNull();
+  });
+
   it("opsi turn privat disimpan untuk pemain aktif lalu dibersihkan saat tile dibuka", () => {
     const incoming = snapshot(10);
     incoming.game!.activePlayerId = "p1";
