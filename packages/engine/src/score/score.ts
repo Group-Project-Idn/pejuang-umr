@@ -1,22 +1,20 @@
 import type { PrivateStatus } from "@pejuang/shared";
 
-/** Jenis modifier kesejahteraan sesuai GDD 6.2 dan API_CONTRACT 9.5. */
-export type WellnessModifierKind = "penalty" | "bonus" | "none";
+/** Harta Bersih per 1 poin Keuangan (GDD 6.2 v1.12). */
+const NET_WORTH_PER_POINT = 500_000;
 
-/** Persentase modifier sesuai GDD 6.2: penalti -50, bonus +20, netral 0. */
-export type ModifierPct = -50 | 20 | 0;
-
-/** Hasil {@link getWellnessModifier}. */
-export interface WellnessModifier {
-  modifier: WellnessModifierKind;
-  pct: ModifierPct;
+/** Poin per komponen Skor Kesejahteraan (GDD 6.2 v1.12), masing-masing 0-100. */
+export interface WelfarePoints {
+  finance: number;
+  health: number;
+  calm: number;
 }
 
 /** Rincian Skor Kesejahteraan sesuai GDD 6.1, 6.2 dan API_CONTRACT 9.5. */
 export interface WelfareScore {
   netWorth: number;
-  modifier: WellnessModifierKind;
-  modifierPct: ModifierPct;
+  points: WelfarePoints;
+  /** Rata-rata tiga poin, desimal 0-100 (tidak dibulatkan di engine). */
   score: number;
 }
 
@@ -31,33 +29,23 @@ export function calculateNetWorth(status: PrivateStatus): number {
 }
 
 /**
- * Wellness Modifier (GDD 6.2). Hanya satu efek berlaku, dengan prioritas
- * tertinggi menang.
+ * Skor Kesejahteraan Seimbang (GDD 6.2 v1.12).
  *
- * 1. Kesehatan 0-3 ATAU Level Stress 8-10 -> penalty -50.
- * 2. Kesehatan 8-10 DAN Level Stress 0-3 -> bonus +20.
- * 3. Selain itu -> none 0.
- */
-export function getWellnessModifier(status: PrivateStatus): WellnessModifier {
-  if (status.health <= 3 || status.stress >= 8) {
-    return { modifier: "penalty", pct: -50 };
-  }
-  if (status.health >= 8 && status.stress <= 3) {
-    return { modifier: "bonus", pct: 20 };
-  }
-  return { modifier: "none", pct: 0 };
-}
-
-/**
- * Skor Kesejahteraan akhir (GDD 6.1 dan 6.2).
- *
- * Skor Akhir = Harta Bersih + (|Harta Bersih| x Persentase Modifier).
- * Memakai nilai absolut memastikan penalti selalu memperburuk skor dan bonus
- * selalu meningkatkan skor, juga saat Harta Bersih negatif.
+ * Poin Keuangan   = clamp(50 + Harta Bersih / 500.000, 0, 100)
+ * Poin Kesehatan  = Kesehatan x 10
+ * Poin Ketenangan = (10 - Level Stress) x 10
+ * Skor            = rata-rata ketiganya, disimpan sebagai desimal.
  */
 export function calculateWelfareScore(status: PrivateStatus): WelfareScore {
-  const netWorth = calculateNetWorth(status);
-  const { modifier, pct } = getWellnessModifier(status);
-  const score = netWorth + Math.round(Math.abs(netWorth) * pct / 100);
-  return { netWorth, modifier, modifierPct: pct, score };
+  const rawNetWorth = status.wealth - status.debt * 1.5;
+  const points: WelfarePoints = {
+    finance: Math.min(100, Math.max(0, 50 + rawNetWorth / NET_WORTH_PER_POINT)),
+    health: status.health * 10,
+    calm: (10 - status.stress) * 10,
+  };
+  return {
+    netWorth: calculateNetWorth(status),
+    points,
+    score: (points.finance + points.health + points.calm) / 3,
+  };
 }

@@ -61,7 +61,8 @@ export const GoldTileSchema = z.object({
 
 export const ScoreRowSchema = z.strictObject({
   playerId: z.string().min(1),
-  provisionalScore: z.number().int(),
+  // v1.12: skor desimal 0-100 (sebelumnya int).
+  provisionalScore: z.number(),
   rank: z.number().int().positive(),
   eliminated: z.boolean(),
 });
@@ -293,7 +294,8 @@ export const GameFinishedRankSchema = z.object({
       calm: z.number().min(0),
     })
     .optional(),
-  finalScore: z.number().int(),
+  // v1.12: skor desimal 0-100 (sebelumnya int).
+  finalScore: z.number(),
   netWorth: z.number().int(),
   modifier: z.enum(["penalty", "bonus", "none"]),
   modifierPct: z.union([z.literal(-50), z.literal(20), z.literal(0)]),

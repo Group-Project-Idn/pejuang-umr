@@ -9,6 +9,8 @@ export interface PlayerState {
   eliminated: boolean;
   eliminatedAtStep: number | null;
   eliminatedReason: EliminationReason | null;
+  /** Skor Kesejahteraan yang dibekukan saat eliminasi (GDD 1.2 v1.12). */
+  frozenScore?: number | null;
   /** Kartu Ajakan yang dipegang (motif rahasia, jangan masuk state publik). */
   inviteCard: InviteCard | null;
 }

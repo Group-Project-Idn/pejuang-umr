@@ -5,6 +5,7 @@ import { isBurnout } from "../economy/elimination";
 import type { DomainEvent } from "../game/domain-events";
 import type { GameState, PendingInvite, PlayerState } from "../game/game-state";
 import { toScoreRows } from "../score/ranking";
+import { calculateWelfareScore } from "../score/score";
 import type { RoundResult } from "../turn/round";
 import { checkEarlyFinish, rankingEntries } from "../turn/turn";
 
@@ -137,7 +138,14 @@ function resolveInvite(
     const status = applyEffects(player.status, effects).status;
     const burnout = isBurnout(status);
     players[playerId] = burnout
-      ? { status, eliminated: true, eliminatedAtStep: step, eliminatedReason: "burnout", inviteCard: null }
+      ? {
+          status,
+          eliminated: true,
+          eliminatedAtStep: step,
+          eliminatedReason: "burnout",
+          frozenScore: calculateWelfareScore(status).score,
+          inviteCard: null,
+        }
       : { ...player, status };
     events.push({ type: "player:status", target: { kind: "player", playerId }, payload: status });
     if (burnout) {
@@ -145,7 +153,13 @@ function resolveInvite(
       events.push({
         type: "player:eliminated",
         target: { kind: "room" },
-        payload: { version: 0, playerId, reason: "burnout", step },
+        payload: {
+          version: 0,
+          playerId,
+          reason: "burnout",
+          step,
+          frozenScore: calculateWelfareScore(status).score,
+        },
       });
     }
   };

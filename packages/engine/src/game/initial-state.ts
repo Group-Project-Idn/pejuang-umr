@@ -10,7 +10,7 @@ export function getBoardRadius(playerCount: number): BoardRadius {
   if (playerCount < 2 || playerCount > 4) {
     throw new RangeError("Game membutuhkan dua sampai empat pemain.");
   }
-  return playerCount === 2 ? 4 : playerCount === 3 ? 5 : 6;
+  return 6;
 }
 
 export function createTurnOrder(
@@ -25,12 +25,15 @@ export function createTurnOrder(
   return order;
 }
 
-const START_RING_RADIUS = 2;
+/** GDD 4.1 v1.12: 4 pemain di cincin radius 2, 2-3 pemain di cincin radius 3. */
+function startRingRadius(playerCount: number): number {
+  return playerCount >= 4 ? 2 : 3;
+}
 
 export function createStartPositions(
   playerIds: readonly string[],
 ): Array<{ playerId: string; hex: HexCoord }> {
-  const ring = getHexRing({ q: 0, r: 0 }, START_RING_RADIUS);
+  const ring = getHexRing({ q: 0, r: 0 }, startRingRadius(playerIds.length));
   const spacing = ring.length / playerIds.length;
   return playerIds.map((playerId, index) => ({
     playerId,
@@ -70,7 +73,7 @@ export function createGameSetup(
     turnPaused: false,
     pawns,
     openedHexes: [],
-    deadHexes: [],
+    deadHexes: [], // @deprecated: Heksa Mati dihapus di v1.12, selalu kosong.
     gold: null,
     scores: toScoreRows(
       turnOrder.map((playerId) => ({

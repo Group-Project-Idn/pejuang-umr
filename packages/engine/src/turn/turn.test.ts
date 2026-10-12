@@ -7,6 +7,7 @@ import {
   type PrivateStatus,
 } from "@pejuang/shared";
 import { getCalendarInfo } from "../calendar/calendar";
+import { calculateWelfareScore } from "../score/score";
 import { GOLD_TILES } from "../data";
 import { createGame } from "../game/create-game";
 import type { DomainEvent } from "../game/domain-events";
@@ -14,7 +15,7 @@ import type { GameState } from "../game/game-state";
 import { getEnterableHexes } from "../board/movement";
 import { SequenceRandomSource } from "../random";
 import { startRound } from "./round";
-import { checkEarlyFinish, chooseHex, endRound, startTurn, timeoutTurn } from "./turn";
+import { checkEarlyFinish, chooseHex, endRound, finishGame, startTurn, timeoutTurn } from "./turn";
 
 const IDS = ["a", "b", "c"];
 
@@ -386,6 +387,33 @@ describe("chooseHex", () => {
     expect(ofType(result.events, "player:eliminated")[0]!.payload.reason).toBe("burnout");
   });
 
+  it("eliminasi membekukan skor: frozenScore di player:eliminated, PlayerState, dan Papan Skor", () => {
+    const first = makeGame().public.turnOrder[0]!;
+    const game = withStatus(forceTile(makeGame(), "quick-freelance"), first, { health: 1 });
+    const { state, playerId, turnId } = begin(game);
+    const result = chooseHex(state, playerId, turnId, state.pendingTurn!.options[0]!, safeRandom());
+    if (!result.ok) throw new Error(result.message);
+    const player = result.state.players[playerId]!;
+    const frozen = calculateWelfareScore(player.status).score;
+    const payload = ofType(result.events, "player:eliminated")[0]!.payload;
+    expect(payload.frozenScore).toBeCloseTo(frozen, 9);
+    expect(player.frozenScore).toBeCloseTo(frozen, 9);
+    const row = result.state.public.scores.find((r) => r.playerId === playerId)!;
+    expect(row.eliminated).toBe(true);
+    expect(row.provisionalScore).toBeCloseTo(frozen, 9);
+
+    // Status berubah setelah eliminasi tidak mengubah skor di Papan Skor / peringkat akhir.
+    const tampered: GameState = {
+      ...result.state,
+      players: {
+        ...result.state.players,
+        [playerId]: { ...player, status: { ...player.status, wealth: 99_000_000, health: 10 } },
+      },
+    };
+    const finished = ofType(finishGame(tampered).events, "game:finished")[0]!.payload.ranking;
+    expect(finished.find((r) => r.playerId === playerId)?.finalScore).toBeCloseTo(frozen, 9);
+  });
+
   it("mengambil Petak Emas: Rencana apa adanya (tak dikali), tanpa Realita, gold kosong", () => {
     // Beasiswa Penuh: Kekayaan +7.500.000, Level Stress -2 (nilai Multiplayer, tak dikali).
     const base = makeGame(5);
@@ -463,8 +491,26 @@ describe("endRound", () => {
     expect(finished.payload.ranking.map((r) => r.rank)).toContain(1);
     for (const row of finished.payload.ranking) {
       expect(row.netWorth).toBe(7_500_000);
-      expect(row.modifier).toBe("bonus");
+      expect(row.modifier).toBe("none");
+      expect(row.modifierPct).toBe(0);
+      expect(row.finalScore).toBeCloseTo(88.3333333, 5);
+      expect(row.points?.finance).toBeCloseTo(65, 9);
+      expect(row.points?.health).toBe(100);
+      expect(row.points?.calm).toBe(100);
+      expect(row).not.toHaveProperty("avatarId");
     }
+  });
+
+  it("game:finished memuat avatarId bila identitas pemain memilikinya", () => {
+    const game = makeGame(24);
+    const identities = {
+      a: { name: "A", pawn: "cream-circle" as const, avatarId: "michael" },
+      b: { name: "B", pawn: "iceblue-square" as const },
+    };
+    const { events } = finishGame(game, identities);
+    const ranking = ofType(events, "game:finished")[0]!.payload.ranking;
+    expect(ranking.find((r) => r.playerId === "a")?.avatarId).toBe("michael");
+    expect(ranking.find((r) => r.playerId === "b")).not.toHaveProperty("avatarId");
   });
 });
 

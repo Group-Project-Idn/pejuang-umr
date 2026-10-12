@@ -9,7 +9,6 @@ import {
   type ScoreRow,
   type Season,
 } from "@pejuang/shared";
-import { markHexDead } from "../board/movement";
 import {
   getCalendarEventAtStep,
   getCalendarInfo,
@@ -32,6 +31,7 @@ import { isMonthChangeStep } from "../economy/schedule";
 import type { DomainEvent } from "../game/domain-events";
 import type { CalendarChoiceId, GameState } from "../game/game-state";
 import { pickGoldHex } from "../gold/placement";
+import { calculateWelfareScore } from "../score/score";
 import { dealInviteCard, isInviteCardStep } from "../invite/deal-invite";
 import type { RandomSource } from "../random";
 import { checkEarlyFinish } from "./turn";
@@ -205,6 +205,7 @@ export function startRound(state: GameState, random: RandomSource): RoundResult 
         eliminated: eliminated !== null,
         eliminatedAtStep: eliminated ? step : null,
         eliminatedReason: eliminated,
+        frozenScore: eliminated ? calculateWelfareScore(result.status).score : null,
         inviteCard: eliminated ? null : player.inviteCard,
       };
       if (eliminated) {
@@ -218,7 +219,13 @@ export function startRound(state: GameState, random: RandomSource): RoundResult 
         events.push({
           type: "player:eliminated",
           target: { kind: "room" },
-          payload: { version: 0, playerId, reason: eliminated, step },
+          payload: {
+            version: 0,
+            playerId,
+            reason: eliminated,
+            step,
+            frozenScore: players[playerId]!.frozenScore ?? undefined,
+          },
         });
       }
     }
@@ -237,17 +244,18 @@ export function startRound(state: GameState, random: RandomSource): RoundResult 
   }
   publicState.turnOrder = orderForStep(next, step);
 
-  // GDD 4.7: Petak Emas (muncul di langkah 1, 5, 9, 13, 17, 21). Petak Emas lama
-  // yang belum diambil hangus jadi Heksa Mati, lalu Petak Emas baru muncul.
+  // GDD 4.7 v1.12: Petak Emas (muncul di langkah 1, 5, 9, 13, 17, 21). Petak Emas
+  // lama yang belum diambil kembali ke petak aslinya (tertutup, bisa menyala lagi),
+  // lalu Petak Emas baru muncul. Isi petak asli tidak pernah dikirim ke klien.
   if (isGoldSpawnStep(step)) {
     const expired = publicState.gold;
     publicState.gold = null;
     if (expired) {
-      board = markHexDead(board, expired.hex);
-      const remainingTiles = { ...board.tiles };
-      delete remainingTiles[hexKey(expired.hex)];
-      board = { ...board, tiles: remainingTiles };
-      publicState.deadHexes = [...publicState.deadHexes, expired.hex];
+      const origin = board.goldOrigin;
+      if (origin && origin.hexKey === hexKey(expired.hex)) {
+        board = { ...board, tiles: { ...board.tiles, [origin.hexKey]: origin.tileId } };
+      }
+      board = { ...board, goldOrigin: null };
       events.push({
         type: "gold:expired",
         target: { kind: "room" },
@@ -257,7 +265,11 @@ export function startRound(state: GameState, random: RandomSource): RoundResult 
     const hex = pickGoldHex({ ...next, board }, random);
     if (hex) {
       const def = random.pick(GOLD_TILES);
-      board = { ...board, tiles: { ...board.tiles, [hexKey(hex)]: def.id } };
+      board = {
+        ...board,
+        tiles: { ...board.tiles, [hexKey(hex)]: def.id },
+        goldOrigin: { hexKey: hexKey(hex), tileId: board.tiles[hexKey(hex)]! },
+      };
       const gold: GoldTile = {
         goldId: def.id,
         hex,
@@ -386,6 +398,7 @@ export function closeCalendarEvent(state: GameState, random: RandomSource): Roun
           eliminated: true,
           eliminatedAtStep: step,
           eliminatedReason: "burnout",
+          frozenScore: calculateWelfareScore(status).score,
           inviteCard: null,
         }
       : { ...player, status };
@@ -413,7 +426,13 @@ export function closeCalendarEvent(state: GameState, random: RandomSource): Roun
       events.push({
         type: "player:eliminated",
         target: { kind: "room" },
-        payload: { version: 0, playerId, reason: "burnout", step },
+        payload: {
+          version: 0,
+          playerId,
+          reason: "burnout",
+          step,
+          frozenScore: calculateWelfareScore(status).score,
+        },
       });
     }
   }

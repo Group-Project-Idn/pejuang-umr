@@ -17,13 +17,16 @@ describe("createBoardState", () => {
       expect(board.usedHexKeys).toContain(hexKey(hex));
     }
     expect(board.usedHexKeys).toHaveLength(4);
-    expect(board.deadHexKeys).toEqual([]);
+    expect(board).not.toHaveProperty("deadHexKeys");
+    expect(board.goldOrigin).toBeNull();
   });
 
-  it("radius 4 dengan 2 pemain: 59 heksa terisi", () => {
-    const starts = createStartPositions(ids(2)).map(({ hex }) => hex);
-    const board = createBoardState(4, starts, new MathRandomSource());
-    expect(Object.keys(board.tiles)).toHaveLength(59);
+  it("radius 6 dengan 2 dan 3 pemain: 125 dan 124 heksa terisi", () => {
+    for (const [count, filled] of [[2, 125], [3, 124]] as const) {
+      const starts = createStartPositions(ids(count)).map(({ hex }) => hex);
+      const board = createBoardState(6, starts, new MathRandomSource());
+      expect(Object.keys(board.tiles)).toHaveLength(filled);
+    }
   });
 
   it("hanya memakai id petak biasa, tanpa Petak Emas", () => {

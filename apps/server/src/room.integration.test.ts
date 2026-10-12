@@ -362,7 +362,7 @@ describe("room lifecycle", () => {
     expect(hostPayload).toEqual(guestPayload);
     expect(hostPayload).toMatchObject({
       gameId: "game-test",
-      boardRadius: 4,
+      boardRadius: 6,
       turnSeconds: 15,
     });
     expect(new Set(hostPayload.startPositions.map(({ hex }) => `${hex.q}:${hex.r}`)).size).toBe(2);
