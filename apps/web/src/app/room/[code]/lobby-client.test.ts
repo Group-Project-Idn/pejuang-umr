@@ -57,8 +57,8 @@ describe("copy ruang tunggu", () => {
 });
 describe("pemilih karakter", () => {
   const players = [
-    { playerId: "p1", avatarId: "michael" },
-    { playerId: "p2", avatarId: "sinta" },
+    { playerId: "p1", avatarId: "michael" as const },
+    { playerId: "p2", avatarId: "sinta" as const },
   ];
 
   it("menyediakan 4 karakter dengan id, nama, dan gambar", () => {

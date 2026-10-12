@@ -30,8 +30,7 @@ function snapshot(version: number): Snapshot {
         {
           playerId: "p1",
           name: "Rina",
-          avatarId: "avatar-01",
-          pawn: "cream-circle",
+          avatarId: "michael",
           connected: true,
           isHost: true,
           ready: true,
@@ -45,7 +44,7 @@ function snapshot(version: number): Snapshot {
     game: {
       version,
       gameId: "game-1",
-      boardRadius: 4,
+      boardRadius: 6,
       calendar: {
         step: 1,
         totalSteps: 24,
@@ -58,15 +57,13 @@ function snapshot(version: number): Snapshot {
       turnOrder: ["p1"],
       activePlayerId: null,
       turnDeadline: null,
-      turnPaused: false,
       pawns: [{ playerId: "p1", hex: { q: 0, r: 0 } }],
       openedHexes: [],
-      deadHexes: [],
       gold: null,
       scores: [],
       rankOneBurden: [],
       eliminated: [],
-      spectators: [],
+      phase: "turn",
     },
     me: {
       playerId: "p1",
@@ -75,7 +72,8 @@ function snapshot(version: number): Snapshot {
       pendingTurn: { turnId: "turn-1", options: [] },
       pendingCalendar: null,
       pendingInvite: null,
-      isSpectator: false,
+      pendingMonth: null,
+      reflection: null,
     },
     result: null,
   };
@@ -106,7 +104,7 @@ describe("room session recovery", () => {
     expect(duplicate.state).toBe(reveal.state);
     const next = applySessionPublicEvent(reveal.state, {
       type: "tile:resolved",
-      payload: { version: 5, round: 1, turnId: "turn-1", playerId: "p1", hex: { q: 1, r: 0 }, outcome: "safe", text: "Aman", effects: [], seasonal: false },
+      payload: { version: 5, round: 1, playerId: "p1", hex: { q: 1, r: 0 }, outcome: "safe", text: "Aman", effects: [], seasonal: false },
     });
     expect(next.needsResume).toBe(false);
     expect(next.state.gameView.game?.version).toBe(5);
