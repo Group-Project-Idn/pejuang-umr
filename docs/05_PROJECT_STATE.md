@@ -65,6 +65,7 @@ Di repo, semua dokumen ada di `docs/`: `GDD.md` (salinan GDD terbaru), `02_DESIG
 - **Game engine hanya berjalan di server** karena isi heksa rahasia. Server otoritatif. Klien hanya menerima data yang boleh dilihat.
 - REST 3 endpoint (buat sesi tamu, cek room, health) dan 46 event Socket.IO (API Contract v0.3). Daftar lengkap di `docs/API_CONTRACT.md`.
 - Setiap aksi klien memakai ack `{ ok, ... }`, state bernomor versi, timer dikirim sebagai `deadline`.
+- **Migrasi v1.12 (keputusan 12 Oktober 2026):** (D1) server mengirim hasil Fase Pembalikan sekaligus lalu menunggu `REVEAL_STEP_MS` (usulan 2.500 ms) × jumlah pemain; (D2) popup Ganti Bulan tanpa pemain berhutang lanjut setelah sekitar 3 detik; (D3) kontrak shared diubah dengan pola **expand lalu contract**: skema baru ditambah dulu, field lama ditandai `@deprecated` dan baru dihapus setelah web pindah; (D4) Refleksi AI dimulai dengan antarmuka dan insight berbasis aturan, LLM menyusul. Rencana kerja di `docs/RENCANA_Migrasi_v1_12.md`.
 
 ## 5. Status pekerjaan
 
