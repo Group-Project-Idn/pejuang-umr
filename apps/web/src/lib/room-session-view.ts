@@ -1,4 +1,5 @@
 import type {
+  CalendarEventPayload,
   PrivateStatus,
   PublicGameState,
   RoomState,
@@ -208,6 +209,33 @@ export function applySessionTurnTimer(
     ...state,
     gameView: applyRealtimeTurnTimer(state.gameView, timer),
   }));
+}
+
+export function applySessionCalendarEvent(
+  current: RoomSessionView,
+  payload: CalendarEventPayload,
+): SessionTransition {
+  return versionTransition(current, payload.version, (state) => {
+    const game = state.gameView.game!;
+    const playerId = state.me?.playerId;
+    const canAnswer = Boolean(
+      state.me &&
+        playerId &&
+        !state.me.isSpectator &&
+        !game.eliminated.includes(playerId) &&
+        !game.spectators.includes(playerId),
+    );
+    return {
+      ...state,
+      gameView: {
+        ...state.gameView,
+        game: { ...game, version: payload.version },
+      },
+      me: state.me
+        ? { ...state.me, pendingCalendar: canAnswer ? payload : null }
+        : null,
+    };
+  });
 }
 
 export function applySessionPlayerConnection(

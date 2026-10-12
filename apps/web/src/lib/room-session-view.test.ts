@@ -1,7 +1,8 @@
-import type { PrivateStatus, Snapshot } from "@pejuang/shared";
+import type { CalendarEventPayload, PrivateStatus, Snapshot } from "@pejuang/shared";
 import { describe, expect, it } from "vitest";
 import {
   applyPrivateStatus,
+  applySessionCalendarEvent,
   applySessionGamePatch,
   applySessionPlayerConnection,
   applySessionPublicEvent,
@@ -227,6 +228,82 @@ describe("room session recovery", () => {
     expect(started.needsResume).toBe(false);
     expect(started.state.gameView.game?.version).toBe(7);
     expect(started.state.gameView.timerRemainingMs).toBeNull();
+  });
+
+  it("calendar event memajukan versi dan menyimpan pending sebelum event berikutnya", () => {
+    const initial = applySessionSnapshot(createRoomSessionView(), snapshot(10), 10_000);
+    const calendar: CalendarEventPayload = {
+      version: 11,
+      eventId: "calendar-1",
+      name: "Tanggal Tua",
+      dateLabel: "Januari · Pekan 1",
+      choices: [{ id: "skip", label: "Lewati", effects: [] }],
+      deadline: 20_000,
+    };
+    const withCalendar = applySessionCalendarEvent(initial, calendar);
+    const next = applySessionPublicEvent(withCalendar.state, {
+      type: "turn:start",
+      payload: {
+        version: 12,
+        turnId: "turn-2",
+        playerId: "p1",
+        deadline: 30_000,
+        turnSeconds: 30,
+      },
+    });
+
+    expect(withCalendar.needsResume).toBe(false);
+    expect(withCalendar.state.me?.pendingCalendar).toBe(calendar);
+    expect(next.needsResume).toBe(false);
+    expect(next.state.gameView.game?.version).toBe(12);
+  });
+
+  it("calendar event stale tidak mengulang efek dan gap tetap meminta resume", () => {
+    const initial = applySessionSnapshot(createRoomSessionView(), snapshot(10), 10_000);
+    const payload: CalendarEventPayload = {
+      version: 10,
+      eventId: "calendar-old",
+      name: "Lama",
+      dateLabel: "Januari · Pekan 1",
+      choices: [{ id: "skip", label: "Lewati", effects: [] }],
+      deadline: 20_000,
+    };
+    expect(applySessionCalendarEvent(initial, payload)).toEqual({
+      state: initial,
+      needsResume: false,
+    });
+    expect(applySessionCalendarEvent(initial, { ...payload, version: 12 })).toEqual({
+      state: initial,
+      needsResume: true,
+    });
+  });
+
+  it("calendar event tidak membuat pending untuk pemain eliminated atau spectator", () => {
+    const payload: CalendarEventPayload = {
+      version: 11,
+      eventId: "calendar-1",
+      name: "Tanggal Tua",
+      dateLabel: "Januari · Pekan 1",
+      choices: [{ id: "skip", label: "Lewati", effects: [] }],
+      deadline: 20_000,
+    };
+    const eliminatedSnapshot = snapshot(10);
+    eliminatedSnapshot.game!.eliminated = ["p1"];
+    const eliminated = applySessionCalendarEvent(
+      applySessionSnapshot(createRoomSessionView(), eliminatedSnapshot, 10_000),
+      payload,
+    );
+    expect(eliminated.state.gameView.game?.version).toBe(11);
+    expect(eliminated.state.me?.pendingCalendar).toBeNull();
+
+    const spectatorSnapshot = snapshot(10);
+    spectatorSnapshot.me.isSpectator = true;
+    const spectator = applySessionCalendarEvent(
+      applySessionSnapshot(createRoomSessionView(), spectatorSnapshot, 10_000),
+      payload,
+    );
+    expect(spectator.state.gameView.game?.version).toBe(11);
+    expect(spectator.state.me?.pendingCalendar).toBeNull();
   });
 
   it("gate hanya mengizinkan satu resume in-flight", () => {

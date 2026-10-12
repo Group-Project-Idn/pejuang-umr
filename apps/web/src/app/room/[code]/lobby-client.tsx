@@ -2,6 +2,7 @@
 
 import type {
   Ack,
+  CalendarEventPayload,
   PrivateStatus,
   RoomState,
   Snapshot,
@@ -31,16 +32,17 @@ import { clearRoomCode, writeRoomCode } from "@/lib/room-session";
 import {
   applyPrivateStatus,
   applyRoomState,
+  applySessionCalendarEvent,
   applySessionGamePatch,
   applySessionPlayerConnection,
   applySessionPublicEvent,
   applySessionSnapshot,
   applySessionTurnTimer,
   createRoomSessionView,
-  createSingleFlightGate,
   type RoomSessionView,
   type SessionTransition,
 } from "@/lib/room-session-view";
+import { createSessionResumeController } from "@/lib/session-resume-controller";
 import { disconnectSocket, getSocket, type GameSocket } from "@/lib/socket";
 import { subscribeSocketEvents } from "@/lib/socket-subscriptions";
 import { WaitingRoom } from "./waiting-room";
@@ -72,7 +74,6 @@ export function LobbyClient({ code }: { code: string }) {
     writeRoomCode(code);
     const gameSocket = getSocket(session.token);
     queueMicrotask(() => setSocket(gameSocket));
-    const resumeGate = createSingleFlightGate();
     let mounted = true;
     const commitSession = (
       update: (current: RoomSessionView) => RoomSessionView,
@@ -82,43 +83,41 @@ export function LobbyClient({ code }: { code: string }) {
       sessionViewRef.current = next;
       setSessionView(next);
     };
-    const resume = () => {
-      if (!resumeGate.tryStart()) return;
-      const privateRevisionAtRequest = sessionViewRef.current.privateRevision;
-      setStatus("memulihkan room...");
-      gameSocket.timeout(3_000).emit(
+    const resumeController = createSessionResumeController({
+      isConnected: () => gameSocket.connected,
+      getPrivateRevision: () => sessionViewRef.current.privateRevision,
+      send: (callback) => gameSocket.timeout(3_000).emit(
         "session:resume",
         { requestId: createRequestId(), roomCode: code },
-        (error, response) => {
-          const retryResume = resumeGate.finish();
-          if (!mounted) return;
-          if (error) {
-            setStatus("gagal terhubung");
-            setMessage("Server tidak merespons saat memulihkan room.");
-            return;
-          }
-          if (!response.ok) {
-            clearRoomCode();
-            setMessage(`Gagal: ${response.error}`);
-            router.replace("/lobby");
-            return;
-          }
-          let snapshotAccepted = false;
-          commitSession((current) => {
-            const next = applySessionSnapshot(
-              current,
-              response.snapshot,
-              Date.now(),
-              privateRevisionAtRequest,
-            );
-            snapshotAccepted = next !== current;
-            return next;
-          });
-          setStatus("terhubung");
-          if (retryResume || !snapshotAccepted) queueMicrotask(resume);
-        },
-      );
-    };
+        callback,
+      ),
+      onStart: () => setStatus("memulihkan room..."),
+      onTransportError: () => {
+        setStatus("gagal terhubung");
+        setMessage("Server tidak merespons saat memulihkan room.");
+      },
+      onRejected: (response) => {
+        clearRoomCode();
+        setMessage(`Gagal: ${response.error}`);
+        router.replace("/lobby");
+      },
+      onSnapshot: (snapshot, privateRevisionAtRequest) => {
+        let snapshotAccepted = false;
+        commitSession((current) => {
+          const next = applySessionSnapshot(
+            current,
+            snapshot,
+            Date.now(),
+            privateRevisionAtRequest,
+          );
+          snapshotAccepted = next !== current;
+          return next;
+        });
+        setStatus("terhubung");
+        return snapshotAccepted;
+      },
+    });
+    const resume = resumeController.request;
     const commitTransition = (
       transition: (current: RoomSessionView) => SessionTransition,
     ) => {
@@ -182,6 +181,9 @@ export function LobbyClient({ code }: { code: string }) {
     const onTurnTimer = (timer: TurnTimer) => {
       commitTransition((current) => applySessionTurnTimer(current, timer));
     };
+    const onCalendarEvent = (payload: CalendarEventPayload) => {
+      commitTransition((current) => applySessionCalendarEvent(current, payload));
+    };
     const onKicked = () => {
       clearRoomCode();
       router.replace("/lobby");
@@ -206,6 +208,7 @@ export function LobbyClient({ code }: { code: string }) {
       ["session:snapshot", onSnapshot],
       ["game:patch", onGamePatch],
       ["player:status", onPlayerStatus],
+      ["calendar:event", onCalendarEvent],
       ["turn:timer", onTurnTimer],
       ["player:connection", onConnection],
       ["game:started", onGameStarted],
@@ -223,6 +226,7 @@ export function LobbyClient({ code }: { code: string }) {
     else gameSocket.connect();
     return () => {
       mounted = false;
+      resumeController.dispose();
       unsubscribe();
     };
   }, [code, router]);
