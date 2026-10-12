@@ -78,8 +78,10 @@ export function registerGameHandlers(
     session.payMonthDebt(playerId, p.month, p.amount),
   );
 
-  register("invite:send", (session, playerId, p: { cardId: string; targetPlayerId: string }) =>
-    session.sendInvite(playerId, p.cardId, p.targetPlayerId),
+  register(
+    "invite:send",
+    (session, playerId, p: { cardId: string; targetPlayerId: string; turnId?: string }) =>
+      session.sendInvite(playerId, p.cardId, p.targetPlayerId, p.turnId),
   );
   register("invite:respond", (session, playerId, p: { inviteId: string; answer: "join" | "decline" }) =>
     session.respondInvite(playerId, p.inviteId, p.answer),

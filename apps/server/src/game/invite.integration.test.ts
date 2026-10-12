@@ -87,7 +87,7 @@ const HANGOUT = [
   { stat: "stress", delta: -3 },
 ] as const;
 
-function giveCard(ctx: Ctx, playerId: string, motive: "sincere" | "commission" | "trap") {
+function giveCard(ctx: Ctx, playerId: string, motive: "sincere" | "commission") {
   const session = ctx.session();
   const player = session.state.players[playerId]!;
   const card = {
@@ -130,181 +130,238 @@ async function startTurns(ctx: Ctx) {
   return { active, others: others as [TestPlayer, TestPlayer] };
 }
 
-const send = (from: TestPlayer, cardId: string, to: TestPlayer) =>
-  from.socket.emitWithAck("invite:send", { requestId: rid(), cardId, targetPlayerId: to.playerId });
+const send = (from: TestPlayer, cardId: string, to: TestPlayer, turnId?: string) =>
+  from.socket.emitWithAck("invite:send", {
+    requestId: rid(),
+    cardId,
+    targetPlayerId: to.playerId,
+    ...(turnId ? { turnId } : {}),
+  });
 const respond = (p: TestPlayer, inviteId: string, answer: "join" | "decline") =>
   p.socket.emitWithAck("invite:respond", { requestId: rid(), inviteId, answer });
 
-describe("invite lewat socket", () => {
-  it("Ikut -> resolved ke pengirim dan target; pemain ketiga tidak menerima apa pun", async () => {
+/** Urutan giliran ronde ini sebagai TestPlayer: [pertama, kedua, terakhir]. */
+function orderOf(ctx: Ctx): [TestPlayer, TestPlayer, TestPlayer] {
+  const all = [ctx.host, ctx.second, ctx.third];
+  return ctx.session().state.public.turnOrder.map(
+    (id) => all.find((p) => p.playerId === id)!,
+  ) as [TestPlayer, TestPlayer, TestPlayer];
+}
+
+/** Pemain aktif memilih heksa pertama dari turn:options terakhirnya. */
+async function chooseFor(ctx: Ctx, player: TestPlayer) {
+  const options = ctx.find(player, "turn:options").at(-1)!.payload;
+  const ack = await player.socket.emitWithAck("turn:choose", {
+    requestId: rid(),
+    turnId: options.turnId,
+    hex: options.options[0].hex,
+  });
+  expect(ack).toEqual({ ok: true });
+}
+
+async function waitTurnOf(ctx: Ctx, player: TestPlayer) {
+  await until(() => ctx.session().state.public.activePlayerId === player.playerId, "giliran berikutnya");
+  await until(() => ctx.find(player, "turn:options").length > 0, "turn:options");
+}
+
+const tick = () => new Promise((resolve) => setTimeout(resolve, 60));
+
+describe("invite lewat socket (GDD 4.8 v1.12)", () => {
+  it("di luar giliran sendiri ditolak INVITE_NOT_ALLOWED; setelah turn:choose juga ditolak", async () => {
     const ctx = await setup();
     const { active, others } = await startTurns(ctx);
-    const [sender, third] = others;
-    const cardId = giveCard(ctx, sender.playerId, "commission");
+    const outsider = others[0];
+    const outsiderCard = giveCard(ctx, outsider.playerId, "commission");
+    expect(await send(outsider, outsiderCard, active)).toMatchObject({
+      ok: false,
+      error: "INVITE_NOT_ALLOWED",
+    });
+
+    const activeCard = giveCard(ctx, active.playerId, "commission");
+    await chooseFor(ctx, active);
+    expect(await send(active, activeCard, outsider)).toMatchObject({
+      ok: false,
+      error: "INVITE_NOT_ALLOWED",
+    });
+  });
+
+  it("kartu salah -> NO_INVITE_CARD, diri sendiri -> INVALID_TARGET, turnId lama -> INVITE_NOT_ALLOWED", async () => {
+    const ctx = await setup();
+    const { active, others } = await startTurns(ctx);
+    const cardId = giveCard(ctx, active.playerId, "sincere");
+    expect(await send(active, "bukan-kartu", others[0])).toMatchObject({ ok: false, error: "NO_INVITE_CARD" });
+    expect(await send(active, cardId, active)).toMatchObject({ ok: false, error: "INVALID_TARGET" });
+    expect(await send(active, cardId, others[0], "turn-lama")).toMatchObject({
+      ok: false,
+      error: "INVITE_NOT_ALLOWED",
+    });
+  });
+
+  it("kirim di giliran sendiri: target menerima incoming tanpa motif; jawaban tidak menimbulkan efek", async () => {
+    const ctx = await setup();
+    const { active, others } = await startTurns(ctx);
+    const [target, third] = others;
+    const cardId = giveCard(ctx, active.playerId, "commission");
     const before = ctx.clock.now();
-    const ack = await send(sender, cardId, active);
+    const turnId = ctx.find(active, "turn:options")[0]!.payload.turnId;
+    const ack = await send(active, cardId, target, turnId);
     expect(ack).toMatchObject({ ok: true, deadline: before + 15_000 });
     if (!ack.ok) return;
-    await until(() => ctx.find(active, "invite:incoming").length > 0, "invite:incoming");
-    expect(ctx.find(active, "invite:incoming")[0]!.payload).toMatchObject({
-      fromPlayerId: sender.playerId,
-      fromName: sender === ctx.host ? "Host" : sender === ctx.second ? "Dua" : "Tiga",
-      deadline: before + 15_000,
-    });
-    expect(await respond(active, ack.inviteId, "join")).toEqual({ ok: true });
-    await until(() => ctx.find(sender, "invite:resolved").length > 0, "resolved pengirim");
-    await until(() => ctx.find(active, "invite:resolved").length > 0, "resolved target");
+    await until(() => ctx.find(target, "invite:incoming").length > 0, "invite:incoming");
+    const incoming = ctx.find(target, "invite:incoming")[0]!.payload;
+    expect(incoming).toMatchObject({ fromPlayerId: active.playerId, deadline: before + 15_000 });
+    expect(JSON.stringify(incoming)).not.toContain("motive");
     expect(ctx.find(third, "invite:incoming")).toHaveLength(0);
-    expect(ctx.find(third, "invite:resolved")).toHaveLength(0);
-    expect(third.log.filter((e) => e.type.startsWith("invite:") && e.type !== "invite:card")).toHaveLength(0);
+
+    const statusBefore = JSON.stringify(ctx.session().state.players[target.playerId]!.status);
+    expect(await respond(target, ack.inviteId, "join")).toEqual({ ok: true });
+    await tick();
+    expect(JSON.stringify(ctx.session().state.players[target.playerId]!.status)).toBe(statusBefore);
+    for (const p of [active, target, third]) {
+      expect(ctx.find(p, "invite:resolved")).toHaveLength(0);
+    }
+    // Giliran pengirim tetap berjalan: ia masih bisa memilih heksa.
+    await chooseFor(ctx, active);
   });
 
-  it("target diam 15 detik -> autoDeclined true", async () => {
+  it("dua Ajakan dari dua pengirim berbeda dalam satu ronde; target sibuk ditolak INVALID_TARGET", async () => {
     const ctx = await setup();
-    const { active, others } = await startTurns(ctx);
-    const sender = others[0];
-    const cardId = giveCard(ctx, sender.playerId, "commission");
-    const ack = await send(sender, cardId, others[1]);
-    expect(ack.ok).toBe(true);
-    void active;
-    ctx.clock.advance(15_000);
-    await until(() => ctx.find(sender, "invite:resolved").length > 0, "resolved");
-    expect(ctx.find(sender, "invite:resolved")[0]!.payload).toMatchObject({ answer: "decline", autoDeclined: true });
+    await startTurns(ctx);
+    const [first, second, last] = orderOf(ctx);
+    const firstCard = giveCard(ctx, first.playerId, "sincere");
+    const secondCard = giveCard(ctx, second.playerId, "commission");
+
+    const a = await send(first, firstCard, last);
+    expect(a.ok).toBe(true);
+    if (!a.ok) return;
+    await chooseFor(ctx, first);
+    await waitTurnOf(ctx, second);
+
+    // Target `last` masih punya Ajakan terbuka.
+    expect(await send(second, secondCard, last)).toMatchObject({ ok: false, error: "INVALID_TARGET" });
+    expect(await respond(last, a.inviteId, "decline")).toEqual({ ok: true });
+    const b = await send(second, secondCard, last);
+    expect(b.ok).toBe(true);
+    expect(ctx.session().state.roundInvites).toHaveLength(2);
   });
 
-  it("Ajakan ke pemain aktif tidak menjeda timer giliran", async () => {
+  it("pemain terakhir mengirim lalu langsung memilih heksa: round:reveal menunggu jawaban", async () => {
     const ctx = await setup();
-    const { active, others } = await startTurns(ctx);
-    const sender = others[0];
-    ctx.clock.advance(10_000); // sisa 20 detik dari 30
-    const cardId = giveCard(ctx, sender.playerId, "commission");
-    const ack = await send(sender, cardId, active);
+    await startTurns(ctx);
+    const [first, second, last] = orderOf(ctx);
+    await chooseFor(ctx, first);
+    await waitTurnOf(ctx, second);
+    await chooseFor(ctx, second);
+    await waitTurnOf(ctx, last);
+
+    const cardId = giveCard(ctx, last.playerId, "sincere");
+    const ack = await send(last, cardId, first);
     if (!ack.ok) throw new Error("send gagal");
-    const deadline = ctx.session().publicState().turnDeadline;
-    expect(deadline).toBe(ctx.clock.now() + 20_000);
-    expect(ctx.find(sender, "turn:timer")).toHaveLength(0);
-    ctx.clock.advance(15_000);
-    await until(() => ctx.find(sender, "invite:resolved").length > 0, "invite:resolved");
-    expect(ctx.find(sender, "invite:resolved").at(-1)!.payload).toMatchObject({
+    await chooseFor(ctx, last);
+    await tick();
+    expect(ctx.find(last, "round:reveal")).toHaveLength(0);
+
+    expect(await respond(first, ack.inviteId, "join")).toEqual({ ok: true });
+    await until(() => ctx.find(last, "round:reveal").length > 0, "round:reveal");
+
+    // invite:resolved hanya ke pengirim dan target, dan setelah round:reveal.
+    await until(() => ctx.find(first, "invite:resolved").length > 0, "resolved target");
+    await until(() => ctx.find(last, "invite:resolved").length > 0, "resolved pengirim");
+    const indexOf = (p: TestPlayer, type: string) => p.log.findIndex((e) => e.type === type);
+    expect(indexOf(first, "invite:resolved")).toBeGreaterThan(indexOf(first, "round:reveal"));
+    expect(indexOf(last, "invite:resolved")).toBeGreaterThan(indexOf(last, "round:reveal"));
+    expect(ctx.find(first, "invite:resolved")[0]!.payload).toMatchObject({ answer: "join", motive: "sincere" });
+    expect(ctx.find(last, "invite:resolved")[0]!.payload).toMatchObject({ motive: "sincere" });
+    expect(ctx.find(second, "invite:resolved")).toHaveLength(0);
+    expect(ctx.find(second, "invite:incoming")).toHaveLength(0);
+  });
+
+  it("reconnect saat Ajakan masih terbuka mendapat pendingInvite dengan deadline asli", async () => {
+    const ctx = await setup();
+    await startTurns(ctx);
+    const [first, second, last] = orderOf(ctx);
+    await chooseFor(ctx, first);
+    await waitTurnOf(ctx, second);
+    await chooseFor(ctx, second);
+    await waitTurnOf(ctx, last);
+
+    const cardId = giveCard(ctx, last.playerId, "sincere");
+    const ack = await send(last, cardId, first);
+    if (!ack.ok) throw new Error("send gagal");
+    await until(() => ctx.find(first, "invite:incoming").length > 0, "invite:incoming");
+    const original = ctx.find(first, "invite:incoming")[0]!.payload;
+
+    const reconnected = await connect(ctx.baseUrl, first.token);
+    const resumed = await reconnected.emitWithAck("session:resume", { requestId: rid(), roomCode: "UMR-1234" });
+    expect(resumed.ok).toBe(true);
+    if (resumed.ok) {
+      expect(resumed.snapshot.me.pendingInvite).toEqual(original);
+      expect(resumed.snapshot.me.pendingInvite?.deadline).toBe(ack.deadline);
+    }
+    // Pemain yang bukan target tidak mendapat pendingInvite.
+    const lastResumed = await connect(ctx.baseUrl, last.token);
+    const lastSnapshot = await lastResumed.emitWithAck("session:resume", { requestId: rid(), roomCode: "UMR-1234" });
+    expect(lastSnapshot.ok && lastSnapshot.snapshot.me.pendingInvite).toBeNull();
+
+    // Setelah dijawab, snapshot tidak lagi memuat pendingInvite.
+    expect(
+      await reconnected.emitWithAck("invite:respond", { requestId: rid(), inviteId: ack.inviteId, answer: "join" }),
+    ).toEqual({ ok: true });
+    const after = await reconnected.emitWithAck("session:resume", { requestId: rid(), roomCode: "UMR-1234" });
+    expect(after.ok && after.snapshot.me.pendingInvite).toBeNull();
+  });
+
+  it("Ajakan tidak dijawab 15 detik -> Tolak otomatis dan Fase Pembalikan jalan", async () => {
+    const ctx = await setup();
+    await startTurns(ctx);
+    const [first, second, last] = orderOf(ctx);
+    await chooseFor(ctx, first);
+    await waitTurnOf(ctx, second);
+    await chooseFor(ctx, second);
+    await waitTurnOf(ctx, last);
+
+    const cardId = giveCard(ctx, last.playerId, "commission");
+    const ack = await send(last, cardId, second);
+    if (!ack.ok) throw new Error("send gagal");
+    await chooseFor(ctx, last);
+    await tick();
+    expect(ctx.find(last, "round:reveal")).toHaveLength(0);
+    ctx.clock.advance(14_999);
+    await tick();
+    expect(ctx.find(last, "round:reveal")).toHaveLength(0);
+    ctx.clock.advance(1);
+    await until(() => ctx.find(last, "round:reveal").length > 0, "round:reveal");
+    await until(() => ctx.find(last, "invite:resolved").length > 0, "invite:resolved");
+    expect(ctx.find(last, "invite:resolved")[0]!.payload).toMatchObject({
       answer: "decline",
       autoDeclined: true,
+      motive: "commission",
     });
-    expect(ctx.session().publicState().turnDeadline).toBe(deadline);
-    expect(ctx.find(sender, "turn:timer")).toHaveLength(0);
-    expect(ctx.find(sender, "tile:opened")).toHaveLength(0);
-    ctx.clock.advance(5_000);
-    await until(() => ctx.find(sender, "tile:opened").length > 0, "tile:opened");
-    expect(ctx.find(sender, "tile:opened")[0]!.payload.autoPicked).toBe(true);
+    expect(ctx.find(first, "invite:resolved")).toHaveLength(0);
   });
 
-  it("pemain aktif tetap bisa memilih heksa saat Ajakan menunggu", async () => {
+  it("tanpa Ajakan terbuka, Fase Pembalikan langsung jalan setelah pemain terakhir memilih", async () => {
+    const ctx = await setup();
+    await startTurns(ctx);
+    const [first, second, last] = orderOf(ctx);
+    await chooseFor(ctx, first);
+    await waitTurnOf(ctx, second);
+    await chooseFor(ctx, second);
+    await waitTurnOf(ctx, last);
+    await chooseFor(ctx, last);
+    await until(() => ctx.find(last, "round:reveal").length > 0, "round:reveal");
+    expect(ctx.find(last, "turn:timer")).toHaveLength(0);
+  });
+
+  it("room ditutup saat Ajakan menunggu -> semua timer ikut bersih", async () => {
     const ctx = await setup();
     const { active, others } = await startTurns(ctx);
-    const sender = others[0];
-    const cardId = giveCard(ctx, sender.playerId, "commission");
-    const ack = await send(sender, cardId, active);
-    if (!ack.ok) throw new Error("send gagal");
-    const options = ctx.find(active, "turn:options")[0]!.payload;
-    const chosen = await active.socket.emitWithAck("turn:choose", {
-      requestId: rid(),
-      turnId: options.turnId,
-      hex: options.options[0].hex,
-    });
-    expect(chosen).toEqual({ ok: true });
-  });
-
-  it("Ajakan kedua di ronde yang sama -> INVITE_LIMIT", async () => {
-    const ctx = await setup();
-    const { others } = await startTurns(ctx);
-    const [a, b] = others;
-    const cardA = giveCard(ctx, a.playerId, "trap");
-    const cardB = giveCard(ctx, b.playerId, "trap");
-    expect((await send(a, cardA, b)).ok).toBe(true);
-    expect(await send(b, cardB, a)).toMatchObject({ ok: false, error: "INVITE_LIMIT" });
-  });
-
-  it("Tulus ditolak -> hanya game:patch inviteSincereDeclined (id pemain) yang terlihat pemain ketiga", async () => {
-    const ctx = await setup();
-    const { active, others } = await startTurns(ctx);
-    const [sender, third] = others;
-    const cardId = giveCard(ctx, sender.playerId, "sincere");
-    const ack = await send(sender, cardId, active);
-    if (!ack.ok) throw new Error("send gagal");
-    await respond(active, ack.inviteId, "decline");
-    await until(
-      () => ctx.find(third, "game:patch").some((e) => JSON.stringify(e.payload).includes("inviteSincereDeclined")),
-      "patch tulus",
-    );
-    const patch = ctx.find(third, "game:patch").find((e) => JSON.stringify(e.payload).includes("inviteSincereDeclined"))!;
-    expect(patch.payload.ops.find((o: any) => o.type === "inviteSincereDeclined")).toEqual({
-      type: "inviteSincereDeclined",
-      fromPlayerId: sender.playerId,
-      targetPlayerId: active.playerId,
-    });
-    expect(ctx.find(third, "invite:resolved")).toHaveLength(0);
-    const seen = third.log.filter((e) => e.type.startsWith("invite:") && e.type !== "invite:card");
-    expect(seen).toHaveLength(0);
-    expect(JSON.stringify(patch.payload)).not.toContain("motive");
-  });
-
-  it("target yang sedang giliran Burnout -> giliran berpindah dan timer lama dibersihkan", async () => {
-    const ctx = await setup();
-    const { active, others } = await startTurns(ctx);
-    const sender = others[0];
-    const withTurnTimer = ctx.clock.pending; // timer janitor + timer giliran
-    setStatus(ctx, active.playerId, { health: 3, stress: 9 });
-    const cardId = giveCard(ctx, sender.playerId, "trap");
-    const ack = await send(sender, cardId, active);
-    if (!ack.ok) throw new Error("send gagal");
-    const turnsBefore = ctx.find(sender, "turn:start").length;
-    await respond(active, ack.inviteId, "join");
-    await until(() => ctx.find(sender, "turn:start").length > turnsBefore, "giliran berikutnya");
-    const next = ctx.find(sender, "turn:start").at(-1)!.payload;
-    expect(next.playerId).not.toBe(active.playerId);
-    expect(ctx.find(sender, "turn:timer")).toHaveLength(0);
-    expect(ctx.session().state.players[active.playerId]!.eliminated).toBe(true);
-    // Hanya timer giliran pemain berikutnya; tidak ada timer Ajakan/giliran lama yang tertinggal.
-    expect(ctx.clock.pending).toBe(withTurnTimer);
-  });
-
-  it("game selesai karena Burnout -> game:finished dan semua timer bersih", async () => {
-    const ctx = await setup();
-    const { active, others } = await startTurns(ctx);
-    const [sender, third] = others;
     const janitorOnly = ctx.clock.pending - 1;
-    eliminateNow(ctx, third.playerId);
-    setStatus(ctx, active.playerId, { health: 3, stress: 9 });
-    const cardId = giveCard(ctx, sender.playerId, "trap");
-    const ack = await send(sender, cardId, active);
-    if (!ack.ok) throw new Error("send gagal");
-    await respond(active, ack.inviteId, "join");
-    await until(() => ctx.find(sender, "game:finished").length > 0, "game:finished");
-    expect(ctx.session().finished).toBe(true);
-    expect(ctx.clock.pending).toBe(janitorOnly);
-  });
-
-  it("room ditutup saat Ajakan menunggu -> timer ikut bersih", async () => {
-    const ctx = await setup();
-    const { active, others } = await startTurns(ctx);
-    const sender = others[0];
-    const janitorOnly = ctx.clock.pending - 1;
-    const cardId = giveCard(ctx, sender.playerId, "commission");
-    await send(sender, cardId, active);
-    expect(ctx.clock.pending).toBe(janitorOnly + 2); // timer giliran tetap berjalan bersama timer Ajakan
+    const cardId = giveCard(ctx, active.playerId, "commission");
+    const ack = await send(active, cardId, others[0]);
+    expect(ack.ok).toBe(true);
+    expect(ctx.clock.pending).toBe(janitorOnly + 2); // timer giliran + timer Ajakan
     ctx.session().dispose();
     expect(ctx.clock.pending).toBe(janitorOnly);
   });
 });
-
-function eliminateNow(ctx: Ctx, playerId: string) {
-  const session = ctx.session();
-  const player = session.state.players[playerId]!;
-  session.state = {
-    ...session.state,
-    players: {
-      ...session.state.players,
-      [playerId]: { ...player, eliminated: true, eliminatedAtStep: 1, eliminatedReason: "burnout" },
-    },
-    public: { ...session.state.public, eliminated: [...session.state.public.eliminated, playerId] },
-  };
-}
