@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ERROR_CODES } from "../common/errors";
 import { ClientEventSchemas } from "../socket/client-event-schemas";
 import { MonthSummaryPayloadSchema } from "./calendar";
-import { CharacterIdSchema, TurnSecondsSchema } from "./common";
+import { CharacterIdSchema, PrivateStatusSchema, TurnSecondsSchema } from "./common";
 import {
   DoomTriggeredPayloadSchema,
   GameFinishedPayloadSchema,
@@ -13,6 +13,7 @@ import {
   ReflectionSchema,
   RevealedRealitySchema,
   RoundRevealPayloadSchema,
+  ScoreRowSchema,
   SeasonChangedPayloadSchema,
   SnapshotSchema,
   TileResolvedPayloadSchema,
@@ -186,6 +187,33 @@ describe("kontrak v0.3: field opsional baru", () => {
     expect(RoomTimerRequestSchema.safeParse({ requestId: REQUEST_ID, turnSeconds: 15 }).success).toBe(true);
     expect(RoomTimerRequestSchema.safeParse({ requestId: REQUEST_ID, turnSeconds: 45 }).success).toBe(false);
     expect(RoomStateSchema.shape.turnSeconds.safeParse(15).success).toBe(true);
+  });
+});
+
+describe("kontrak v1.12: Hutang tanpa batas atas dan skor desimal", () => {
+  it("PrivateStatus menerima Hutang di atas debtLimit (Bangkrut dicek engine)", () => {
+    const status = { ...STATUS, debt: 30_000_000 };
+    expect(PrivateStatusSchema.safeParse(status).success).toBe(true);
+    expect(PrivateStatusSchema.safeParse({ ...status, debt: -1 }).success).toBe(false);
+  });
+
+  it("ScoreRow dan ranking menerima skor desimal", () => {
+    expect(
+      ScoreRowSchema.safeParse({ playerId: "p1", provisionalScore: 88.3333, rank: 1, eliminated: false })
+        .success,
+    ).toBe(true);
+    expect(
+      GameFinishedPayloadSchema.safeParse({
+        version: 1,
+        ranking: [
+          {
+            rank: 1, playerId: "p1", name: "Budi", pawn: "cream-circle", finalScore: 56.3333,
+            netWorth: 4_500_000, modifier: "none", modifierPct: 0, eliminated: false,
+            eliminatedAtStep: null,
+          },
+        ],
+      }).success,
+    ).toBe(true);
   });
 });
 
