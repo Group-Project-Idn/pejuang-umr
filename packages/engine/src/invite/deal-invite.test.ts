@@ -35,8 +35,7 @@ describe("pickInviteMotive", () => {
     for (let i = 0; i < total; i += 1) counts[pickInviteMotive(random)] += 1;
     expect(Math.abs(counts.sincere / total - 0.5)).toBeLessThanOrEqual(0.03);
     expect(Math.abs(counts.commission / total - 0.5)).toBeLessThanOrEqual(0.03);
-    // "trap" tidak pernah dibagikan engine.
-    expect(Object.keys(counts)).not.toContain("trap");
+    expect(Object.keys(counts).sort()).toEqual(["commission", "sincere"]);
   });
 });
 

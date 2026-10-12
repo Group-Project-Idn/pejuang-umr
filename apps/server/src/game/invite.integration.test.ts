@@ -130,12 +130,17 @@ async function startTurns(ctx: Ctx) {
   return { active, others: others as [TestPlayer, TestPlayer] };
 }
 
-const send = (from: TestPlayer, cardId: string, to: TestPlayer, turnId?: string) =>
+/** turnId terakhir yang diterima pemain; "turn-none" bila belum pernah mendapat giliran. */
+const latestTurnId = (p: TestPlayer): string =>
+  p.log.filter((e) => e.type === "turn:options" || e.type === "turn:dead-end").at(-1)?.payload.turnId ??
+  "turn-none";
+
+const send = (from: TestPlayer, cardId: string, to: TestPlayer, turnId = latestTurnId(from)) =>
   from.socket.emitWithAck("invite:send", {
     requestId: rid(),
+    turnId,
     cardId,
     targetPlayerId: to.playerId,
-    ...(turnId ? { turnId } : {}),
   });
 const respond = (p: TestPlayer, inviteId: string, answer: "join" | "decline") =>
   p.socket.emitWithAck("invite:respond", { requestId: rid(), inviteId, answer });
@@ -373,7 +378,6 @@ describe("invite lewat socket (GDD 4.8 v1.12)", { timeout: 20_000 }, () => {
     await waitTurnOf(ctx, last);
     await chooseFor(ctx, last);
     await until(() => ctx.find(last, "round:reveal").length > 0, "round:reveal");
-    expect(ctx.find(last, "turn:timer")).toHaveLength(0);
   });
 
   it("room ditutup saat Ajakan menunggu -> semua timer ikut bersih", async () => {

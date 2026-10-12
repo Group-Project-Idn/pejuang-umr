@@ -30,7 +30,7 @@ export function sendInvite(
   senderId: string,
   cardId: string,
   targetId: string,
-  turnId?: string,
+  turnId: string,
 ): SendInviteResult {
   if (state.phase === "finished") return fail("GAME_FINISHED", "Permainan sudah selesai.");
   const sender = state.players[senderId];
@@ -49,7 +49,7 @@ export function sendInvite(
       "Ajakan hanya bisa dikirim di giliranmu sebelum memilih heksa.",
     );
   }
-  if (turnId !== undefined && turnId !== pending.turnId) {
+  if (turnId !== pending.turnId) {
     return fail("INVITE_NOT_ALLOWED", "Giliran sudah lewat.");
   }
   const card = sender.inviteCard;

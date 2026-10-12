@@ -25,15 +25,9 @@ export const TurnChooseRequestSchema = z.strictObject(turnMoveShape);
 
 export const TurnJumpRequestSchema = z.strictObject(turnMoveShape);
 
-/** @deprecated v0.3: mode penonton dihapus. */
-export const SpectateEnterRequestSchema = z.strictObject(
-  RequestPayloadSchema.shape,
-);
-
 export const InviteSendRequestSchema = z.strictObject({
   ...RequestPayloadSchema.shape,
-  // v0.3: wajib setelah pembersihan G7
-  turnId: z.string().min(1).optional(),
+  turnId: z.string().min(1),
   cardId: z.string().min(1),
   targetPlayerId: z.string().min(1),
 });

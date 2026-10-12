@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  CharacterIdSchema,
   getHexDistance,
   getNeighbors,
   hexKey,
@@ -279,7 +280,6 @@ describe("chooseHex", () => {
     expect(next.public.openedHexes.at(-1)).toMatchObject({
       hex,
       byPlayerId: playerId,
-      outcome: null,
       reality: null,
     });
     expect(next.public.openedHexes.at(-1)!.plan).toContainEqual({ stat: "wealth", delta: -500_000 });
@@ -302,12 +302,11 @@ describe("chooseHex", () => {
 
     // Realita tersimpan tersembunyi, bukan di state publik maupun event.
     const hidden = result.state.pendingRealities[0]!;
-    expect(hidden).toMatchObject({ playerId, turnId, outcome: "safe" });
+    expect(hidden).toMatchObject({ playerId, outcome: "safe" });
     const exposed = JSON.stringify([result.state.public, result.events]);
     expect(exposed).not.toContain(hidden.text);
     expect(exposed).not.toContain('"seasonal"');
     expect(result.state.public.openedHexes.at(-1)!.reality).toBeNull();
-    expect(result.state.public.openedHexes.at(-1)!.outcome).toBeNull();
   });
 
   it("Realita memakai konteks saat memilih, bukan peringkat setelah memilih", () => {
@@ -384,7 +383,6 @@ describe("chooseHex", () => {
     const revealed = reveal(chosen.state);
     const doom = ofType(revealed.events, "doom:triggered")[0]!;
     expect(doom.target).toEqual({ kind: "player", playerId: chosen.playerId });
-    expect(doom.payload.trigger).toBe("tile");
     expect(doom.payload.round).toBe(2);
     expect(doom.payload.stressAfter).toBe(9);
     const status = revealed.state.players[chosen.playerId]!.status;
@@ -438,7 +436,6 @@ describe("chooseHex", () => {
     expect(resolved.outcome).toBe("zonk");
     expect(resolved.effects).toContainEqual({ stat: "wealth", delta: -750_000 });
     expect(resolved.round).toBe(2);
-    expect(resolved.turnId).toBe(chosen.state.pendingRealities[0]!.turnId);
     const player = revealed.state.players[first]!;
     expect(player.status.wealth).toBe(0);
     expect(player.status.debt).toBe(25_750_000);
@@ -573,7 +570,6 @@ describe("chooseHex", () => {
     const finished = finishGame(state);
     expect(finished.events.map((event) => event.type)).toEqual(["gold:expired", "game:finished"]);
     expect(finished.state.public.gold).toBeNull();
-    expect(finished.state.public.deadHexes).toEqual([]);
     expect(finished.state.board.tiles[hexKey(gold.hex)]).toBe(original);
     expect(finished.state.board.goldOrigin).toBeNull();
     expect(finished.state.board.usedHexKeys).not.toContain(hexKey(gold.hex));
@@ -654,7 +650,7 @@ describe("endRound (Fase Pembalikan)", () => {
     expect(reveal.payload).toMatchObject({ round: 2, step: 2 });
     expect(reveal.payload.order.map((o) => o.playerId)).toEqual(order);
     expect(ofType(events, "tile:resolved").map((e) => e.payload.playerId)).toEqual(order);
-    expect(after.public.openedHexes.every((h) => h.reality !== null && h.outcome !== null)).toBe(true);
+    expect(after.public.openedHexes.every((h) => h.reality !== null)).toBe(true);
     expect(after.pendingRealities).toEqual([]);
     expect(after.phase).toBe("roundStart");
     expect(after.movedThisRound).toEqual([]);
@@ -718,26 +714,24 @@ describe("endRound (Fase Pembalikan)", () => {
     expect(finished.payload.ranking.map((r) => r.rank)).toContain(1);
     for (const row of finished.payload.ranking) {
       expect(row.netWorth).toBe(7_500_000);
-      expect(row).not.toHaveProperty("modifier");
-      expect(row).not.toHaveProperty("modifierPct");
       expect(row.finalScore).toBeCloseTo(88.3333333, 5);
       expect(row.points.finance).toBeCloseTo(65, 9);
       expect(row.points.health).toBe(100);
       expect(row.points.calm).toBe(100);
-      expect(row).not.toHaveProperty("avatarId");
+      expect(CharacterIdSchema.options).toContain(row.avatarId);
     }
   });
 
-  it("game:finished memuat avatarId bila identitas pemain memilikinya", () => {
+  it("game:finished memuat avatarId dari identitas pemain", () => {
     const game = makeGame(24);
     const identities = {
-      a: { name: "A", pawn: "cream-circle" as const, avatarId: "michael" },
-      b: { name: "B", pawn: "iceblue-square" as const },
+      a: { name: "A", avatarId: "michael" as const },
+      b: { name: "B", avatarId: "sinta" as const },
     };
     const { events } = finishGame(game, identities);
     const ranking = ofType(events, "game:finished")[0]!.payload.ranking;
     expect(ranking.find((r) => r.playerId === "a")?.avatarId).toBe("michael");
-    expect(ranking.find((r) => r.playerId === "b")).not.toHaveProperty("avatarId");
+    expect(ranking.find((r) => r.playerId === "b")?.avatarId).toBe("sinta");
   });
 });
 

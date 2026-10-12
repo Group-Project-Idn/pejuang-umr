@@ -424,7 +424,7 @@ describe("Fase Pembalikan", () => {
     );
     const textCollides = alreadyRevealed.has(hidden.text);
     if (!textCollides) expect(publicJson).not.toContain(hidden.text);
-    expect(ctx.session.publicState().openedHexes.at(-1)).toMatchObject({ reality: null, outcome: null });
+    expect(ctx.session.publicState().openedHexes.at(-1)).toMatchObject({ reality: null });
     await until(() => ctx.find(ctx.host, "tile:opened").length >= 1, "tile:opened");
     for (const p of [ctx.host, ctx.guest]) {
       expect(p.log.some((e) => e.type === "tile:resolved" && e.payload.round === 2)).toBe(false);

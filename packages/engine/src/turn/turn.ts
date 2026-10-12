@@ -1,11 +1,11 @@
 import {
-  PawnIdSchema,
+  CharacterIdSchema,
   hexKey,
   type Effect,
   type ErrorCode,
   type HexCoord,
+  type CharacterId,
   type OpenedHex,
-  type PawnId,
   type PrivateStatus,
   type TileOption,
 } from "@pejuang/shared";
@@ -39,9 +39,7 @@ export type TurnResult =
 
 export interface PlayerIdentity {
   name: string;
-  pawn: PawnId;
-  /** Diisi server (G5); engine meneruskannya ke `game:finished`. */
-  avatarId?: string;
+  avatarId: CharacterId;
 }
 
 /** Nilai awal; server mengisi turnSeconds dan deadline yang sebenarnya. */
@@ -221,7 +219,6 @@ function applyChoice(
     const reality = resolveReality(tileId, context, random);
     pendingRealities.push({
       playerId,
-      turnId: pending.turnId,
       hex,
       outcome: reality.outcome,
       text: reality.text,
@@ -257,7 +254,6 @@ function applyChoice(
           hex,
           category: option.category,
           title: option.title,
-          outcome: null,
           plan: option.plan,
           reality: null,
           byPlayerId: playerId,
@@ -353,7 +349,6 @@ export function endRound(state: GameState, random: RandomSource): RoundResult {
       target: room,
       payload: {
         version: 0,
-        turnId: reality.turnId,
         round: step,
         playerId,
         hex: reality.hex,
@@ -375,7 +370,6 @@ export function endRound(state: GameState, random: RandomSource): RoundResult {
       entry.step === step && entry.byPlayerId === playerId && hexKey(entry.hex) === hexId
         ? {
             ...entry,
-            outcome: reality.outcome,
             reality: {
               outcome: reality.outcome,
               text: reality.text,
@@ -455,7 +449,7 @@ export function endRound(state: GameState, random: RandomSource): RoundResult {
     events.push({
       type: "doom:triggered",
       target,
-      payload: { amount: doom.amount, trigger: "tile", round: step, stressAfter: doom.status.stress },
+      payload: { amount: doom.amount, round: step, stressAfter: doom.status.stress },
     });
     events.push({ type: "player:status", target, payload: doom.status });
   }
@@ -543,8 +537,8 @@ export function endRound(state: GameState, random: RandomSource): RoundResult {
 }
 
 /**
- * Menutup game dan membuat peringkat akhir. Engine tidak tahu nama dan pion;
- * server mengisinya lewat `identities` (bila kosong: playerId dan pion berurutan).
+ * Menutup game dan membuat peringkat akhir. Engine tidak tahu nama dan karakter;
+ * server mengisinya lewat `identities` (bila kosong: playerId dan karakter berurutan).
  */
 export function finishGame(
   state: GameState,
@@ -562,7 +556,7 @@ export function finishGame(
     payload: { version: 0, goldId: gold.goldId, hex: gold.hex },
   }] : [];
   const ranked = rankPlayers(rankingEntries(state.players, state.baseTurnOrder));
-  const pawns = PawnIdSchema.options;
+  const characters = CharacterIdSchema.options;
   const ranking = ranked.map((player) => {
     const index = state.baseTurnOrder.indexOf(player.playerId);
     const identity = identities[player.playerId];
@@ -570,8 +564,7 @@ export function finishGame(
       rank: player.rank,
       playerId: player.playerId,
       name: identity?.name ?? player.playerId,
-      pawn: identity?.pawn ?? pawns[index % pawns.length]!,
-      ...(identity?.avatarId ? { avatarId: identity.avatarId } : {}),
+      avatarId: identity?.avatarId ?? characters[index % characters.length]!,
       points: player.points,
       finalScore: player.score,
       netWorth: player.netWorth,

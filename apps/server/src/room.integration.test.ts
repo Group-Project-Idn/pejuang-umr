@@ -135,7 +135,7 @@ describe("room lifecycle", () => {
     expect(body).not.toHaveProperty("room");
   });
 
-  it("menegakkan pawn unik, otorisasi host, dan readiness tamu", async () => {
+  it("menegakkan karakter unik, otorisasi host, dan readiness tamu", async () => {
     const { baseUrl, server } = await startServer();
     const host = await connectGuest(baseUrl, "Host", "avatar-01");
     const guest = await connectGuest(baseUrl, "Guest", "avatar-02");
@@ -146,7 +146,7 @@ describe("room lifecycle", () => {
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     // Host langsung mendapat pion pertama yang kosong tanpa perlu memilih.
-    expect(player(created.room, host.playerId).pawn).toBe("cream-circle");
+    expect(player(created.room, host.playerId).avatarId).toBe("michael");
 
     const joined = await guest.socket.emitWithAck("room:join", {
       requestId: requestIds[1]!,
@@ -155,7 +155,7 @@ describe("room lifecycle", () => {
     expect(joined.ok).toBe(true);
     if (!joined.ok) return;
     // Tamu mendapat pasangan kosong berikutnya secara otomatis.
-    expect(player(joined.room, guest.playerId).pawn).toBe("iceblue-square");
+    expect(player(joined.room, guest.playerId).avatarId).toBe("raka");
 
     const nonHostTimer = await guest.socket.emitWithAck("room:timer", {
       requestId: requestIds[2]!,
@@ -163,18 +163,18 @@ describe("room lifecycle", () => {
     });
     expect(nonHostTimer).toEqual({ ok: false, error: "NOT_HOST" });
 
-    const duplicatePawn = await guest.socket.emitWithAck("room:pawn", {
+    const duplicateAvatar = await guest.socket.emitWithAck("room:avatar", {
       requestId: requestIds[3]!,
-      pawn: "cream-circle",
+      avatarId: "michael",
     });
-    expect(duplicatePawn).toEqual({ ok: false, error: "PAWN_TAKEN" });
+    expect(duplicateAvatar).toEqual({ ok: false, error: "AVATAR_TAKEN" });
 
-    // room:pawn masih bisa menukar ke pion yang kosong.
-    const swapPawn = await guest.socket.emitWithAck("room:pawn", {
+    // room:avatar masih bisa menukar ke karakter yang kosong.
+    const swapAvatar = await guest.socket.emitWithAck("room:avatar", {
       requestId: requestIds[4]!,
-      pawn: "salmon-diamond",
+      avatarId: "icha",
     });
-    expect(swapPawn).toEqual({ ok: true });
+    expect(swapAvatar).toEqual({ ok: true });
 
     // Host tidak perlu siap; event dari host ditolak.
     const hostReady = await host.socket.emitWithAck("room:ready", {
@@ -194,12 +194,12 @@ describe("room lifecycle", () => {
       startBlockReason: null,
       players: [
         expect.objectContaining({
-          pawn: "cream-circle",
+          avatarId: "michael",
           isHost: true,
           ready: false,
         }),
         expect.objectContaining({
-          pawn: "salmon-diamond",
+          avatarId: "icha",
           isHost: false,
           ready: true,
         }),
@@ -382,7 +382,7 @@ describe("room lifecycle", () => {
       ["room:join", {}],
       ["room:leave", {}],
       ["room:ready", {}],
-      ["room:pawn", {}],
+      ["room:avatar", {}],
       ["room:timer", {}],
       ["room:kick", {}],
       ["game:start", {}],
@@ -495,7 +495,7 @@ describe("room lifecycle", () => {
     });
     expect(created.ok).toBe(true);
     if (!created.ok) return;
-    expect(player(created.room, players[0]!.playerId).pawn).toBe("cream-circle");
+    expect(player(created.room, players[0]!.playerId).avatarId).toBe("michael");
 
     for (let index = 1; index < 4; index += 1) {
       const joined = await players[index]!.socket.emitWithAck("room:join", {
@@ -504,19 +504,19 @@ describe("room lifecycle", () => {
       });
       expect(joined.ok).toBe(true);
       if (!joined.ok) return;
-      expect(joined.room.players.map((member) => member.pawn)).toEqual([
-        "cream-circle",
-        "iceblue-square",
-        "mint-triangle",
-        "salmon-diamond",
+      expect(joined.room.players.map((member) => member.avatarId)).toEqual([
+        "michael",
+        "raka",
+        "sinta",
+        "icha",
       ].slice(0, index + 1));
     }
 
-    expect(server.rooms.get("UMR-1234")?.players.map((member) => member.pawn)).toEqual([
-      "cream-circle",
-      "iceblue-square",
-      "mint-triangle",
-      "salmon-diamond",
+    expect(server.rooms.get("UMR-1234")?.players.map((member) => member.avatarId)).toEqual([
+      "michael",
+      "raka",
+      "sinta",
+      "icha",
     ]);
   });
 
@@ -535,7 +535,7 @@ describe("room lifecycle", () => {
     });
     expect(secondJoined.ok).toBe(true);
     if (!secondJoined.ok) return;
-    expect(player(secondJoined.room, second.playerId).pawn).toBe("iceblue-square");
+    expect(player(secondJoined.room, second.playerId).avatarId).toBe("raka");
 
     const left = await second.socket.emitWithAck("room:leave", {
       requestId: requestIds[2]!,
@@ -548,9 +548,9 @@ describe("room lifecycle", () => {
     });
     expect(replacementJoined.ok).toBe(true);
     if (!replacementJoined.ok) return;
-    // iceblue-square dibebaskan oleh pemain kedua, jadi dipakai ulang.
-    expect(player(replacementJoined.room, replacement.playerId).pawn).toBe(
-      "iceblue-square",
+    // raka dibebaskan oleh pemain kedua, jadi dipakai ulang.
+    expect(player(replacementJoined.room, replacement.playerId).avatarId).toBe(
+      "raka",
     );
     expect(server.rooms.get("UMR-1234")?.players).toHaveLength(2);
   });
@@ -747,7 +747,7 @@ describe("room:kick", () => {
     const third = await connectGuest(baseUrl, "Third", "avatar-03");
     await host.socket.emitWithAck("room:create", { requestId: requestIds[0]! });
     await guest.socket.emitWithAck("room:join", { requestId: requestIds[1]!, roomCode: "UMR-1234" });
-    const guestPawn = player(server.rooms.get("UMR-1234")!, guest.playerId).pawn;
+    const guestAvatar = player(server.rooms.get("UMR-1234")!, guest.playerId).avatarId;
 
     expect(
       await host.socket.emitWithAck("room:kick", { requestId: requestIds[2]!, targetPlayerId: host.playerId }),
@@ -773,6 +773,6 @@ describe("room:kick", () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(guestStates).toHaveLength(0);
     // Pion yang dilepas dipakai pemain berikutnya.
-    expect(player(server.rooms.get("UMR-1234")!, third.playerId).pawn).toBe(guestPawn);
+    expect(player(server.rooms.get("UMR-1234")!, third.playerId).avatarId).toBe(guestAvatar);
   });
 });

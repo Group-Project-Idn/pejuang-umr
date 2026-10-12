@@ -9,7 +9,6 @@ import type {
   InviteSendRequestSchema,
   MonthPayDebtRequestSchema,
   RoomRematchRequestSchema,
-  SpectateEnterRequestSchema,
   TurnChooseRequestSchema,
   TurnJumpRequestSchema,
 } from "../schemas/game-actions";
@@ -39,7 +38,6 @@ import {
   TileOpenedPayloadSchema,
   TileResolvedPayloadSchema,
   TurnStartPayloadSchema,
-  TurnTimerPayloadSchema,
   TurnOptionsPayloadSchema,
 } from "../schemas/game";
 import {
@@ -53,7 +51,6 @@ import type {
   RoomJoinRequestSchema,
   RoomKickRequestSchema,
   RoomLeaveRequestSchema,
-  RoomPawnRequestSchema,
   RoomReadyRequestSchema,
   RoomTimerRequestSchema,
   SessionResumeRequestSchema,
@@ -94,11 +91,6 @@ export interface ClientToServerEvents {
     payload: z.infer<typeof RoomAvatarRequestSchema>,
     ack: AckCallback,
   ) => void;
-  /** @deprecated v0.3: diganti `room:avatar`. */
-  "room:pawn": (
-    payload: z.infer<typeof RoomPawnRequestSchema>,
-    ack: AckCallback,
-  ) => void;
   "room:timer": (
     payload: z.infer<typeof RoomTimerRequestSchema>,
     ack: AckCallback,
@@ -135,11 +127,6 @@ export interface ClientToServerEvents {
       stressDelta: 0 | -2;
     }>,
   ) => void;
-  /** @deprecated v0.3: mode penonton dihapus. */
-  "spectate:enter": (
-    payload: z.infer<typeof SpectateEnterRequestSchema>,
-    ack: AckCallback<{ snapshot: Snapshot }>,
-  ) => void;
   "invite:send": (
     payload: z.infer<typeof InviteSendRequestSchema>,
     ack: AckCallback<{ inviteId: string; deadline: number }>,
@@ -172,8 +159,6 @@ export interface ServerToClientEvents {
   "turn:start": (payload: z.infer<typeof TurnStartPayloadSchema>) => void;
   "turn:options": (payload: z.infer<typeof TurnOptionsPayloadSchema>) => void;
   "turn:dead-end": (payload: z.infer<typeof DeadEndPayloadSchema>) => void;
-  /** @deprecated v0.3: timer ditangani lewat `turn:start.deadline`. */
-  "turn:timer": (payload: z.infer<typeof TurnTimerPayloadSchema>) => void;
   "round:reveal": (payload: z.infer<typeof RoundRevealPayloadSchema>) => void;
   "reflection:ready": (payload: z.infer<typeof ReflectionReadyPayloadSchema>) => void;
   "tile:opened": (payload: z.infer<typeof TileOpenedPayloadSchema>) => void;
@@ -193,5 +178,6 @@ export interface InterServerEvents {}
 export interface SocketData {
   playerId: string;
   name: string;
+  /** String bebas: token tamu lama bisa memuat avatar tidak sah. */
   avatarId: string;
 }

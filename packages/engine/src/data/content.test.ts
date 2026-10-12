@@ -12,7 +12,6 @@ import {
 import { SEASON_ZONKS } from "./season-zonks";
 import { TILES } from "./tiles";
 import { SEASON_BY_MONTH } from "./schema";
-import { toMultiplayerEffects } from "./multiplier";
 
 const FORBIDDEN_IMPORT = "@pejuang/engine";
 const webSrcDir = join(
@@ -353,13 +352,6 @@ describe("nilai konten 1x (GDD 1.3 v1.12)", () => {
       { stat: "wealth", delta: -250_000 },
       { stat: "stress", delta: -1 },
     ]);
-  });
-
-  it("semua stat tidak dikali atau dijepit dan input tidak dimutasi", () => {
-    const effects = [{ stat: "wealth", delta: -750_000 }, { stat: "debt", delta: 5_000_000 }, { stat: "health", delta: -4 }, { stat: "stress", delta: 4 }] as const;
-    const result = toMultiplayerEffects(effects);
-    expect(result).toEqual(effects);
-    expect(result[0]).not.toBe(effects[0]);
   });
 
   it("Jalan-jalan menggantikan Bayar Hutang dan Kondangan berlaku Rp250.000", () => {

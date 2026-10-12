@@ -384,7 +384,7 @@ describe("host dan main lagi", () => {
         Object.entries(session.state.players).map(([id, player]) => [id, { ...player, eliminated: false }]),
       ),
     };
-    const pawnsBefore = ctx.server.rooms.get("UMR-1234")!.players.map((p) => [p.playerId, p.pawn]);
+    const pawnsBefore = ctx.server.rooms.get("UMR-1234")!.players.map((p) => [p.playerId, p.avatarId]);
     // Host bisa pindah ke pemain lain bila host awal tereliminasi saat game selesai (D7).
     const hostId = ctx.server.rooms.get("UMR-1234")!.hostId;
     const host = hostId === ctx.host.playerId ? ctx.host : ctx.guest;
@@ -398,7 +398,7 @@ describe("host dan main lagi", () => {
     if (!ack.ok) return;
     expect(ack.room.status).toBe("waiting");
     expect(ack.room.players.every((p) => p.ready === false)).toBe(true);
-    expect(ack.room.players.map((p) => [p.playerId, p.pawn])).toEqual(pawnsBefore);
+    expect(ack.room.players.map((p) => [p.playerId, p.avatarId])).toEqual(pawnsBefore);
     expect(ctx.server.games.get("UMR-1234")).toBeNull();
     await until(() => stateSeen() > waitingBefore, "room:state waiting");
 

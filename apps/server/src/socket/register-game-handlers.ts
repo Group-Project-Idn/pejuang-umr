@@ -79,17 +79,10 @@ export function registerGameHandlers(
 
   register(
     "invite:send",
-    (session, playerId, p: { cardId: string; targetPlayerId: string; turnId?: string }) =>
+    (session, playerId, p: { cardId: string; targetPlayerId: string; turnId: string }) =>
       session.sendInvite(playerId, p.cardId, p.targetPlayerId, p.turnId),
   );
   register("invite:respond", (session, playerId, p: { inviteId: string; answer: "join" | "decline" }) =>
     session.respondInvite(playerId, p.inviteId, p.answer),
-  );
-
-  /** @deprecated v1.12: mode penonton dihapus; selalu ditolak. */
-  socket.on("spectate:enter", (_payload, unsafeAck) =>
-    executeWithAck<{ snapshot: Snapshot }>(unsafeAck, (ack) =>
-      ack({ ok: false, error: "INVALID_PAYLOAD", message: "Mode penonton sudah dihapus." }),
-    ),
   );
 }
