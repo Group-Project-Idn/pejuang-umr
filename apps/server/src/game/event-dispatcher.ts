@@ -13,6 +13,7 @@ import {
   MonthSummaryPayloadSchema,
   PlayerEliminatedPayloadSchema,
   PrivateStatusSchema,
+  ReflectionReadyPayloadSchema,
   RoundRevealPayloadSchema,
   SeasonChangedPayloadSchema,
   TileOpenedPayloadSchema,
@@ -25,6 +26,7 @@ import {
   type SocketData,
 } from "@pejuang/shared";
 import type { DomainEvent } from "@pejuang/engine";
+import type { ReflectionReadyPayload } from "@pejuang/shared";
 import type { Server } from "socket.io";
 import type { GameSession } from "./game-session";
 
@@ -40,6 +42,15 @@ interface PayloadSchema {
 }
 
 /** Skema payload per nama event S→C. Event baru dari engine cukup ditambahkan di sini. */
+/** Event server saja (bukan dari engine): refleksi pemain, hanya ke pemiliknya. */
+export interface ReflectionReadyEvent {
+  type: "reflection:ready";
+  target: { kind: "player"; playerId: string };
+  payload: ReflectionReadyPayload;
+}
+
+export type ServerEvent = DomainEvent | ReflectionReadyEvent;
+
 const PAYLOAD_SCHEMAS: Partial<Record<keyof ServerToClientEvents, PayloadSchema>> = {
   "game:patch": GamePatchPayloadSchema,
   "game:finished": GameFinishedPayloadSchema,
@@ -61,6 +72,7 @@ const PAYLOAD_SCHEMAS: Partial<Record<keyof ServerToClientEvents, PayloadSchema>
   "invite:card": InviteCardPushPayloadSchema,
   "invite:incoming": InviteIncomingPayloadSchema,
   "invite:resolved": InviteResolvedPayloadSchema,
+  "reflection:ready": ReflectionReadyPayloadSchema,
 };
 
 interface Emitter {
@@ -75,7 +87,7 @@ interface Emitter {
 export function dispatch(
   io: GameServer,
   session: GameSession,
-  events: readonly DomainEvent[],
+  events: readonly ServerEvent[],
 ): void {
   for (const event of events) {
     const schema = PAYLOAD_SCHEMAS[event.type];

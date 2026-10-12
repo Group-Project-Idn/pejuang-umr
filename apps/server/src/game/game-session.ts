@@ -1,4 +1,15 @@
-import type { PawnId, Snapshot, TurnSeconds } from "@pejuang/shared";
+import {
+  CalendarEventPayloadSchema,
+  DeadEndPayloadSchema,
+  InviteIncomingPayloadSchema,
+  MonthSummaryPayloadSchema,
+  ReflectionSchema,
+  TurnOptionsPayloadSchema,
+  type PawnId,
+  type Reflection,
+  type Snapshot,
+  type TurnSeconds,
+} from "@pejuang/shared";
 import {
   allMonthPaymentsAnswered,
   answerCalendarEvent,
@@ -23,6 +34,7 @@ import {
   type RandomSource,
   type RoundResult,
   type TurnResult,
+  buildPlayerReflection,
   toPublicState,
 } from "@pejuang/engine";
 import type {
@@ -37,7 +49,9 @@ import {
   DEFAULT_MONTH_SUMMARY_ONLY_MS,
   DEFAULT_REVEAL_STEP_MS,
 } from "../config";
+import { buildReflectionInput, type ReflectionService } from "../services/reflection";
 import { systemClock, type Clock, type TimerHandle } from "./clock";
+import type { ServerEvent } from "./event-dispatcher";
 
 export const CALENDAR_SECONDS = 15;
 export const INVITE_SECONDS = 15;
@@ -64,8 +78,10 @@ export interface SessionRuntime {
   clock: Clock;
   /** Nilai yang tidak diisi memakai default. */
   timing?: Partial<SessionTiming>;
-  /** Meneruskan event engine ke klien (dispatcher). */
-  send(events: DomainEvent[]): void;
+  /** Meneruskan event ke klien (dispatcher). */
+  send(events: ServerEvent[]): void;
+  /** Layanan Refleksi (GDD 6.5); tanpa ini hanya insight berbasis aturan. */
+  reflection?: ReflectionService;
   /** Dipanggil sekali saat game selesai (mis. status room "finished"). */
   onFinished(): void;
 }
@@ -134,8 +150,19 @@ export class GameSession {
     this.runRound();
   }
 
-  /** Membersihkan semua timer. */
+  /** Refleksi siap per pemain, maksimal satu per game (GDD 6.5). */
+  private readonly reflections = new Map<string, Reflection>();
+  private readonly reflectionRequested = new Set<string>();
+  /** True setelah sesi ditutup (room/game dihapus): hasil refleksi yang terlambat dibuang. */
+  private closed = false;
+
+  /** Membersihkan semua timer dan menutup sesi. */
   dispose(): void {
+    this.closed = true;
+    this.clearTimers();
+  }
+
+  private clearTimers(): void {
     this.clearCalendarTimer();
     this.clearMonthTimer();
     this.clearRevealTimer();
@@ -289,6 +316,21 @@ export class GameSession {
     this.inviteDeadlines.clear();
   }
 
+  /**
+   * Jalur snapshot sama ketatnya dengan dispatcher: payload yang disimpan divalidasi dengan skema
+   * shared yang sama seperti event aslinya. Gagal -> log tanpa isi payload dan null.
+   */
+  private forSnapshot<T>(
+    label: string,
+    payload: unknown,
+    parse: (value: unknown) => { success: true; data: T } | { success: false },
+  ): T | null {
+    const parsed = parse(payload);
+    if (parsed.success) return parsed.data;
+    console.error(`[snapshot] payload ${label} gagal validasi, dikirim null`);
+    return null;
+  }
+
   inviteCardFor(playerId: string): Snapshot["me"]["inviteCard"] {
     return this.state.players[playerId]?.inviteCard ?? null;
   }
@@ -296,7 +338,8 @@ export class GameSession {
   /** Ajakan terbuka milik pemain ini (sebagai target), dengan deadline aslinya. */
   pendingInviteFor(playerId: string): InviteIncomingPayload | null {
     for (const info of this.openInvites.values()) {
-      if (info.targetId === playerId) return info.payload;
+      if (info.targetId !== playerId) continue;
+      return this.forSnapshot("pendingInvite", info.payload, (v) => InviteIncomingPayloadSchema.safeParse(v));
     }
     return null;
   }
@@ -410,11 +453,65 @@ export class GameSession {
   private finish(): void {
     if (this.finished) return;
     this.finished = true;
-    this.dispose();
+    this.clearTimers();
     const result = finishGame(this.state, this.identities);
     this.state = result.state;
     this.runtime.send(result.events);
+    this.requestFinalReflections(result.events);
     this.runtime.onFinished();
+  }
+
+  /** Eliminasi: buat refleksi pemain itu dari state saat ini, tanpa menahan game loop. */
+  private requestEliminationReflections(events: readonly ServerEvent[]): void {
+    for (const event of events) {
+      if (event.type === "player:eliminated") this.requestReflection(event.payload.playerId, null);
+    }
+  }
+
+  /** Game selesai: refleksi untuk semua pemain yang belum punya. */
+  private requestFinalReflections(events: readonly ServerEvent[]): void {
+    const finished = events.find((event) => event.type === "game:finished");
+    const ranking = finished?.type === "game:finished" ? finished.payload.ranking : [];
+    for (const playerId of Object.keys(this.state.players)) {
+      const rank = ranking.find((row) => row.playerId === playerId)?.rank ?? null;
+      this.requestReflection(playerId, rank);
+    }
+  }
+
+  /**
+   * Menghitung cadangan aturan lebih dulu, lalu (asinkron) meminta provider. Hasil dikirim hanya
+   * ke pemilik lewat reflection:ready dan disimpan untuk snapshot.
+   */
+  private requestReflection(playerId: string, rank: number | null): void {
+    if (this.reflectionRequested.has(playerId)) return;
+    const fallback = buildPlayerReflection(this.state, playerId);
+    const input = buildReflectionInput(this.state, playerId, rank);
+    if (!fallback || !input) return;
+    this.reflectionRequested.add(playerId);
+    const service = this.runtime.reflection;
+    const done = service ? service.create(input, fallback) : Promise.resolve(fallback);
+    void done
+      .catch(() => fallback)
+      .then((reflection) => this.deliverReflection(playerId, reflection));
+  }
+
+  private deliverReflection(playerId: string, reflection: Reflection): void {
+    if (this.closed) return; // sesi sudah ditutup: buang hasilnya
+    this.reflections.set(playerId, reflection);
+    this.runtime.send([
+      {
+        type: "reflection:ready",
+        target: { kind: "player", playerId },
+        payload: { gameId: this.state.public.gameId, playerId, reflection },
+      },
+    ]);
+  }
+
+  /** Refleksi milik pemain ini bila sudah siap (untuk snapshot). */
+  reflectionFor(playerId: string): Reflection | null {
+    const stored = this.reflections.get(playerId);
+    if (!stored) return null;
+    return this.forSnapshot("reflection", stored, (v) => ReflectionSchema.safeParse(v));
   }
 
   private applyRoundResult(result: RoundResult, now?: number): void {
@@ -458,6 +555,7 @@ export class GameSession {
         return event;
       });
     if (filled.length > 0) this.runtime.send(filled);
+    this.requestEliminationReflections(filled);
   }
 
   private clearCalendarTimer(): void {
@@ -514,7 +612,7 @@ export class GameSession {
   }
 
   /** Mengingat payload popup yang sedang berjalan supaya bisa dikirim ulang di snapshot. */
-  recordEvent(event: DomainEvent, payload: unknown): void {
+  recordEvent(event: ServerEvent, payload: unknown): void {
     if (event.type === "turn:options" || event.type === "turn:dead-end") {
       if (event.target.kind === "player") {
         this.lastTurn = {
@@ -540,7 +638,11 @@ export class GameSession {
     const pending = this.state.pendingTurn;
     if (!pending || pending.playerId !== playerId) return null;
     if (this.lastTurn?.playerId !== playerId) return null;
-    return this.lastTurn.payload.turnId === pending.turnId ? this.lastTurn.payload : null;
+    if (this.lastTurn.payload.turnId !== pending.turnId) return null;
+    return this.forSnapshot("pendingTurn", this.lastTurn.payload, (v) => {
+      const normal = TurnOptionsPayloadSchema.safeParse(v);
+      return normal.success ? normal : DeadEndPayloadSchema.safeParse(v);
+    });
   }
 
   /** month:summary terakhir bila popup Ganti Bulan masih terbuka dan pemain ini debtor yang belum menjawab. */
@@ -548,7 +650,9 @@ export class GameSession {
     const pending = this.state.pendingMonth;
     if (this.state.phase !== "monthChange" || !pending) return null;
     if (!pending.debtorIds.includes(playerId) || playerId in pending.answers) return null;
-    return this.lastMonth.get(playerId) ?? null;
+    const stored = this.lastMonth.get(playerId);
+    if (!stored) return null;
+    return this.forSnapshot("pendingMonth", stored, (v) => MonthSummaryPayloadSchema.safeParse(v));
   }
 
   pendingCalendarFor(playerId: string): PendingCalendarPayload | null {
@@ -556,7 +660,8 @@ export class GameSession {
     if (!pending || playerId in pending.answers) return null;
     const player = this.state.players[playerId];
     if (!player || player.eliminated) return null;
-    return this.lastCalendar?.eventId === pending.eventId ? this.lastCalendar : null;
+    if (this.lastCalendar?.eventId !== pending.eventId) return null;
+    return this.forSnapshot("pendingCalendar", this.lastCalendar, (v) => CalendarEventPayloadSchema.safeParse(v));
   }
 }
 

@@ -2,7 +2,7 @@ import { once } from "node:events";
 import type { AddressInfo } from "node:net";
 import type { ClientToServerEvents, ServerToClientEvents } from "@pejuang/shared";
 import { io as createClient, type Socket } from "socket.io-client";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { RoomRepository } from "../repositories/room-repository";
 import { createGuestToken } from "../services/guest-token";
 import { createPejuangServer } from "../server";
@@ -386,5 +386,85 @@ describe("invite lewat socket (GDD 4.8 v1.12)", { timeout: 20_000 }, () => {
     expect(ctx.clock.pending).toBe(janitorOnly + 2); // timer giliran + timer Ajakan
     ctx.session().dispose();
     expect(ctx.clock.pending).toBe(janitorOnly);
+  });
+});
+
+describe("jalur snapshot divalidasi seperti dispatcher", { timeout: 20_000 }, () => {
+  async function resumeAs(ctx: Ctx, p: TestPlayer) {
+    const socket = await connect(ctx.baseUrl, p.token);
+    const resumed = await socket.emitWithAck("session:resume", { requestId: rid(), roomCode: "UMR-1234" });
+    if (!resumed.ok) throw new Error("resume gagal");
+    return resumed.snapshot;
+  }
+
+  it("payload invite:incoming dengan field motive tidak pernah muncul di snapshot (null + log tanpa isi)", async () => {
+    const ctx = await setup();
+    const { active, others } = await startTurns(ctx);
+    const target = others[0];
+    const ack = await send(active, giveCard(ctx, active.playerId, "commission"), target);
+    if (!ack.ok) throw new Error("send gagal");
+    // Simulasikan bug: payload yang disimpan untuk snapshot memuat motif.
+    const open = (ctx.session() as unknown as { openInvites: Map<string, { payload: Record<string, unknown> }> }).openInvites;
+    open.get(ack.inviteId)!.payload.motive = "commission";
+
+    const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const snapshot = await resumeAs(ctx, target);
+    expect(snapshot.me.pendingInvite).toBeNull();
+    // Kartu milik target sendiri (me.inviteCard) sah memuat motifnya; selebihnya tidak boleh.
+    const rest = JSON.stringify({ ...snapshot, me: { ...snapshot.me, inviteCard: null } });
+    expect(rest).not.toContain("motive");
+    expect(rest).not.toContain("commission");
+    const logged = errors.mock.calls.map((call) => call.join(" ")).join("\n");
+    expect(logged).toContain("pendingInvite");
+    expect(logged).not.toContain("commission");
+    expect(logged).not.toContain(ack.inviteId);
+    errors.mockRestore();
+  });
+
+  it("payload valid tetap sampai ke snapshot (pendingInvite dan pendingTurn)", async () => {
+    const ctx = await setup();
+    const { active, others } = await startTurns(ctx);
+    const ack = await send(active, giveCard(ctx, active.playerId, "sincere"), others[0]);
+    if (!ack.ok) throw new Error("send gagal");
+    expect((await resumeAs(ctx, others[0])).me.pendingInvite?.inviteId).toBe(ack.inviteId);
+    expect((await resumeAs(ctx, active)).me.pendingTurn?.turnId).toContain(active.playerId);
+  });
+
+  it("pendingTurn, pendingCalendar, pendingMonth, dan reflection yang rusak menjadi null", async () => {
+    const ctx = await setup();
+    const internals = ctx.session() as unknown as {
+      lastCalendar: unknown;
+      lastTurn: { playerId: string; payload: unknown } | null;
+      lastMonth: Map<string, unknown>;
+      reflections: Map<string, unknown>;
+    };
+    const target = ctx.second;
+    internals.lastCalendar = { ...(internals.lastCalendar as object), choices: "bukan array" };
+    const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    expect((await resumeAs(ctx, target)).me.pendingCalendar).toBeNull();
+
+    const session = ctx.session();
+    const player = session.state.players[target.playerId]!;
+    session.state = {
+      ...session.state,
+      phase: "monthChange",
+      pendingMonth: { month: 2, debtorIds: [target.playerId], answers: {} },
+      pendingTurn: { turnId: `turn-1-${target.playerId}`, playerId: target.playerId, mode: "normal", options: [] },
+    };
+    internals.lastMonth.set(target.playerId, { month: 99 });
+    internals.lastTurn = { playerId: target.playerId, payload: { turnId: `turn-1-${target.playerId}`, options: "rusak" } };
+    internals.reflections.set(target.playerId, { source: "ai", summary: 1, insights: [] });
+    const snapshot = await resumeAs(ctx, target);
+    expect(snapshot.me.pendingMonth).toBeNull();
+    expect(snapshot.me.pendingTurn).toBeNull();
+    expect(snapshot.me.reflection).toBeNull();
+    expect(player).toBeDefined();
+    const logged = errors.mock.calls.map((call) => call.join(" ")).join("\n");
+    for (const label of ["pendingCalendar", "pendingMonth", "pendingTurn", "reflection"]) {
+      expect(logged).toContain(label);
+    }
+    expect(logged).not.toContain("bukan array");
+    expect(logged).not.toContain("rusak");
+    errors.mockRestore();
   });
 });

@@ -32,6 +32,7 @@ import { GameSession, identitiesFromRoom, type SessionTiming } from "../game/gam
 import type { GameRepository } from "../repositories/game-repository";
 import type { IdempotencyRepository } from "../repositories/idempotency-repository";
 import type { RoomRepository } from "../repositories/room-repository";
+import type { ReflectionService } from "../services/reflection";
 import { createSnapshot } from "../services/snapshot";
 import { executeWithAck } from "./safe-handler";
 
@@ -87,6 +88,7 @@ export function registerRoomHandlers(
     createGameId?: () => string;
     clock?: Clock;
     timing?: Partial<SessionTiming>;
+    reflection?: ReflectionService;
   } = {},
 ): void {
   const countdownMs = options.countdownMs ?? 3_000;
@@ -366,6 +368,7 @@ export function registerRoomHandlers(
               {
                 clock,
                 timing: options.timing,
+                reflection: options.reflection,
                 send: (events) => dispatch(io, session, events),
                 onFinished: () => {
                   // Peringkat terbaik dari pemain yang belum tereliminasi menjadi kandidat host baru (D7).

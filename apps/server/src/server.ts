@@ -16,6 +16,11 @@ import { RoomRepository } from "./repositories/room-repository";
 import { systemClock } from "./game/clock";
 import { DEFAULT_ROOM_EMPTY_MS, DEFAULT_ROOM_IDLE_MS } from "./config";
 import { RoomJanitor } from "./services/room-janitor";
+import {
+  FakeReflectionProvider,
+  ReflectionService,
+  type ReflectionProvider,
+} from "./services/reflection";
 import { broadcastConnection } from "./services/connection";
 import { FixedWindowRateLimiter } from "./services/rate-limit";
 import { verifyGuestToken } from "./services/guest-token";
@@ -35,6 +40,8 @@ export function createPejuangServer(
     createGameId?: () => string;
     clock?: Clock;
     socketRateLimit?: { max: number; windowMs: number };
+    /** Menggantikan provider dari config (tes). */
+    reflectionProvider?: ReflectionProvider | null;
   } = {},
 ) {
   const rooms = dependencies.rooms ?? new RoomRepository();
@@ -43,6 +50,16 @@ export function createPejuangServer(
     dependencies.idempotency ?? new IdempotencyRepository();
   // Jendela 60 detik untuk aksi game (API_CONTRACT 1.3).
   const gameIdempotency = new IdempotencyRepository(60_000);
+  const reflectionProvider =
+    dependencies.reflectionProvider !== undefined
+      ? dependencies.reflectionProvider
+      : config.reflectionProvider === "fake"
+        ? new FakeReflectionProvider()
+        : null;
+  const reflection = new ReflectionService({
+    provider: reflectionProvider,
+    timeoutMs: config.reflectionTimeoutMs,
+  });
   const httpServer = createNodeServer(createHttpHandler(config, rooms));
   const io = new Server<
     ClientToServerEvents,
@@ -140,6 +157,7 @@ export function createPejuangServer(
       countdownMs: dependencies.countdownMs,
       createGameId: dependencies.createGameId,
       clock: dependencies.clock,
+      reflection,
       timing: {
         revealStepMs: config.revealStepMs,
         monthPaySeconds: config.monthPaySeconds,
