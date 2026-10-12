@@ -99,9 +99,9 @@ Satu worktree (`../pejuang-umr-v112`), satu branch per kelompok, merge berurutan
 |---|---|---|---|
 | **G1** | P1 + P2 + P3 | Kontrak shared v0.3 (expand), konten 1× (pengali dihapus, Jalan-jalan, Zonk Musim, Kondangan), ekonomi (bunga 3%, Hutang tanpa batas, Stress Hutang per kelipatan, `payDebt`, `isBankrupt`) | 3 |
 | **G2** | P4 + P5 | Papan (radius 6, titik awal, tanpa Heksa Mati, Petak Emas) dan skor seimbang | 2 |
-| **G3** | P6 + P7 | Fase Pembalikan dan fase Ganti Bulan dengan slider | 2 |
+| **G3** | P6 + P7 + sebagian P11 | Fase Pembalikan dan fase Ganti Bulan dengan slider di engine, plus sambungannya di server (timer popup Ganti Bulan, `month:pay-debt`, jeda Fase Pembalikan, `pendingMonth` di snapshot). Server ikut di G3 supaya game loop tetap jalan dan tes tetap hijau | 3 |
 | **G4** | P8 + P9 + P10 | Ajakan v1.12 (termasuk data motif dan nilai), log keputusan dan insight berbasis aturan, simulasi bot | 3 |
-| **G5** | P11 + P12 | Server: GameSession (tanpa jeda, Ganti Bulan, Fase Pembalikan, Ajakan) dan Room (`room:avatar`, timer 15, keluar setelah eliminasi) | 2 |
+| **G5** | sisa P11 + P12 | Server: Ajakan versi baru di GameSession, Room (`room:avatar`, keluar setelah eliminasi, tanpa penonton), snapshot. Jeda timer dan Ajakan 15 detik sudah dikerjakan Nickzad (`51cc341`), Ganti Bulan dan Fase Pembalikan sudah di G3 | 2 |
 | **G6** | P13 + P14 | Server: layanan Refleksi dan tes integrasi/privasi menyeluruh | 2 |
 | **G7** | P15 | Pembersihan kontrak (setelah web Nickzad pindah) | 1 |
 
