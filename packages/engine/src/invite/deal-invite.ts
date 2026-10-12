@@ -1,5 +1,5 @@
 import type { InviteCard } from "@pejuang/shared";
-import { INVITE_MOTIVE_WEIGHTS, INVITE_PLANS, type InviteMotive } from "../data";
+import { INVITE_MOTIVE_WEIGHTS, INVITE_PLANS, type ActiveInviteMotive } from "../data";
 import type { RandomSource } from "../random";
 
 /** GDD 4.8: Kartu Ajakan dibagikan di awal Langkah 1, 5, 9, 13, 17, 21 (Bulan ganjil). */
@@ -14,9 +14,9 @@ export function isInviteCardStep(step: number): boolean {
   return INVITE_CARD_STEPS.includes(step);
 }
 
-/** Motif diundi berbobot (Tulus 50, Komisi 25, Jebakan 25). */
-export function pickInviteMotive(random: RandomSource): InviteMotive {
-  const entries = Object.entries(INVITE_MOTIVE_WEIGHTS) as Array<[InviteMotive, number]>;
+/** Motif diundi berbobot (Tulus 50, Komisi 50). */
+export function pickInviteMotive(random: RandomSource): ActiveInviteMotive {
+  const entries = Object.entries(INVITE_MOTIVE_WEIGHTS) as Array<[ActiveInviteMotive, number]>;
   const total = entries.reduce((sum, [, weight]) => sum + weight, 0);
   let roll = random.integer(1, total);
   for (const [motive, weight] of entries) {

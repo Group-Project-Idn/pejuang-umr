@@ -170,13 +170,21 @@ describe("katalog data konten", () => {
     }
   });
 
-  it("memuat 4 Rencana Ajakan dengan bobot motif 50/25/25", () => {
-    expect(INVITE_PLANS).toHaveLength(4);
-    expect(INVITE_MOTIVE_WEIGHTS).toEqual({
-      sincere: 50,
-      commission: 25,
-      trap: 25,
-    });
+  it("memuat 4 Rencana Ajakan dengan nilai GDD 4.8 v1.12 dan bobot motif 50/50", () => {
+    expect(INVITE_PLANS.map((plan) => [plan.id, plan.effects])).toEqual([
+      ["hangout", [{ stat: "wealth", delta: -500_000 }, { stat: "stress", delta: -2 }]],
+      ["morningRun", [{ stat: "health", delta: 1 }, { stat: "stress", delta: -1 }]],
+      ["jointProject", [{ stat: "wealth", delta: 1_500_000 }, { stat: "health", delta: -1 }]],
+      [
+        "staycation",
+        [
+          { stat: "wealth", delta: -1_000_000 },
+          { stat: "health", delta: 1 },
+          { stat: "stress", delta: -2 },
+        ],
+      ],
+    ]);
+    expect(INVITE_MOTIVE_WEIGHTS).toEqual({ sincere: 50, commission: 50 });
   });
 
   it("bobot motif berjumlah 100", () => {
@@ -201,41 +209,29 @@ describe("katalog data konten", () => {
     expect(Object.keys(SEASON_BY_MONTH)).toHaveLength(12);
   });
 
-  it("efek motif Ajakan mengikuti tabel Motif dan hasilnya", () => {
-    expect(INVITE_MOTIVE_EFFECTS.sincere.join.planAppliesToTarget).toBe(true);
-    expect(INVITE_MOTIVE_EFFECTS.sincere.decline.declineWealthPenalty).toBe(
-      -3_000_000,
-    );
-    expect(INVITE_MOTIVE_EFFECTS.commission.join.senderExtra).toContainEqual({
-      stat: "wealth",
-      delta: 3_000_000,
+  it("efek motif Ajakan mengikuti tabel Motif dan hasilnya (GDD 4.8 v1.12)", () => {
+    const { sincere, commission } = INVITE_MOTIVE_EFFECTS;
+    expect(Object.keys(INVITE_MOTIVE_EFFECTS).sort()).toEqual(["commission", "sincere"]);
+    expect(sincere.join).toEqual({
+      planAppliesToTarget: true,
+      targetExtra: [{ stat: "stress", delta: -1 }],
+      senderExtra: [{ stat: "stress", delta: -1 }],
     });
-    expect(INVITE_MOTIVE_EFFECTS.trap.join.planAppliesToTarget).toBe(false);
-    expect(INVITE_MOTIVE_EFFECTS.trap.join.targetExtra).toContainEqual({
-      stat: "wealth",
-      delta: -2_000_000,
+    expect(sincere.decline).toEqual({
+      planAppliesToTarget: false,
+      targetExtra: [{ stat: "stress", delta: 1 }],
+      senderExtra: [],
     });
-  });
-
-  it("pembukaan motif Ajakan sesuai GDD 4.8", () => {
-    const joinReveal = {
-      sincere: "target" as const,
-      commission: "target" as const,
-      trap: "target" as const,
-    };
-    for (const motive of Object.keys(INVITE_MOTIVE_EFFECTS) as Array<
-      keyof typeof INVITE_MOTIVE_EFFECTS
-    >) {
-      expect(INVITE_MOTIVE_EFFECTS[motive].join.revealMotiveTo).toBe(
-        joinReveal[motive],
-      );
-    }
-    expect(INVITE_MOTIVE_EFFECTS.sincere.decline.revealMotiveTo).toBe(
-      "everyone",
-    );
-    for (const motive of ["commission", "trap"] as const) {
-      expect(INVITE_MOTIVE_EFFECTS[motive].decline.revealMotiveTo).toBe("none");
-    }
+    expect(commission.join).toEqual({
+      planAppliesToTarget: true,
+      targetExtra: [{ stat: "wealth", delta: -500_000 }],
+      senderExtra: [{ stat: "wealth", delta: 500_000 }],
+    });
+    expect(commission.decline).toEqual({
+      planAppliesToTarget: false,
+      targetExtra: [{ stat: "stress", delta: -1 }],
+      senderExtra: [],
+    });
   });
 
   it("mendaftarkan semua katalog di index data", async () => {

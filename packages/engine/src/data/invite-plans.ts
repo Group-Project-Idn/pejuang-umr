@@ -1,44 +1,42 @@
 import {
   InvitePlanDefinitionSchema,
-  type InviteMotive,
-  type InviteMotiveReveal,
   type InvitePlanDefinition,
 } from "./schema";
 
-// 4 Rencana Ajakan dari GDD 4.8. Nilai sudah nilai Multiplayer, tidak dikali lagi.
+// 4 Rencana Ajakan dari GDD 4.8 v1.12. Nilai dipakai apa adanya (1×).
 
 const INVITE_PLAN_DEFINITIONS: InvitePlanDefinition[] = [
   {
     id: "hangout",
     title: "Ajak Nongkrong",
     effects: [
-      { stat: "wealth", delta: -1_000_000 },
-      { stat: "stress", delta: -3 },
+      { stat: "wealth", delta: -500_000 },
+      { stat: "stress", delta: -2 },
     ],
   },
   {
     id: "morningRun",
     title: "Ajak Lari Pagi",
     effects: [
-      { stat: "health", delta: 2 },
-      { stat: "stress", delta: -2 },
+      { stat: "health", delta: 1 },
+      { stat: "stress", delta: -1 },
     ],
   },
   {
     id: "jointProject",
     title: "Ajak Proyek Bareng",
     effects: [
-      { stat: "wealth", delta: 5_000_000 },
-      { stat: "health", delta: -2 },
+      { stat: "wealth", delta: 1_500_000 },
+      { stat: "health", delta: -1 },
     ],
   },
   {
     id: "staycation",
     title: "Ajak Staycation Patungan",
     effects: [
-      { stat: "wealth", delta: -2_000_000 },
-      { stat: "health", delta: 2 },
-      { stat: "stress", delta: -3 },
+      { stat: "wealth", delta: -1_000_000 },
+      { stat: "health", delta: 1 },
+      { stat: "stress", delta: -2 },
     ],
   },
 ];
@@ -47,79 +45,54 @@ export const INVITE_PLANS = INVITE_PLAN_DEFINITIONS.map((plan) =>
   InvitePlanDefinitionSchema.parse(plan),
 );
 
-/** Peluang motif saat kartu didapat (GDD 4.8): Tulus 50%, Komisi 25%, Jebakan 25%. */
-export const INVITE_MOTIVE_WEIGHTS: Record<InviteMotive, number> = {
+/**
+ * Motif yang masih dibagikan engine (GDD 4.8 v1.12). Nilai "trap" tetap ada di
+ * shared untuk kompatibilitas kontrak, tetapi engine tidak pernah membagikannya.
+ */
+export type ActiveInviteMotive = "sincere" | "commission";
+
+/** Peluang motif saat kartu didapat (GDD 4.8 v1.12): Tulus 50%, Komisi 50%. */
+export const INVITE_MOTIVE_WEIGHTS: Record<ActiveInviteMotive, number> = {
   sincere: 50,
-  commission: 25,
-  trap: 25,
+  commission: 50,
 };
 
-type InviteMotiveEffects = {
+type InviteOutcomeRule = {
   /** Efek Rencana berlaku pada target? */
   planAppliesToTarget: boolean;
   /** Efek tambahan untuk target (selain efek Rencana). */
   targetExtra: InvitePlanDefinition["effects"];
-  /** Efek untuk pengirim (selain Level Stress -1 pada ajakan tulus). */
+  /** Efek untuk pengirim. */
   senderExtra: InvitePlanDefinition["effects"];
-  /** Ajakan Tulus yang ditolak: target kena minus, motif dibuka ke semua. */
-  declineWealthPenalty: number;
-  /** Kepada siapa motif dibuka setelah jawaban. */
-  revealMotiveTo: InviteMotiveReveal;
 };
 
+/** Hasil Ajakan per motif dan jawaban (GDD 4.8 v1.12). Motif dibuka ke pengirim dan target. */
 export const INVITE_MOTIVE_EFFECTS: Record<
-  InviteMotive,
-  { join: InviteMotiveEffects; decline: InviteMotiveEffects }
+  ActiveInviteMotive,
+  { join: InviteOutcomeRule; decline: InviteOutcomeRule }
 > = {
   sincere: {
     join: {
       planAppliesToTarget: true,
       targetExtra: [{ stat: "stress", delta: -1 }],
       senderExtra: [{ stat: "stress", delta: -1 }],
-      declineWealthPenalty: 0,
-      revealMotiveTo: "target",
     },
     decline: {
       planAppliesToTarget: false,
-      targetExtra: [],
+      targetExtra: [{ stat: "stress", delta: 1 }],
       senderExtra: [],
-      declineWealthPenalty: -3_000_000,
-      revealMotiveTo: "everyone",
     },
   },
   commission: {
     join: {
       planAppliesToTarget: true,
-      targetExtra: [{ stat: "stress", delta: 2 }],
-      senderExtra: [{ stat: "wealth", delta: 3_000_000 }],
-      declineWealthPenalty: 0,
-      revealMotiveTo: "target",
+      targetExtra: [{ stat: "wealth", delta: -500_000 }],
+      senderExtra: [{ stat: "wealth", delta: 500_000 }],
     },
     decline: {
       planAppliesToTarget: false,
-      targetExtra: [],
+      targetExtra: [{ stat: "stress", delta: -1 }],
       senderExtra: [],
-      declineWealthPenalty: 0,
-      revealMotiveTo: "none",
-    },
-  },
-  trap: {
-    join: {
-      planAppliesToTarget: false,
-      targetExtra: [
-        { stat: "wealth", delta: -2_000_000 },
-        { stat: "stress", delta: 2 },
-      ],
-      senderExtra: [],
-      declineWealthPenalty: 0,
-      revealMotiveTo: "target",
-    },
-    decline: {
-      planAppliesToTarget: false,
-      targetExtra: [],
-      senderExtra: [],
-      declineWealthPenalty: 0,
-      revealMotiveTo: "none",
     },
   },
 };
