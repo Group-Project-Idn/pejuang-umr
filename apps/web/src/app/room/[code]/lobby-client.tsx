@@ -24,6 +24,7 @@ import {
   type PlayerConnection,
   type PlayerEliminated,
   type PublicGameEvent,
+  type RoundReveal,
   type SeasonChanged,
   type TileOpened,
   type TileResolved,
@@ -168,6 +169,8 @@ export function LobbyClient({ code }: { code: string }) {
       onPublicGameEvent({ type: "tile:opened", payload });
     const onTileResolved = (payload: TileResolved) =>
       onPublicGameEvent({ type: "tile:resolved", payload });
+    const onRoundReveal = (payload: RoundReveal) =>
+      onPublicGameEvent({ type: "round:reveal", payload });
     const onGoldSpawned = (payload: GoldSpawned) =>
       onPublicGameEvent({ type: "gold:spawned", payload });
     const onGoldExpired = (payload: GoldExpired) =>
@@ -227,6 +230,7 @@ export function LobbyClient({ code }: { code: string }) {
       ["game:started", onGameStarted],
       ["turn:start", onTurnStart],
       ["tile:opened", onTileOpened],
+      ["round:reveal", onRoundReveal],
       ["tile:resolved", onTileResolved],
       ["gold:spawned", onGoldSpawned],
       ["gold:expired", onGoldExpired],
