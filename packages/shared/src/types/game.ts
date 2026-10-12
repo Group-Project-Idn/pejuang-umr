@@ -6,6 +6,7 @@ import {
   GoldTileSchema,
   OpenedHexSchema,
   PublicGameStateSchema,
+  ReflectionReadyPayloadSchema,
   ReflectionSchema,
   RevealedRealitySchema,
   RiskTagSchema,
@@ -43,3 +44,5 @@ export type Snapshot = z.infer<typeof SnapshotSchema>;
 export type RevealedReality = z.infer<typeof RevealedRealitySchema>;
 
 export type Reflection = z.infer<typeof ReflectionSchema>;
+
+export type ReflectionReadyPayload = z.infer<typeof ReflectionReadyPayloadSchema>;
