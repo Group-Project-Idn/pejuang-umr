@@ -1,4 +1,9 @@
-import type { CalendarEventPayload, PrivateStatus, Snapshot } from "@pejuang/shared";
+import type {
+  CalendarEventPayload,
+  PrivateStatus,
+  Snapshot,
+  TurnOptionsPayload,
+} from "@pejuang/shared";
 import { describe, expect, it } from "vitest";
 import {
   applyPrivateStatus,
@@ -7,7 +12,9 @@ import {
   applySessionPlayerConnection,
   applySessionPublicEvent,
   applySessionSnapshot,
+  applySessionTurnOptions,
   applySessionTurnTimer,
+  clearAcceptedPrivateAction,
   createRoomSessionView,
   createSingleFlightGate,
 } from "./room-session-view";
@@ -256,6 +263,125 @@ describe("room session recovery", () => {
     expect(withCalendar.state.me?.pendingCalendar).toBe(calendar);
     expect(next.needsResume).toBe(false);
     expect(next.state.gameView.game?.version).toBe(12);
+    expect(next.state.me?.pendingCalendar).toBeNull();
+  });
+
+  it("turn:start stale atau duplikat tidak menghapus pending calendar yang lebih baru", () => {
+    const incoming = snapshot(12);
+    incoming.me.pendingCalendar = {
+      version: 12,
+      eventId: "calendar-new",
+      name: "Tanggal Tua",
+      dateLabel: "Januari · Pekan 1",
+      choices: [{ id: "skip", label: "Lewati", effects: [] }],
+      deadline: 20_000,
+    };
+    const current = applySessionSnapshot(createRoomSessionView(), incoming, 10_000);
+    const turnStart = {
+      type: "turn:start" as const,
+      payload: {
+        version: 12,
+        turnId: "turn-old",
+        playerId: "p1",
+        deadline: 30_000,
+        turnSeconds: 30 as const,
+      },
+    };
+
+    for (const version of [11, 12]) {
+      expect(applySessionPublicEvent(current, {
+        ...turnStart,
+        payload: { ...turnStart.payload, version },
+      })).toEqual({ state: current, needsResume: false });
+    }
+    expect(current.me?.pendingCalendar?.eventId).toBe("calendar-new");
+
+    const next = applySessionPublicEvent(current, {
+      ...turnStart,
+      payload: { ...turnStart.payload, version: 13, turnId: "turn-new" },
+    });
+    expect(next.needsResume).toBe(false);
+    expect(next.state.me?.pendingCalendar).toBeNull();
+  });
+
+  it("opsi turn privat disimpan untuk pemain aktif lalu dibersihkan saat tile dibuka", () => {
+    const incoming = snapshot(10);
+    incoming.game!.activePlayerId = "p1";
+    incoming.me.pendingTurn = null;
+    const initial = applySessionSnapshot(createRoomSessionView(), incoming, 10_000);
+    const options: TurnOptionsPayload = {
+      turnId: "turn-2",
+      options: [
+        {
+          hex: { q: 1, r: 0 },
+          category: "work",
+          title: "Lembur",
+          plan: [{ stat: "wealth", delta: 1_000_000 }],
+          risk: "low",
+          riskTags: [],
+          isGold: false,
+        },
+      ],
+    };
+
+    const withOptions = applySessionTurnOptions(initial, options);
+    expect(withOptions.me?.pendingTurn).toBe(options);
+    expect(withOptions.privateRevision).toBe(initial.privateRevision + 1);
+
+    const opened = applySessionPublicEvent(withOptions, {
+      type: "tile:opened",
+      payload: {
+        version: 11,
+        turnId: "turn-2",
+        playerId: "p1",
+        from: { q: 0, r: 0 },
+        to: { q: 1, r: 0 },
+        category: "work",
+        title: "Lembur",
+        plan: [{ stat: "wealth", delta: 1_000_000 }],
+        isGold: false,
+        viaJump: false,
+        autoPicked: false,
+      },
+    });
+    expect(opened.state.me?.pendingTurn).toBeNull();
+  });
+
+  it("opsi turn privat diabaikan bila penerima bukan pemain aktif", () => {
+    const initial = applySessionSnapshot(createRoomSessionView(), snapshot(10), 10_000);
+    const options: TurnOptionsPayload = { turnId: "turn-2", options: [] };
+    expect(applySessionTurnOptions(initial, options)).toBe(initial);
+  });
+
+  it("ack sukses hanya membersihkan prompt privat dengan id yang cocok", () => {
+    const initial = applySessionSnapshot(createRoomSessionView(), snapshot(10), 10_000);
+    expect(clearAcceptedPrivateAction(initial, { kind: "turn", turnId: "lama" })).toBe(initial);
+
+    const clearedTurn = clearAcceptedPrivateAction(initial, {
+      kind: "turn",
+      turnId: "turn-1",
+    });
+    expect(clearedTurn.me?.pendingTurn).toBeNull();
+
+    const calendarSnapshot = snapshot(10);
+    calendarSnapshot.me.pendingCalendar = {
+      version: 10,
+      eventId: "event-1",
+      name: "Tahun Baru",
+      dateLabel: "1 Jan",
+      choices: [{ id: "skip", label: "Tidak ikut", effects: [] }],
+      deadline: 20_000,
+    };
+    const withCalendar = applySessionSnapshot(
+      createRoomSessionView(),
+      calendarSnapshot,
+      10_000,
+    );
+    const clearedCalendar = clearAcceptedPrivateAction(withCalendar, {
+      kind: "calendar",
+      eventId: "event-1",
+    });
+    expect(clearedCalendar.me?.pendingCalendar).toBeNull();
   });
 
   it("calendar event stale tidak mengulang efek dan gap tetap meminta resume", () => {

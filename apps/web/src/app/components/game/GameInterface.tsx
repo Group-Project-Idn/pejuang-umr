@@ -1,8 +1,17 @@
 "use client";
 
-import type { PublicGameState, RoomState, Snapshot } from "@pejuang/shared";
+import { hexKey } from "@pejuang/shared";
+import type {
+  CalendarEventPayload,
+  HexCoord,
+  PublicGameState,
+  RoomState,
+  Snapshot,
+} from "@pejuang/shared";
 import { useEffect, useMemo, useState } from "react";
 import { getTurnSecondsLeft } from "@/lib/game-view";
+import CalendarEventView from "../game-v2/CalendarEventView";
+import HexDetailSheet from "../game-v2/HexDetailSheet";
 import GameBoard from "./GameBoard";
 import Scoreboard from "./Scoreboard";
 import StatusPanel from "./StatusPanel";
@@ -26,6 +35,10 @@ export default function GameInterface({
   connectionStatus,
   serverClockOffsetMs,
   timerRemainingMs,
+  actionMessage,
+  actionPending,
+  onAnswerCalendar,
+  onChooseHex,
 }: {
   room: RoomState;
   game: PublicGameState;
@@ -33,8 +46,20 @@ export default function GameInterface({
   connectionStatus: string;
   serverClockOffsetMs: number;
   timerRemainingMs: number | null;
+  actionMessage: string;
+  actionPending: boolean;
+  onAnswerCalendar: (
+    eventId: string,
+    choice: CalendarEventPayload["choices"][number]["id"],
+  ) => void;
+  onChooseHex: (
+    turnId: string,
+    hex: HexCoord,
+    mode: "normal" | "deadEnd",
+  ) => void;
 }) {
   const [now, setNow] = useState(() => Date.now());
+  const [selectedHexKey, setSelectedHexKey] = useState<string | null>(null);
   useEffect(() => {
     if (!game.turnDeadline || game.turnPaused) return;
     const timer = window.setInterval(
@@ -59,6 +84,11 @@ export default function GameInterface({
   );
   const eventMessage = game.openedHexes.at(-1)?.title ??
     "Papan mengikuti snapshot authoritative dari server.";
+  const pendingTurn = me?.pendingTurn ?? null;
+  const turnMode = pendingTurn && "stressPenalty" in pendingTurn ? "deadEnd" : "normal";
+  const selectedOption = pendingTurn?.options.find(
+    (option) => hexKey(option.hex) === selectedHexKey,
+  ) ?? null;
 
   return (
     <main className="game-page">
@@ -97,6 +127,29 @@ export default function GameInterface({
           <section className="board-stage">
             {game.gold ? <div className="gold-badge">✦<strong>Petak<br />Emas</strong></div> : null}
             <GameBoard game={game} room={room} />
+            {pendingTurn ? (
+              <section className="turn-options" aria-label="Pilihan heksa">
+                <strong>
+                  {turnMode === "deadEnd"
+                    ? "Jalan Buntu · pilih tujuan lompat (+1 Level Stress)"
+                    : "Pilih tujuanmu"}
+                </strong>
+                <div>
+                  {pendingTurn.options.map((option) => (
+                    <button
+                      key={hexKey(option.hex)}
+                      type="button"
+                      disabled={actionPending}
+                      onClick={() => setSelectedHexKey(hexKey(option.hex))}
+                      aria-label={`Lihat ${option.title}, heksa ${option.hex.q}, ${option.hex.r}`}
+                    >
+                      <span>{option.isGold ? "✦" : option.title}</span>
+                      <small>{option.hex.q}, {option.hex.r}</small>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ) : null}
             <div className="event-toast" role="status">{eventMessage}</div>
           </section>
           <Scoreboard game={game} room={room} playerId={me?.playerId ?? ""} />
@@ -123,7 +176,23 @@ export default function GameInterface({
           </div>
         </footer>
       </section>
-      <p className="game-tip">Papan read-only · drag untuk memutar · scroll untuk zoom</p>
+      <p className="game-tip">Pilih tujuan lewat tombol heksa · papan dapat diputar dan diperbesar</p>
+      {actionMessage ? <p className="game-action-message" role="status">{actionMessage}</p> : null}
+      <HexDetailSheet
+        option={selectedOption}
+        pending={actionPending}
+        onChoose={(hex) => {
+          if (!pendingTurn) return;
+          onChooseHex(pendingTurn.turnId, hex, turnMode);
+          setSelectedHexKey(null);
+        }}
+        onClose={() => setSelectedHexKey(null)}
+      />
+      <CalendarEventView
+        event={me?.pendingCalendar ?? null}
+        pending={actionPending}
+        onAnswer={onAnswerCalendar}
+      />
     </main>
   );
 }

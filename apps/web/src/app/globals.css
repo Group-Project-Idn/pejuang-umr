@@ -317,3 +317,12 @@ button { font: inherit; }
 .empty-status { margin: 16px 0; padding: 14px; border: 1px dashed rgba(90,66,38,.36); border-radius: 8px; color: #695c4d; font-size: 11px; line-height: 1.5; }
 .action-buttons button:disabled { cursor: not-allowed; filter: grayscale(.35); opacity: .58; }
 .action-buttons button:disabled:hover { transform: none; }
+.turn-options { position: absolute; left: 50%; bottom: 42px; z-index: 8; width: min(92%, 560px); transform: translateX(-50%); display: grid; gap: 7px; padding: 10px; border: 1px solid rgba(255,225,153,.45); border-radius: 14px; background: rgba(24,22,27,.92); color: #f8e5b8; box-shadow: 0 8px 24px rgba(0,0,0,.3); backdrop-filter: blur(10px); }
+.turn-options > strong { text-align: center; font-size: 12px; }
+.turn-options > div { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 7px; }
+.turn-options button { min-height: 48px; display: grid; gap: 2px; place-items: center; padding: 6px 8px; border: 2px solid #d8b967; border-radius: 9px; background: #f5df9d; color: #332820; cursor: pointer; font-weight: 900; }
+.turn-options button:hover,.turn-options button:focus-visible { outline: 3px solid #fff4c7; outline-offset: 2px; transform: translateY(-1px); }
+.turn-options button:disabled { cursor: not-allowed; opacity: .6; transform: none; }
+.turn-options button small { font-size: 9px; font-weight: 700; }
+.game-action-message { position: absolute; top: 8px; right: 12px; z-index: 20; max-width: min(420px,80vw); margin: 0; padding: 8px 12px; border-radius: 8px; background: #211e23; color: #f8e5b8; font-size: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.3); }
+@media (max-width:760px) { .turn-options { bottom: 36px; width: calc(100% - 16px); }.turn-options > div { grid-template-columns: 1fr; }.turn-options button { min-height: 44px; grid-template-columns: 1fr auto; }.game-action-message { position: fixed; } }
