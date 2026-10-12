@@ -4,22 +4,9 @@ import {
   getBoardDeskSize,
   getBoardWorldBounds,
   hexToWorld,
-  PAWN_DETAILS,
 } from "./game";
 
 describe("game view data", () => {
-  it("memetakan pawn ke sprite karakter yang tersedia", () => {
-    expect(Object.keys(PAWN_DETAILS)).toEqual([
-      "cream-circle",
-      "iceblue-square",
-      "mint-triangle",
-      "salmon-diamond",
-    ]);
-    for (const pawn of Object.values(PAWN_DETAILS)) {
-      expect(pawn.sprite).toMatch(/^\/characters\/.+\.png$/);
-    }
-  });
-
   it("memproyeksikan koordinat axial ke world coordinate", () => {
     expect(hexToWorld(0, 0)).toEqual({ x: 0, z: 0 });
     expect(hexToWorld(2, -1)).toEqual({ x: 2.64, z: 0 });

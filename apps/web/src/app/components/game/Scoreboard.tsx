@@ -1,7 +1,8 @@
 "use client";
 
 import type { PublicGameState, RoomState } from "@pejuang/shared";
-import { PAWN_DETAILS } from "@/data/game";
+import Image from "next/image";
+import { getAvatarSrc } from "@/lib/avatars";
 
 export default function Scoreboard({
   game,
@@ -27,9 +28,6 @@ export default function Scoreboard({
           const player = room.players.find(
             (candidate) => candidate.playerId === score.playerId,
           );
-          const accent = player?.pawn
-            ? PAWN_DETAILS[player.pawn].accent
-            : "#8d8175";
           return (
             <li
               key={score.playerId}
@@ -38,7 +36,11 @@ export default function Scoreboard({
               }
             >
               <span className="rank">{score.rank}.</span>
-              <span className="pawn" style={{ color: accent }}>♟</span>
+              <span className="score-avatar">
+                {player ? (
+                  <Image src={getAvatarSrc(player.avatarId)} alt={`Karakter ${player.name}`} width={26} height={26} className="size-[26px] object-contain" />
+                ) : null}
+              </span>
               <span>
                 <strong>
                   {player?.name ?? score.playerId}

@@ -34,7 +34,6 @@ export default function GameInterface({
   me,
   connectionStatus,
   serverClockOffsetMs,
-  timerRemainingMs,
   actionMessage,
   actionPending,
   onAnswerCalendar,
@@ -45,7 +44,6 @@ export default function GameInterface({
   me: Snapshot["me"] | null;
   connectionStatus: string;
   serverClockOffsetMs: number;
-  timerRemainingMs: number | null;
   actionMessage: string;
   actionPending: boolean;
   onAnswerCalendar: (
@@ -61,19 +59,17 @@ export default function GameInterface({
   const [now, setNow] = useState(() => Date.now());
   const [selectedHexKey, setSelectedHexKey] = useState<string | null>(null);
   useEffect(() => {
-    if (!game.turnDeadline || game.turnPaused) return;
+    if (!game.turnDeadline) return;
     const timer = window.setInterval(
       () => setNow(Date.now()),
       250,
     );
     return () => window.clearInterval(timer);
-  }, [game.turnDeadline, game.turnPaused]);
+  }, [game.turnDeadline]);
   const timeLeft = getTurnSecondsLeft({
     localNow: now,
     serverClockOffsetMs,
     deadline: game.turnDeadline,
-    paused: game.turnPaused,
-    remainingMs: timerRemainingMs,
   });
 
   const activePlayer = useMemo(
@@ -162,11 +158,9 @@ export default function GameInterface({
             <span className="timer-ring">{game.turnDeadline ? timeLeft : "—"}</span>
             <div>
               <strong>
-                {game.turnPaused
-                  ? "Dijeda"
-                  : activePlayer
-                    ? `Giliran ${activePlayer.name}`
-                    : "Menunggu giliran"}
+                {activePlayer
+                  ? `Giliran ${activePlayer.name}`
+                  : "Menunggu giliran"}
               </strong>
               <small>Semua aksi permainan divalidasi server</small>
             </div>

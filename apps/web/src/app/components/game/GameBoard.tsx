@@ -23,7 +23,6 @@ const HEX_TILE_HEIGHT = 0.25;
 const HEX_TILE_SURFACE_OFFSET = 0.02;
 const HEX_TILE_OUTLINE_COLOR = "#111318";
 const FOG_HIDDEN_COLOR = "#343941";
-const DEAD_TILE_COLOR = "#231f20";
 
 function HexTiles({ game }: { game: PublicGameState }) {
   const outlineMesh = useRef<THREE.InstancedMesh>(null);
@@ -35,10 +34,6 @@ function HexTiles({ game }: { game: PublicGameState }) {
   const openedByHex = useMemo(
     () => new Map(game.openedHexes.map((tile) => [hexKey(tile.hex), tile])),
     [game.openedHexes],
-  );
-  const deadHexes = useMemo(
-    () => new Set(game.deadHexes.map(hexKey)),
-    [game.deadHexes],
   );
   const goldKey = game.gold ? hexKey(game.gold.hex) : null;
 
@@ -60,20 +55,18 @@ function HexTiles({ game }: { game: PublicGameState }) {
       tempObject.updateMatrix();
       surface.setMatrixAt(index, tempObject.matrix);
       outline.setColorAt(index, tempColor.set(HEX_TILE_OUTLINE_COLOR));
-      const color = deadHexes.has(key)
-        ? DEAD_TILE_COLOR
-        : goldKey === key
-          ? TILE_DETAILS.gold.color
-          : opened
-            ? TILE_DETAILS[opened.category].color
-            : FOG_HIDDEN_COLOR;
+      const color = goldKey === key
+        ? TILE_DETAILS.gold.color
+        : opened
+          ? TILE_DETAILS[opened.category].color
+          : FOG_HIDDEN_COLOR;
       surface.setColorAt(index, tempColor.set(color));
     });
     outline.instanceMatrix.needsUpdate = true;
     surface.instanceMatrix.needsUpdate = true;
     if (outline.instanceColor) outline.instanceColor.needsUpdate = true;
     if (surface.instanceColor) surface.instanceColor.needsUpdate = true;
-  }, [board, deadHexes, goldKey, openedByHex]);
+  }, [board, goldKey, openedByHex]);
 
   return (
     <>
