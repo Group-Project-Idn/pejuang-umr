@@ -1,6 +1,7 @@
 import {
   createBoard,
   getHexDistance,
+  getNeighbors,
   hexKey,
   type HexCoord,
 } from "@pejuang/shared";
@@ -8,32 +9,43 @@ import type { BoardState } from "../board/board-state";
 import type { GameState } from "../game/game-state";
 import type { RandomSource } from "../random";
 
-/** GDD 4.7: Petak Emas muncul di cincin luar papan (radius >= 4 dari pusat). */
-const GOLD_MIN_CENTER_DISTANCE = 4;
+/** GDD 4.7 v1.12: Petak Emas muncul di heksa dengan jarak <= 4 dari pusat. */
+const GOLD_MAX_CENTER_DISTANCE = 4;
 
 const CENTER: HexCoord = { q: 0, r: 0 };
 
 function isClosed(board: BoardState, hex: HexCoord): boolean {
-  const key = hexKey(hex);
-  return !board.usedHexKeys.includes(key) && !board.deadHexKeys.includes(key);
+  return !board.usedHexKeys.includes(hexKey(hex));
 }
 
 /**
- * GDD 4.7: pilih heksa untuk Petak Emas.
+ * GDD 4.7 v1.12: pilih heksa untuk Petak Emas.
  *
- * Kandidat = heksa yang belum dipakai, bukan Heksa Mati, dan berjarak >= 4 dari
- * pusat. Untuk tiap kandidat dihitung jarak ke pion setiap pemain yang belum
- * tereliminasi; dipilih kandidat dengan selisih (jarak terjauh - jarak terdekat)
- * paling kecil supaya posisinya adil bagi semua pemain. Jika beberapa kandidat
- * seri, salah satu dipilih acak. Mengembalikan null bila tidak ada kandidat.
+ * Kandidat = heksa tertutup di radius <= 4 dari pusat yang tidak bersebelahan
+ * dengan pion mana pun (termasuk pion pemain tereliminasi). Dari kandidat itu
+ * dipilih yang selisih (jarak terjauh - jarak terdekat) ke pemain yang masih
+ * hidup paling kecil; seri dipilih acak lewat RandomSource. Jika tidak ada
+ * kandidat, syarat tidak bersebelahan dilonggarkan dulu, baru syarat radius.
+ * Mengembalikan null bila tidak ada heksa tertutup sama sekali.
  */
 export function pickGoldHex(state: GameState, random: RandomSource): HexCoord | null {
   const board = state.board;
-  const candidates = createBoard(board.radius).filter(
-    (hex) =>
-      isClosed(board, hex) && getHexDistance(CENTER, hex) >= GOLD_MIN_CENTER_DISTANCE,
-  );
-  if (candidates.length === 0) return null;
+  const closed = createBoard(board.radius).filter((hex) => isClosed(board, hex));
+
+  const pawnKeys = new Set(state.public.pawns.map((pawn) => hexKey(pawn.hex)));
+  const nextToPawn = (hex: HexCoord) =>
+    getNeighbors(hex).some((neighbor) => pawnKeys.has(hexKey(neighbor)));
+  const withinRadius = (hex: HexCoord) =>
+    getHexDistance(CENTER, hex) <= GOLD_MAX_CENTER_DISTANCE;
+
+  const tiers = [
+    closed.filter((hex) => withinRadius(hex) && !nextToPawn(hex)),
+    closed.filter(withinRadius),
+    closed.filter((hex) => !nextToPawn(hex)),
+    closed,
+  ];
+  const candidates = tiers.find((tier) => tier.length > 0);
+  if (!candidates) return null;
 
   const alivePawns = state.public.pawns.filter(
     (pawn) => !state.players[pawn.playerId]?.eliminated,

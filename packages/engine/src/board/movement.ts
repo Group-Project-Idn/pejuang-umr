@@ -20,7 +20,7 @@ export interface DeadEndOption {
 
 function isClosed(board: BoardState, hex: HexCoord): boolean {
   const key = hexKey(hex);
-  return !board.usedHexKeys.includes(key) && !board.deadHexKeys.includes(key);
+  return !board.usedHexKeys.includes(key);
 }
 
 function shuffle<T>(items: readonly T[], random: RandomSource): T[] {
@@ -84,10 +84,4 @@ export function markHexUsed(board: BoardState, hex: HexCoord): BoardState {
   const key = hexKey(hex);
   if (board.usedHexKeys.includes(key)) return board;
   return { ...board, usedHexKeys: [...board.usedHexKeys, key] };
-}
-
-export function markHexDead(board: BoardState, hex: HexCoord): BoardState {
-  const key = hexKey(hex);
-  if (board.deadHexKeys.includes(key)) return board;
-  return { ...board, deadHexKeys: [...board.deadHexKeys, key] };
 }

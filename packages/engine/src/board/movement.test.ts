@@ -6,7 +6,6 @@ import type { BoardState } from "./board-state";
 import {
   findDeadEndOptions,
   getEnterableHexes,
-  markHexDead,
   markHexUsed,
   pickLitHexes,
 } from "./movement";
@@ -14,7 +13,7 @@ import {
 const origin = { q: 0, r: 0 };
 
 function emptyBoard(radius: BoardRadius = 4): BoardState {
-  return { radius, tiles: {}, usedHexKeys: [hexKey(origin)], deadHexKeys: [] };
+  return { radius, tiles: {}, usedHexKeys: [hexKey(origin)], goldOrigin: null };
 }
 
 describe("pickLitHexes", () => {
@@ -29,20 +28,20 @@ describe("pickLitHexes", () => {
   it("hanya 2 tetangga bisa dimasuki: keduanya menyala", () => {
     const [a, b, ...rest] = getNeighbors(origin);
     let board = emptyBoard();
-    rest.slice(0, 2).forEach((hex) => (board = markHexUsed(board, hex)));
-    rest.slice(2).forEach((hex) => (board = markHexDead(board, hex)));
+    rest.forEach((hex) => (board = markHexUsed(board, hex)));
     const lit = pickLitHexes(board, origin, new SequenceRandomSource([0.5]));
     expect(lit.map(hexKey).sort()).toEqual([hexKey(a!), hexKey(b!)].sort());
   });
 
-  it("tetangga used atau dead tidak pernah menyala", () => {
-    const [used, dead] = getNeighbors(origin);
-    const board = markHexDead(markHexUsed(emptyBoard(), used!), dead!);
+  it("tetangga yang sudah diinjak tidak pernah menyala", () => {
+    const [used, other] = getNeighbors(origin);
+    const board = markHexUsed(emptyBoard(), used!);
     for (const seed of [0, 0.2, 0.4, 0.6, 0.8, 0.99]) {
       const lit = pickLitHexes(board, origin, new SequenceRandomSource([seed, 1 - seed]));
       const keys = lit.map(hexKey);
       expect(keys).not.toContain(hexKey(used!));
-      expect(keys).not.toContain(hexKey(dead!));
+      expect(keys.length).toBe(3);
+      expect(other).toBeDefined();
     }
   });
 
@@ -63,16 +62,13 @@ describe("getEnterableHexes", () => {
 });
 
 describe("findDeadEndOptions", () => {
-  it("semua tetangga used: 3 heksa terdekat, tidak ada yang dead", () => {
-    let board = getNeighbors(origin).reduce(markHexUsed, emptyBoard());
-    // Heksa mati di jarak 2 tidak boleh terpilih.
-    board = markHexDead(board, { q: 2, r: 0 });
+  it("semua tetangga used: 3 heksa tertutup terdekat", () => {
+    const board = getNeighbors(origin).reduce(markHexUsed, emptyBoard());
     const options = findDeadEndOptions(board, origin, new SequenceRandomSource([0.3]));
     expect(options).toHaveLength(3);
     expect(options.every((option) => option.distance === 2)).toBe(true);
     expect(options.every((option) => getHexDistance(origin, option.hex) === 2)).toBe(true);
-    expect(options.map((o) => hexKey(o.hex))).not.toContain("2,0");
-    expect(options.every((o) => !board.deadHexKeys.includes(hexKey(o.hex)))).toBe(true);
+    expect(options.every((o) => !board.usedHexKeys.includes(hexKey(o.hex)))).toBe(true);
   });
 
   it("seri jarak: pilihan di antara yang seri bisa berbeda", () => {
@@ -98,14 +94,11 @@ describe("findDeadEndOptions", () => {
   });
 });
 
-describe("markHexUsed / markHexDead", () => {
+describe("markHexUsed", () => {
   it("tidak mengubah BoardState lama", () => {
     const board = emptyBoard();
     const used = markHexUsed(board, { q: 1, r: 0 });
-    const dead = markHexDead(board, { q: 0, r: 1 });
     expect(board.usedHexKeys).toEqual(["0,0"]);
-    expect(board.deadHexKeys).toEqual([]);
     expect(used.usedHexKeys).toEqual(["0,0", "1,0"]);
-    expect(dead.deadHexKeys).toEqual(["0,1"]);
   });
 });

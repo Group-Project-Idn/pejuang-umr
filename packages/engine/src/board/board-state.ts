@@ -7,7 +7,8 @@ export interface BoardState {
   radius: BoardRadius;
   tiles: Record<string, string>;
   usedHexKeys: string[];
-  deadHexKeys: string[];
+  /** Isi petak asli di heksa Petak Emas aktif; rahasia, tidak masuk state publik. */
+  goldOrigin: { hexKey: string; tileId: string } | null;
 }
 
 export function createBoardState(
@@ -28,6 +29,6 @@ export function createBoardState(
     radius,
     tiles,
     usedHexKeys: [...startKeys],
-    deadHexKeys: [],
+    goldOrigin: null,
   };
 }
