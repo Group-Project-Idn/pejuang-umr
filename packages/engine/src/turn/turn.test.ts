@@ -16,7 +16,7 @@ import { getEnterableHexes } from "../board/movement";
 import { SequenceRandomSource } from "../random";
 import { resolveReality } from "../reality/resolve-reality";
 import { startRound } from "./round";
-import { checkEarlyFinish, chooseHex, endRound, finishGame, startTurn, timeoutTurn } from "./turn";
+import { chooseHex, endRound, finishGame, startTurn, timeoutTurn } from "./turn";
 
 const IDS = ["a", "b", "c"];
 
@@ -744,9 +744,5 @@ describe("game selesai lebih cepat (GDD 1.2 v1.10)", () => {
     const ended = endRound(second.state, seeded());
     expect(ended.nextAction).toBe("finished");
     expect(ofType(ended.events, "game:finished")).toHaveLength(1);
-  });
-
-  it("checkEarlyFinish: null bila >= 2 pemain hidup", () => {
-    expect(checkEarlyFinish(makeGame())).toBeNull();
   });
 });

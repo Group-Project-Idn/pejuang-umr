@@ -877,10 +877,24 @@ describe("startRound: Kartu Ajakan", () => {
     expect(burden).toBeGreaterThan(lastInvite);
   });
 
-  it("inviteUsedThisRound direset ke false di setiap startRound", () => {
+  it("roundInvites dikosongkan di setiap startRound", () => {
     for (const step of [1, 2, 5]) {
-      const game = { ...gameAtStep(step), inviteUsedThisRound: true };
-      expect(startRound(game, rand()).state.inviteUsedThisRound).toBe(false);
+      const game = {
+        ...gameAtStep(step),
+        roundInvites: [
+          {
+            inviteId: "i",
+            senderId: "a",
+            targetId: "b",
+            plan: "hangout" as const,
+            planEffects: [],
+            motive: "sincere" as const,
+            answer: null,
+            autoDeclined: false,
+          },
+        ],
+      };
+      expect(startRound(game, rand()).state.roundInvites).toEqual([]);
     }
   });
 
