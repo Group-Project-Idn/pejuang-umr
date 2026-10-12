@@ -4,7 +4,13 @@ import type { DomainEvent } from "../game/domain-events";
 import type { CalendarChoiceId, GameState } from "../game/game-state";
 import { expireInvite, respondInvite, sendInvite } from "../invite/invite";
 import type { RandomSource } from "../random";
-import { answerCalendarEvent, closeCalendarEvent, startRound } from "./round";
+import {
+  answerCalendarEvent,
+  answerMonthPayment,
+  closeCalendarEvent,
+  closeMonthChange,
+  startRound,
+} from "./round";
 import { chooseHex, endRound, startTurn, timeoutTurn } from "./turn";
 
 const MAX_ITERATIONS = 2000;
@@ -15,6 +21,8 @@ const INVITE_RANDOM_OFFSET = 104729;
 const INVITE_SEND_PCT = 30;
 const INVITE_EXPIRE_PCT = 20;
 const INVITE_JOIN_PCT = 50;
+/** Bot debtor membayar separuh batas slider, dibulatkan ke bawah kelipatan Rp1.000. */
+const BOT_PAYMENT_ROUNDING = 1_000;
 
 /** RandomSource deterministik (mulberry32) untuk simulasi; bukan Math.random. */
 export class SeededRandom implements RandomSource {
@@ -145,6 +153,21 @@ export function playRandomGame(
     if (state.phase === "roundStart") {
       const round = startRound(state, engineRandom);
       record(round.state, round.events);
+      continue;
+    }
+
+    if (state.phase === "monthChange") {
+      const pending = state.pendingMonth!;
+      for (const playerId of pending.debtorIds) {
+        const status = state.players[playerId]!.status;
+        const max = Math.min(status.wealth, status.debt);
+        const amount = Math.floor(max / 2 / BOT_PAYMENT_ROUNDING) * BOT_PAYMENT_ROUNDING;
+        const answered = answerMonthPayment(state, playerId, pending.month, amount);
+        if (!answered.ok) throw new Error(`${answered.code}: ${answered.message}`);
+        record(answered.state, answered.events);
+      }
+      const closed = closeMonthChange(state);
+      record(closed.state, closed.events);
       continue;
     }
 
