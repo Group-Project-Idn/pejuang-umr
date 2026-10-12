@@ -30,14 +30,12 @@ import type {
 import { systemClock, type Clock, type TimerHandle } from "./clock";
 
 export const CALENDAR_SECONDS = 15;
-export const INVITE_SECONDS = 10;
+export const INVITE_SECONDS = 15;
 
 export interface SessionRuntime {
   clock: Clock;
   /** Meneruskan event engine ke klien (dispatcher). */
   send(events: DomainEvent[]): void;
-  /** Event room yang bukan DomainEvent engine (mis. turn:timer). Opsional supaya tes lama tetap jalan. */
-  broadcast?(event: "turn:timer", payload: unknown): void;
   /** Dipanggil sekali saat game selesai (mis. status room "finished"). */
   onFinished(): void;
 }
@@ -80,8 +78,6 @@ export class GameSession {
   private inviteTimer: TimerHandle | null = null;
   /** Payload invite:incoming yang sedang menunggu jawaban (untuk snapshot). */
   private pendingInviteInfo: { targetId: string; payload: InviteIncomingPayload } | null = null;
-  /** Sisa waktu giliran yang dijeda selama Ajakan ke pemain aktif. */
-  private pausedTurn: { turnId: string; remainingMs: number } | null = null;
   /** Pemain tereliminasi yang memilih jadi penonton (public.spectators). */
   private readonly spectators = new Set<string>();
 
@@ -95,7 +91,6 @@ export class GameSession {
     this.clearCalendarTimer();
     this.clearTurnTimer();
     this.clearInviteTimer();
-    this.pausedTurn = null;
   }
 
   answerCalendar(
@@ -119,10 +114,6 @@ export class GameSession {
   move(playerId: string, turnId: string, hex: HexCoord, kind: "choose" | "jump"): Ack {
     if (this.finished) return { ok: false, error: "GAME_FINISHED" };
     const pending = this.state.pendingTurn;
-    if (this.pausedTurn && pending?.playerId === playerId) {
-      // Timer dijeda selama pemain aktif menjawab Ajakan; giliran baru berjalan setelah timer dilanjutkan.
-      return { ok: false, error: "NOT_YOUR_TURN", message: "Jawab Ajakan dulu." };
-    }
     if (pending && pending.playerId === playerId && pending.turnId === turnId) {
       const expected = kind === "choose" ? "normal" : "deadEnd";
       if (pending.mode !== expected) return { ok: false, error: "INVALID_PAYLOAD" };
@@ -134,7 +125,7 @@ export class GameSession {
     return { ok: true };
   }
 
-  /** invite:send. Mengisi fromName dan deadline 10 detik, lalu menjeda timer giliran bila target sedang giliran. */
+  /** invite:send. Mengisi fromName dan deadline 15 detik. */
   sendInvite(
     senderId: string,
     cardId: string,
@@ -161,13 +152,6 @@ export class GameSession {
       () => this.onInviteTimeout(inviteId),
       INVITE_SECONDS * 1000,
     );
-    const pending = this.state.pendingTurn;
-    if (result.targetIsActivePlayer && pending && this.turnDeadline !== null) {
-      const remainingMs = Math.max(0, this.turnDeadline - now);
-      this.clearTurnTimer();
-      this.pausedTurn = { turnId: pending.turnId, remainingMs };
-      this.broadcastTurnTimer(pending.turnId, true, null, remainingMs);
-    }
     this.emit(events, now);
     return { ok: true, inviteId, deadline };
   }
@@ -196,8 +180,6 @@ export class GameSession {
     this.emit(result.events);
     if (result.nextAction === "finished") return this.finish();
 
-    const paused = this.pausedTurn;
-    this.pausedTurn = null;
     const pending = this.state.pendingTurn;
     if (pending && this.state.players[pending.playerId]?.eliminated) {
       // Engine tidak membersihkan pendingTurn pemain yang Burnout karena Ajakan.
@@ -205,30 +187,6 @@ export class GameSession {
       this.state = { ...this.state, pendingTurn: null };
       return this.runTurn();
     }
-    if (paused && pending && pending.turnId === paused.turnId) {
-      const now = this.runtime.clock.now();
-      this.turnDeadline = now + paused.remainingMs;
-      this.turnTimer = this.runtime.clock.setTimeout(
-        () => this.onTurnTimeout(paused.turnId),
-        paused.remainingMs,
-      );
-      this.broadcastTurnTimer(paused.turnId, false, this.turnDeadline, paused.remainingMs);
-    }
-  }
-
-  private broadcastTurnTimer(
-    turnId: string,
-    paused: boolean,
-    deadline: number | null,
-    remainingMs: number,
-  ): void {
-    this.runtime.broadcast?.("turn:timer", {
-      version: this.nextVersion(),
-      turnId,
-      paused,
-      deadline,
-      remainingMs,
-    });
   }
 
   private clearInviteTimer(): void {
@@ -356,7 +314,7 @@ export class GameSession {
     this.turnDeadline = null;
   }
 
-  /** State publik untuk snapshot: turnDeadline null selama timer dijeda, deadline baru setelah dilanjutkan. */
+  /** State publik untuk snapshot. */
   publicState(): PublicGameState {
     return structuredClone({
       ...toPublicState(this.state),

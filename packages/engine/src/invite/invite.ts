@@ -76,7 +76,7 @@ export function sendInvite(
           fromName: senderId, // diganti server dengan nama pemain
           plan: pendingInvite.plan,
           planEffects: pendingInvite.planEffects,
-          deadline: 0, // diisi server (10 detik)
+          deadline: 0, // diisi server (15 detik)
         },
       },
     ],
@@ -98,7 +98,7 @@ export function respondInvite(
   return { ok: true, ...resolveInvite(state, pending, answer, false) };
 }
 
-/** Waktu 10 detik habis: sama dengan Tolak, `autoDeclined` true. */
+/** Waktu 15 detik habis: sama dengan Tolak, `autoDeclined` true. */
 export function expireInvite(state: GameState, inviteId: string): RespondInviteResult {
   const pending = state.pendingInvite;
   if (!pending || pending.inviteId !== inviteId) {

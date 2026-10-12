@@ -159,7 +159,7 @@ describe("room lifecycle", () => {
 
     const nonHostTimer = await guest.socket.emitWithAck("room:timer", {
       requestId: requestIds[2]!,
-      turnSeconds: 60,
+      turnSeconds: 15,
     });
     expect(nonHostTimer).toEqual({ ok: false, error: "NOT_HOST" });
 
@@ -340,6 +340,10 @@ describe("room lifecycle", () => {
       requestId: requestIds[2]!,
       ready: true,
     });
+    expect(await host.socket.emitWithAck("room:timer", {
+      requestId: requestIds[4]!,
+      turnSeconds: 15,
+    })).toEqual({ ok: true });
 
     const hostStarted = new Promise<Parameters<ServerToClientEvents["game:started"]>[0]>(
       (resolve) => host.socket.once("game:started", resolve),
@@ -359,7 +363,7 @@ describe("room lifecycle", () => {
     expect(hostPayload).toMatchObject({
       gameId: "game-test",
       boardRadius: 4,
-      turnSeconds: 30,
+      turnSeconds: 15,
     });
     expect(new Set(hostPayload.startPositions.map(({ hex }) => `${hex.q}:${hex.r}`)).size).toBe(2);
     expect(server.rooms.get("UMR-1234")?.status).toBe("playing");
@@ -772,4 +776,3 @@ describe("room:kick", () => {
     expect(player(server.rooms.get("UMR-1234")!, third.playerId).pawn).toBe(guestPawn);
   });
 });
-
