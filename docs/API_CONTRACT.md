@@ -1,6 +1,6 @@
 # API Contract - Pejuang UMR: Jakarta Survival (MVP)
 
-Versi 0.1 · Oktober 2026 · Sumber aturan: GDD v1.10 · Sumber stack: 03_REKOMENDASI
+Versi 0.2 · Oktober 2026 · Sumber aturan: GDD v1.11 · Sumber stack: 03_REKOMENDASI
 Scope: **Multiplayer 2-4 pemain, 24 langkah, pemain tamu.** Solo, login, dan database tidak ada di kontrak ini.
 
 **Cara membaca.** Setiap endpoint dan event ditulis dengan pola yang sama:
@@ -60,7 +60,7 @@ type Ack<T = {}> =
 
 ### 1.3 requestId
 
-Setiap payload C→S berisi `requestId: string` (UUID dari `crypto.randomUUID()`). Jika server menerima `requestId` yang sama dua kali (misalnya klien mengirim ulang setelah koneksi goyang), server mengembalikan ack yang sama tanpa memproses ulang.
+Setiap payload C→S berisi `requestId: string` (UUID dari `crypto.randomUUID()`). Jika server menerima `requestId` yang sama dua kali (misalnya klien mengirim ulang setelah koneksi goyang), server mengembalikan ack yang sama tanpa memproses ulang. Server mengingat `requestId` selama **60 detik** per pemain.
 
 ### 1.4 version (state publik)
 
@@ -92,6 +92,12 @@ Koordinat axial `{ q, r }`, heksa flat-top, pusat papan `{ q: 0, r: 0 }`. Klien 
 | Kekayaan, Hutang, Kesehatan, Level Stress                 | Hanya pemiliknya (`player:status`)  |
 | Motif Ajakan sebelum dijawab                              | Hanya pengirim (`invite:card`)      |
 | Petak Emas (posisi dan isi)                               | Semua (`gold:spawned`)              |
+
+### 1.9 Batas laju (rate limit)
+
+- Semua event C→S: maksimal **20 event per 5 detik per socket**. Kelebihan dijawab ack `{ ok: false, error: "RATE_LIMITED" }`, koneksi tidak diputus.
+- `emote:send` punya batas tambahan: **1 emote per 3 detik per pemain**.
+- `POST /api/v1/guest`: 10 request per menit per IP. Header `X-Forwarded-For` hanya dipakai jika server diset `TRUST_PROXY=true`.
 
 ---
 
@@ -473,6 +479,8 @@ Catatan: pemain yang putus tetap punya giliran. Jika timer habis, heksa dipilih 
 } // fatal: true → arahkan ke Lobby
 ```
 
+Room ditutup karena tidak aktif (GDD 9.3 v1.11): `{ code: "ROOM_NOT_FOUND", message: "Room ditutup karena tidak aktif.", fatal: true }`.
+
 ---
 
 ## 7. Room (9 + 2 event)
@@ -603,7 +611,7 @@ Error: `NOT_HOST`, `ROOM_LOCKED` (tidak bisa diubah setelah game mulai, GDD 4.3)
 Ack;
 ```
 
-Error: `NOT_HOST`, `INVALID_TARGET`, `ROOM_LOCKED`.
+Error: `NOT_HOST`, `INVALID_TARGET` (diri sendiri atau bukan anggota), `ROOM_LOCKED` (room sudah mulai). Hanya bisa saat status `waiting`. Pion pemain yang dikeluarkan kembali kosong (GDD 9.3 v1.11).
 
 ### `room:kicked` · S→C (P) **[+]**
 
@@ -635,7 +643,7 @@ Alasan ditambahkan: tanpa event ini, pemain yang dikeluarkan hanya melihat dirin
 Ack<{ room: RoomState }>;
 ```
 
-Error: `NOT_HOST`. Room kembali ke `waiting`, semua `ready` jadi `false`, pemain yang tidak tersambung dikeluarkan. Pemain lain yang menekan Main Lagi hanya pindah ke tampilan Room dan menunggu _(asumsi GDD 9.5)_.
+Error: `NOT_HOST`, `INVALID_PAYLOAD` (status bukan `finished`). Sesi game lama dihapus, room kembali ke `waiting`, pion tetap, semua `ready` jadi `false`, pemain yang tidak tersambung dikeluarkan, lalu `room:state` dikirim. Game berikutnya memulai `version` dari 1. Pemain lain yang menekan Main Lagi hanya pindah ke tampilan Room dan menunggu. Jika host sudah putus saat game selesai, peran host berpindah ke pemain paling awal yang masih tersambung (GDD 9.5 v1.11).
 
 ### `room:state` · S→R
 
@@ -914,6 +922,7 @@ Catatan:
 
 - Membuka detail heksa **tidak** memanggil server. Ketiga detail sudah ada di payload ini.
 - Bagian REALITA di panel selalu terkunci ("Terungkap setelah kamu melangkah"). Server tidak mengirim varian Realita sebelum heksa dipilih.
+- Petak Emas yang bersebelahan dan bisa dimasuki **selalu** termasuk di `options` (`isGold: true`), mengisi satu dari maksimal 3 slot (GDD 4.7 v1.11).
 
 ### `turn:choose` · C→S
 
@@ -1123,7 +1132,7 @@ Pion tetap di papan dan heksanya tetap terisi. Pemain ini dilewati di urutan gil
 Ack<{ snapshot: Snapshot }>;
 ```
 
-Error: `NOT_ELIMINATED`. Penonton tetap menerima event S→R, tidak pernah menerima data privat pemain lain. Tombol "Lihat hasil" menampilkan ringkasan status sendiri dari `player:status` terakhir (tanpa request).
+Error: `NOT_ELIMINATED`. Penonton tetap menerima event S→R, tidak pernah menerima data privat pemain lain, dan tidak lagi menerima `turn:options`, `turn:dead-end`, `calendar:event`, atau `invite:incoming`. Penonton boleh mengirim emote. Penonton yang putus lalu `session:resume` tetap berstatus penonton (GDD 9.4 v1.11). Tombol "Lihat hasil" menampilkan ringkasan status sendiri dari `player:status` terakhir (tanpa request).
 
 ---
 
@@ -1143,6 +1152,8 @@ Error: `NOT_ELIMINATED`. Penonton tetap menerima event S→R, tidak pernah mener
 }
 ```
 
+`expiresAtMonth` maksimal 12: kartu dari Bulan 11 berlaku sampai game selesai. Hanya pemain yang belum tereliminasi yang menerima kartu.
+
 ### `invite:send` · C→S
 
 |       |                                                                               |
@@ -1160,7 +1171,9 @@ Error: `NOT_ELIMINATED`. Penonton tetap menerima event S→R, tidak pernah mener
 Ack<{ inviteId: string; deadline: number }>;
 ```
 
-Error: `NO_INVITE_CARD`, `INVITE_LIMIT` (sudah ada 1 Ajakan di ronde ini, kartu tidak terpakai), `INVALID_TARGET` (diri sendiri atau tereliminasi).
+Error: `GAME_FINISHED`, `NO_INVITE_CARD`, `INVITE_LIMIT` (sudah ada 1 Ajakan di ronde ini atau Ajakan lain masih menunggu jawaban; kartu tidak terpakai), `INVALID_TARGET` (diri sendiri, target tereliminasi, atau pengirim sudah tereliminasi).
+
+Aturan (GDD 4.8 v1.11): boleh dikirim di fase apa pun selama game belum selesai, termasuk saat Event Tanggal. Target yang sedang putus tetap boleh diajak (dihitung Tolak setelah 10 detik).
 
 ### `invite:incoming` · S→C (P, target)
 
@@ -1180,7 +1193,7 @@ type InviteIncomingPayload = {
 };
 ```
 
-Jika target sedang giliran, server mengirim `turn:timer` (`paused: true`).
+`fromName` dan `deadline` diisi server (engine tidak tahu nama pemain dan waktu). Jika target sedang giliran, server mengirim `turn:timer` (`paused: true`).
 
 ### `invite:respond` · C→S
 
@@ -1228,6 +1241,8 @@ Kapan motif dibuka (GDD 4.8):
 
 Setelah ini server mengirim `player:status` ke pihak yang berubah dan `turn:timer` (`paused: false`) jika timer sempat dijeda.
 
+Efek Ajakan dicek Burnout (bukan Bangkrut, bukan Doom Spending). Jika ada yang tereliminasi, server mengirim `player:eliminated`, dan game bisa langsung berakhir (`game:finished`) jika tinggal 1 pemain. Jika target yang sedang giliran tereliminasi, `turn:timer` `paused: false` tidak dikirim, dan giliran berpindah ke pemain berikutnya (GDD 4.8 v1.11).
+
 ### `emote:send` · C→S
 
 |       |                                     |
@@ -1244,7 +1259,9 @@ Setelah ini server mengirim `player:status` ke pihak yang berubah dan `turn:time
 Ack;
 ```
 
-Error: `RATE_LIMITED` (usulan 1 emote per 3 detik).
+`emoteId` harus cocok `^[a-z0-9-]{1,24}$`. Daftar emote yang tampil ditentukan klien.
+
+Error: `INVALID_PAYLOAD`, `RATE_LIMITED` (1 emote per 3 detik per pemain), `NOT_IN_ROOM`. Berlaku di Room dan saat game, termasuk untuk penonton.
 
 ### `emote:shown` · S→R
 
@@ -1329,12 +1346,12 @@ Giliran pemain B, C: pola sama
 
 Status mengikuti GDD v1.10. Butir yang sudah diputuskan berlaku sebagai kontrak. Butir yang masih asumsi memakai usulan di kolom kanan sampai diputuskan.
 
-| #   | Pertanyaan                                                             | Status dan keputusan                                                                                                                                                           |
-| --- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1   | Pemain menekan Keluar saat game berjalan: dianggap apa?                | **Diputuskan (GDD 9.4 v1.10).** Sama seperti koneksi putus: tetap di papan, giliran menunggu timer lalu dipilih acak, bisa kembali lewat `session:resume` (lihat `room:leave`) |
-| 2   | Room tanpa aktivitas ditutup setelah berapa lama?                      | Asumsi: 10 menit (GDD 9.3). Server mengirim `error` dengan `fatal: true`                                                                                                       |
-| 3   | Game berakhir lebih cepat jika tinggal 1 pemain hidup?                 | **Diputuskan (GDD 1.2 v1.10).** Ya, `game:finished` dikirim saat tinggal 1 pemain (atau tidak ada) yang belum tereliminasi                                                     |
-| 4   | Hasil Akhir menampilkan empat indikator semua pemain?                  | Tidak. Hanya Harta Bersih dan modifier (sesuai GDD 9.5). Jika ingin dibuka setelah game selesai, cukup tambah field di `ranking`                                               |
-| 5   | Harbolnas: Paylater dipilih pemain atau otomatis saat Kekayaan kurang? | **Diputuskan (GDD 3.3 v1.10, berlaku sejak v1.8).** Pilihan terpisah (`joinPaylater`) di popup                                                                                 |
-| 6   | Ambang level risiko Rendah/Sedang/Tinggi                               | **Diputuskan (GDD 4.3 v1.10).** ≤15% / 16-34% / ≥35%                                                                                                                           |
-| 7   | Masa berlaku token tamu                                                | Asumsi: 7 hari                                                                                                                                                                 |
+| #   | Pertanyaan                                                             | Status dan keputusan                                                                                                                                                                           |
+| --- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Pemain menekan Keluar saat game berjalan: dianggap apa?                | **Diputuskan (GDD 9.4 v1.10).** Sama seperti koneksi putus: tetap di papan, giliran menunggu timer lalu dipilih acak, bisa kembali lewat `session:resume` (lihat `room:leave`)                 |
+| 2   | Room tanpa aktivitas ditutup setelah berapa lama?                      | **Diputuskan (GDD 9.3 v1.11).** 10 menit untuk room `waiting`/`finished`; 2 menit jika semua anggota putus; room `playing` hanya dihapus jika semua pemain putus 10 menit. Lihat event `error` |
+| 3   | Game berakhir lebih cepat jika tinggal 1 pemain hidup?                 | **Diputuskan (GDD 1.2 v1.10).** Ya, `game:finished` dikirim saat tinggal 1 pemain (atau tidak ada) yang belum tereliminasi                                                                     |
+| 4   | Hasil Akhir menampilkan empat indikator semua pemain?                  | Tidak. Hanya Harta Bersih dan modifier (sesuai GDD 9.5). Jika ingin dibuka setelah game selesai, cukup tambah field di `ranking`                                                               |
+| 5   | Harbolnas: Paylater dipilih pemain atau otomatis saat Kekayaan kurang? | **Diputuskan (GDD 3.3 v1.10, berlaku sejak v1.8).** Pilihan terpisah (`joinPaylater`) di popup                                                                                                 |
+| 6   | Ambang level risiko Rendah/Sedang/Tinggi                               | **Diputuskan (GDD 4.3 v1.10).** ≤15% / 16-34% / ≥35%                                                                                                                                           |
+| 7   | Masa berlaku token tamu                                                | Asumsi: 7 hari                                                                                                                                                                                 |

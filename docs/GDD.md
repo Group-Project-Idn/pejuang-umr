@@ -1,10 +1,10 @@
 # Pejuang UMR: Jakarta Survival
 
-### Game Design Document (GDD) Ringkas - v1.10
+### Game Design Document (GDD) Ringkas - v1.11
 
 > **Logline:** Game simulasi kehidupan berbasis papan heksagonal di mana pemain harus bertahan hidup selama 12 bulan dengan menyeimbangkan uang, kesehatan, dan kewarasan mental di tengah kejamnya realita finansial Jakarta.
 
-Bagian yang baru atau berubah ditandai **[v1.10]** (perubahan terbaru), **[v1.9]**, **[v1.8]**, **[v1.7]**, atau **[v1.6]**. Ringkasan perubahan dan daftar asumsi ada di Bagian 10. Dokumen ini adalah versi terkonsolidasi: aturan game dari v1.6, scope MVP dan alur Room dari v1.7, dan ide dari konsep awal "Jatah" yang dicatat sebagai backlog.
+Bagian yang baru atau berubah ditandai **[v1.11]** (perubahan terbaru), **[v1.10]**, **[v1.9]**, **[v1.8]**, **[v1.7]**, atau **[v1.6]**. Ringkasan perubahan dan daftar asumsi ada di Bagian 10. Dokumen ini adalah versi terkonsolidasi: aturan game dari v1.6, scope MVP dan alur Room dari v1.7, dan ide dari konsep awal "Jatah" yang dicatat sebagai backlog.
 
 ### Konsep Inti: Petak adalah Kartu **[v1.6]**
 
@@ -388,7 +388,7 @@ Peluang Hoki tetap 10%. Sisanya menjadi Aman. Jika Zonk muncul pada petak katego
 - Muncul di awal Langkah **1, 5, 9, 13, 17, 21** (tiap 4 langkah, total 6 kali) dan terlihat oleh semua pemain beserta isinya dan posisinya di papan.
 - **Hanya satu Petak Emas yang aktif dalam satu waktu. Petak Emas bertahan 4 ronde** dan hilang saat Petak Emas berikutnya muncul (atau saat permainan berakhir). Petak yang tidak diambil menjadi **Heksa Mati** (tertutup, tidak bisa dimasuki).
 - Muncul di cincin luar papan (radius ≥ 4) pada posisi dengan jarak kurang lebih sama dari semua pemain.
-- Pemain mengambilnya dengan **memilih heksa tersebut** saat pionnya bersebelahan, seperti heksa biasa. Karena tiap heksa hanya bisa diinjak sekali, hanya 1 pemain yang mendapatkannya, yaitu yang gilirannya lebih dulu.
+- Pemain mengambilnya dengan **memilih heksa tersebut** saat pionnya bersebelahan. Petak Emas yang bersebelahan dan bisa dimasuki **selalu menyala** (mengisi satu dari 3 slot), sedangkan slot lain diundi seperti biasa, supaya usaha menuju Petak Emas tidak gagal karena undian **[v1.11]**. Petak Emas juga boleh muncul di opsi Jalan Buntu jika termasuk heksa tertutup terdekat. Karena tiap heksa hanya bisa diinjak sekali, hanya 1 pemain yang mendapatkannya, yaitu yang gilirannya lebih dulu.
 - **Dilema:** 4 ronde cukup untuk mengubah rute dan benar-benar berebut, tapi pemain harus meninggalkan petak bagus di sekitarnya demi berjalan ke arah Petak Emas. Karena petak hangus saat kemunculan berikutnya tiba, FOMO tetap terjaga dan papan tetap rapi.
 - Hadiah dijaga seimbang (kira-kira Rp 5.000.000-10.000.000 atau perbaikan status) supaya tidak menentukan pemenang sendirian.
 - Petak Emas hanya punya Rencana, **tidak punya Realita**.
@@ -412,6 +412,12 @@ Khusus Multiplayer. Ajakan adalah **ajakan langsung ke pemain lain, bersifat rea
 - **Maksimal 1 Ajakan per ronde untuk seluruh meja.** Jika dua pemain mengirim hampir bersamaan, yang tercatat lebih dulu diproses dan yang lain ditolak sistem tanpa memakai kartunya.
 - Efek langsung berlaku pada pemain, tanpa lewat papan. Giliran dan langkah semua pemain tidak berubah.
 - Ajakan tidak bisa ditujukan ke pemain yang sudah tereliminasi.
+- **Aturan tambahan [v1.11]:**
+  - Ajakan boleh dikirim **kapan saja selama game belum selesai**, termasuk saat Event Tanggal berlangsung. Yang dijeda hanya Timer Giliran jika target sedang giliran.
+  - Pemain yang sedang **putus** boleh diajak. Popup tidak sampai, sehingga setelah 10 detik dihitung Tolak (termasuk penalti jika motifnya Tulus), sejalan dengan aturan Keluar = putus di 9.4.
+  - Efek Ajakan dicek **Burnout** seperti efek lain, dan game bisa selesai lebih cepat karenanya (1.2). Ajakan **tidak** memicu Bangkrut maupun Doom Spending.
+  - Jika target yang sedang giliran tereliminasi karena Ajakan, gilirannya berakhir dan giliran berpindah ke pemain berikutnya.
+  - Kartu Ajakan dari Bulan 11 berlaku sampai game selesai.
 
 **Rencana Ajakan (4 jenis):**
 
@@ -777,15 +783,19 @@ Bagian ini mengatur apa yang terjadi sebelum, selama, dan sesudah game Multiplay
 - **Host mengatur Timer Giliran** (30 detik Cepat atau 60 detik Santai). **Jumlah pemain tidak diatur manual**: papan mengikuti jumlah pemain yang masuk (2 pemain radius 4, 3 pemain radius 5, 4 pemain radius 6).
 - **Siap:** setiap pemain selain host menekan **Siap**.
 - **Mulai** (hanya host) aktif jika ada **minimal 2 pemain** dan semua pemain selain host sudah **Siap**. Jika belum, tombol nonaktif dengan penjelasan ("Menunggu minimal 2 pemain" atau "Menunggu pemain siap").
-- Host bisa **mengeluarkan** (kick) pemain.
+- Host bisa **mengeluarkan** (kick) pemain, hanya selama Room belum mulai. Pemain yang dikeluarkan kembali ke Lobby dengan pesan, dan pionnya kembali kosong **[v1.11]**.
 - Saat host menekan Mulai: room **terkunci** (hanya pemain yang terputus boleh masuk kembali), hitung mundur **3-2-1** ("Papan sedang disiapkan..."), lalu pindah ke Game Board di 1 Januari, Langkah 1.
-- **Host keluar sebelum game mulai:** peran host berpindah ke pemain yang masuk paling awal. Room kosong ditutup. _(asumsi)_ Room tanpa aktivitas lama (usulan 10 menit) ditutup otomatis.
+- **Host keluar sebelum game mulai:** peran host berpindah ke pemain yang masuk paling awal. Room kosong ditutup.
+- **Penutupan room otomatis [v1.11]:**
+  - Room yang belum mulai atau sudah selesai, tanpa aktivitas selama **10 menit**, ditutup. Anggotanya kembali ke Lobby dengan pesan "Room ditutup karena tidak aktif."
+  - Room yang belum mulai atau sudah selesai, dengan semua anggota putus selama **2 menit**, dihapus.
+  - Room yang sedang bermain **tidak** ditutup karena tidak aktif (game berjalan sendiri lewat timer). Room itu hanya dihapus jika semua pemain putus selama 10 menit.
 
 ### 9.4 Selama game
 
 - **Koneksi putus:** pemain bisa masuk kembali dengan token sesi. Jika batas waktu giliran habis saat terputus, pilihan diambil **acak** sesuai aturan 4.3. Tidak ada bot pengganti **[v1.10]**.
 - **Keluar saat game berjalan [v1.10]:** diperlakukan **sama seperti koneksi putus**. Pemain tetap di papan, gilirannya menunggu Timer Giliran sampai habis lalu heksa dipilih acak, Event Tanggal otomatis Tidak ikut, dan ia bisa masuk kembali dengan token sesi selama game belum selesai. Konsekuensinya, pemain lain tetap menunggu sampai timer habis pada giliran pemain itu.
-- **Tereliminasi:** muncul layar "Hari ini kamu perlu istirahat." dengan pilihan **Lihat hasil** atau **Jadi penonton** (**Penonton** tetap bisa menyaksikan sampai game selesai tanpa melihat data privat pemain lain).
+- **Tereliminasi:** muncul layar "Hari ini kamu perlu istirahat." dengan pilihan **Lihat hasil** atau **Jadi penonton** (**Penonton** tetap bisa menyaksikan sampai game selesai tanpa melihat data privat pemain lain). Penonton tidak lagi menerima popup permainan (detail heksa, Event Tanggal, Ajakan), tetapi tetap boleh mengirim emote **[v1.11]**.
 - **Host keluar saat game berjalan:** game tetap lanjut, peran host tidak diperlukan lagi.
 - **Pause:** di Multiplayer, pause hanya membuka menu pribadi dan **tidak menghentikan game**. _(asumsi)_
 
@@ -793,11 +803,25 @@ Bagian ini mengatur apa yang terjadi sebelum, selama, dan sesudah game Multiplay
 
 - Game berakhir setelah Langkah 24 atau lebih cepat jika tinggal 1 pemain yang belum tereliminasi (1.2) **[v1.10]**.
 - Layar **Hasil Akhir Multiplayer:** podium dan peringkat Skor Kesejahteraan, rincian skor yang bisa dibuka (Harta Bersih dan modifier), serta tombol **Main Lagi** (kembali ke Room yang sama), **Kembali ke Lobby**, dan **Bagikan hasil** (gambar dibuat di sisi klien).
-- _(asumsi)_ Main Lagi dikendalikan host dan pemain lain tetap perlu menekan Siap.
+- **Main Lagi [v1.11]:** dikendalikan host. Room kembali ke ruang tunggu dengan pion yang sama, semua pemain selain host perlu menekan Siap lagi, dan pemain yang sedang putus dikeluarkan. Jika host sudah putus, peran host berpindah ke pemain paling awal yang masih tersambung.
 
 ---
 
 ## 10. Ringkasan Revisi
+
+### v1.11 (keputusan dari pengerjaan Game loop, Room, Petak Emas, dan Ajakan)
+
+| #   | Keputusan                                                                                                         | Perubahan                    |
+| --- | ----------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| 1   | Petak Emas yang bersebelahan selalu menyala                                                                       | 4.7                          |
+| 2   | Ajakan boleh dikirim kapan saja selama game belum selesai                                                         | 4.8                          |
+| 3   | Pemain yang putus boleh diajak, dihitung Tolak setelah 10 detik                                                   | 4.8                          |
+| 4   | Efek Ajakan dicek Burnout dan bisa membuat game selesai lebih cepat; tidak memicu Bangkrut dan Doom               | 4.8                          |
+| 5   | Target yang sedang giliran dan tereliminasi karena Ajakan: giliran berpindah                                      | 4.8                          |
+| 6   | Keluarkan hanya sebelum Room mulai                                                                                | 9.3                          |
+| 7   | Penutupan room otomatis (10 menit tidak aktif, 2 menit semua putus, room bermain hanya jika semua putus 10 menit) | 9.3 (asumsi v1.7 diputuskan) |
+| 8   | Penonton tidak menerima popup permainan, tetap boleh emote                                                        | 9.4                          |
+| 9   | Aturan Main Lagi                                                                                                  | 9.5 (asumsi v1.7 diputuskan) |
 
 ### v1.10 (keputusan dari audit backlog)
 
