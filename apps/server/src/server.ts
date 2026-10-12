@@ -140,6 +140,11 @@ export function createPejuangServer(
       countdownMs: dependencies.countdownMs,
       createGameId: dependencies.createGameId,
       clock: dependencies.clock,
+      timing: {
+        revealStepMs: config.revealStepMs,
+        monthPaySeconds: config.monthPaySeconds,
+        monthSummaryOnlyMs: config.monthSummaryOnlyMs,
+      },
     });
     registerGameHandlers(io, socket, rooms, games, gameIdempotency);
     registerEmoteHandlers(

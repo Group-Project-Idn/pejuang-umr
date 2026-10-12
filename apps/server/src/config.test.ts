@@ -49,4 +49,17 @@ describe("readServerConfig", () => {
     });
     expect(() => readServerConfig({ ROOM_IDLE_MS: "abc" })).toThrow(/ROOM_IDLE_MS/);
   });
+
+  it("REVEAL_STEP_MS, MONTH_PAY_SECONDS, MONTH_SUMMARY_ONLY_MS: default 2500/15/3000, bisa diatur", () => {
+    const config = readServerConfig({ GUEST_TOKEN_SECRET: "change-me" });
+    expect(config.revealStepMs).toBe(2_500);
+    expect(config.monthPaySeconds).toBe(15);
+    expect(config.monthSummaryOnlyMs).toBe(3_000);
+    expect(
+      readServerConfig({ REVEAL_STEP_MS: "100", MONTH_PAY_SECONDS: "3", MONTH_SUMMARY_ONLY_MS: "50" }),
+    ).toMatchObject({ revealStepMs: 100, monthPaySeconds: 3, monthSummaryOnlyMs: 50 });
+    expect(() => readServerConfig({ REVEAL_STEP_MS: "abc" })).toThrow(/REVEAL_STEP_MS/);
+    expect(() => readServerConfig({ MONTH_PAY_SECONDS: "0" })).toThrow(/MONTH_PAY_SECONDS/);
+    expect(() => readServerConfig({ MONTH_SUMMARY_ONLY_MS: "-5" })).toThrow(/MONTH_SUMMARY_ONLY_MS/);
+  });
 });

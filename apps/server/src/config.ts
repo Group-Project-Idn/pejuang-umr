@@ -8,10 +8,19 @@ export type ServerConfig = {
   roomIdleMs?: number;
   /** Room waiting/finished tanpa anggota tersambung selama ini ditutup. */
   roomEmptyMs?: number;
+  /** Jeda animasi per pemain di Fase Pembalikan sebelum ronde berikutnya (ms). */
+  revealStepMs?: number;
+  /** Lama popup Ganti Bulan menunggu slider Bayar Hutang (detik). */
+  monthPaySeconds?: number;
+  /** Lama popup Ganti Bulan tampil bila tidak ada yang berhutang (ms). */
+  monthSummaryOnlyMs?: number;
 };
 
 export const DEFAULT_ROOM_IDLE_MS = 600_000;
 export const DEFAULT_ROOM_EMPTY_MS = 120_000;
+export const DEFAULT_REVEAL_STEP_MS = 2_500;
+export const DEFAULT_MONTH_PAY_SECONDS = 15;
+export const DEFAULT_MONTH_SUMMARY_ONLY_MS = 3_000;
 
 function readDuration(value: string | undefined, fallback: number, name: string): number {
   if (value === undefined || value === "") return fallback;
@@ -54,5 +63,16 @@ export function readServerConfig(
     trustProxy: env.TRUST_PROXY === "true",
     roomIdleMs: readDuration(env.ROOM_IDLE_MS, DEFAULT_ROOM_IDLE_MS, "ROOM_IDLE_MS"),
     roomEmptyMs: readDuration(env.ROOM_EMPTY_MS, DEFAULT_ROOM_EMPTY_MS, "ROOM_EMPTY_MS"),
+    revealStepMs: readDuration(env.REVEAL_STEP_MS, DEFAULT_REVEAL_STEP_MS, "REVEAL_STEP_MS"),
+    monthPaySeconds: readDuration(
+      env.MONTH_PAY_SECONDS,
+      DEFAULT_MONTH_PAY_SECONDS,
+      "MONTH_PAY_SECONDS",
+    ),
+    monthSummaryOnlyMs: readDuration(
+      env.MONTH_SUMMARY_ONLY_MS,
+      DEFAULT_MONTH_SUMMARY_ONLY_MS,
+      "MONTH_SUMMARY_ONLY_MS",
+    ),
   };
 }

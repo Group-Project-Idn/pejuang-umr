@@ -27,7 +27,8 @@ type GameAction =
   | "turn:choose"
   | "turn:jump"
   | "invite:send"
-  | "invite:respond";
+  | "invite:respond"
+  | "month:pay-debt";
 
 /** Handler aksi pemain selama game. `idempotency` memakai jendela 60 detik (API_CONTRACT 1.3). */
 export function registerGameHandlers(
@@ -71,6 +72,10 @@ export function registerGameHandlers(
   );
   register("turn:jump", (session, playerId, p: { turnId: string; hex: never }) =>
     session.move(playerId, p.turnId, p.hex, "jump"),
+  );
+
+  register("month:pay-debt", (session, playerId, p: { month: number; amount: number }) =>
+    session.payMonthDebt(playerId, p.month, p.amount),
   );
 
   register("invite:send", (session, playerId, p: { cardId: string; targetPlayerId: string }) =>
