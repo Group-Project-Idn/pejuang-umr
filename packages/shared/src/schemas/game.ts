@@ -180,7 +180,7 @@ export const GameStartedPayloadSchema = z.object({
   version: z.number().int().nonnegative(),
   serverTime: z.number().int(),
   gameId: z.string().min(1),
-  boardRadius: z.union([z.literal(4), z.literal(5), z.literal(6)]),
+  boardRadius: z.literal(6),
   turnSeconds: TurnSecondsSchema,
   turnOrder: z.array(z.string().min(1)),
   startPositions: z.array(

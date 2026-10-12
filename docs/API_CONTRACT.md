@@ -1135,7 +1135,7 @@ Sisa ronde dihitung klien: `gold.expiresAtStep - calendar.step`. Posisi dipilih 
 }
 ```
 
-Heksa kembali ke petak aslinya dan bisa menyala lagi (GDD 4.7 v1.12). Isi petak asli tidak dikirim. Jika diambil, tidak ada `gold:expired`. Pengambilan terlihat dari `tile:opened` dengan `isGold: true`.
+Heksa kembali ke petak aslinya dan bisa menyala lagi (GDD 4.7 v1.12); **bukan Heksa Mati**. Isi petak asli tidak dikirim. Saat game berakhir dengan Petak Emas yang belum diambil, `gold:expired` dikirim sebelum `game:finished`. Jika diambil, tidak ada `gold:expired`. Pengambilan terlihat dari `tile:opened` dengan `isGold: true`.
 
 ---
 
