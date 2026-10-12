@@ -164,7 +164,7 @@ Ganti bulan terjadi di Fase Kalender dan tampil sebagai **popup Ganti Bulan** ke
 1. Gaji masuk (+Rp 5.730.000)
 2. Biaya Hidup Wajib dipotong (-Rp 4.600.000)
 3. Bunga Hutang dipotong (3% dari Hutang)
-4. Popup menampilkan rincian 1-3 dan Kekayaan baru. Jika Hutang lebih dari 0, popup juga berisi **slider Bayar Hutang** (Rp0 sampai `min(Kekayaan, Hutang)`). Batas waktu **15 detik**, ditampilkan di popup. Waktu habis atau pemain putus = bayar Rp0. Jika Hutang 0, popup tampil tanpa slider.
+4. Popup menampilkan rincian 1-3 dan Kekayaan baru. Jika Hutang lebih dari 0, popup juga berisi **slider Bayar Hutang** (Rp0 sampai `min(Kekayaan, Hutang)`). Batas waktu **15 detik**, ditampilkan di popup. Waktu habis atau pemain putus = bayar Rp0. Jika Hutang 0, popup tampil tanpa slider. Popup ditutup lebih cepat jika semua pemain yang berhutang sudah membayar. Jika tidak ada satu pun pemain yang berhutang, popup hanya ringkasan dan game lanjut setelah sekitar 3 detik **[v1.12]**.
 5. Jika pembayaran membuat Hutang **lunas** (dari lebih dari 0 menjadi 0), Level Stress -2.
 
 Doom Spending, Bangkrut, dan Burnout tidak dicek di sini, tetapi di Fase Pembalikan (4.2).
@@ -320,6 +320,8 @@ Popup tampil berurutan (Ganti Bulan, lalu Event Tanggal). Giliran pertama dimula
 12. Skor Sementara diperbarui (4.6). Jika tersisa 1 pemain atau kurang, game selesai (1.2).
 
 Di Langkah 24, skor akhir dihitung setelah Fase Pembalikan. **Saran Lisan** boleh kapan saja.
+
+Server mengirim seluruh hasil Fase Pembalikan sekaligus, lalu memberi jeda animasi sekitar 2,5 detik per pemain sebelum ronde berikutnya dimulai, supaya semua pemain melihat urutan yang sama **[v1.12]**.
 
 ### 4.3 Fase Pilihan: Detail Rahasia & Giliran Bergantian **[v1.6]**
 
@@ -705,6 +707,7 @@ Rapor Insight **tidak** menampilkan Skor Kesejahteraan, Gelar, atau perbandingan
 - Dibuat oleh LLM di **server** (kunci API hanya ada di server). Nada suportif dan tidak menghakimi. Gagasan dari buku keuangan (misalnya _The Psychology of Money_, Morgan Housel) boleh dipakai sebagai **parafrase dengan menyebut judul dan penulis**, bukan kutipan panjang.
 - Jika LLM gagal atau terlalu lama, tampilkan **insight berbasis aturan** dari log yang sama (contoh: "5 kali memilih Pinjol, Hutang naik Rp12 juta").
 - Provider, model, batas biaya, dan batas waktu ditetapkan di 03_REKOMENDASI.
+- Urutan pengerjaan: insight berbasis aturan dulu, lalu LLM disambungkan setelah provider dipilih **[v1.12]**.
 
 ---
 
@@ -857,6 +860,8 @@ Bagian ini mengatur apa yang terjadi sebelum, selama, dan sesudah game Multiplay
 | 24  | "Ubah nama" diganti "Edit Profile" (nama dan avatar), tetap hanya di Lobby. Identitas tetap di localStorage                                                                                                                                 | 9.1                         |
 | 25  | Tidak ada pause                                                                                                                                                                                                                             | 9.4                         |
 | 26  | Eliminasi serentak diurutkan menurut Skor Sementara saat eliminasi; skor pemain tereliminasi dibekukan                                                                                                                                      | 1.2                         |
+| 27  | Jeda animasi Fase Pembalikan sekitar 2,5 detik per pemain; popup Ganti Bulan tanpa pemain berhutang lanjut setelah sekitar 3 detik | 2.4, 4.2 |
+| 28  | Refleksi AI: insight berbasis aturan dulu, LLM setelah provider dipilih | 6.5 |
 
 Catatan: lisensi 4 gambar karakter sprite masih terbuka (lihat PROJECT_STATE).
 
