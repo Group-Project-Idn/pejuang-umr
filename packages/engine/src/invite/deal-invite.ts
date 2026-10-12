@@ -14,7 +14,7 @@ export function isInviteCardStep(step: number): boolean {
   return INVITE_CARD_STEPS.includes(step);
 }
 
-/** Motif diundi berbobot (Tulus 50, Komisi 25, Jebakan 25). */
+/** Motif diundi berbobot (Tulus 50%, Komisi 50%). */
 export function pickInviteMotive(random: RandomSource): InviteMotive {
   const entries = Object.entries(INVITE_MOTIVE_WEIGHTS) as Array<[InviteMotive, number]>;
   const total = entries.reduce((sum, [, weight]) => sum + weight, 0);

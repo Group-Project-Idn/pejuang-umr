@@ -40,6 +40,8 @@ import { systemClock, type Clock, type TimerHandle } from "./clock";
 
 export const CALENDAR_SECONDS = 15;
 export const INVITE_SECONDS = 15;
+/** Toleransi transport; deadline yang dikirim ke klien tetap tidak berubah. */
+export const DEADLINE_GRACE_MS = 500;
 
 /** Pengaturan waktu fase Ganti Bulan dan Fase Pembalikan (dari config server). */
 export interface SessionTiming {
@@ -105,6 +107,7 @@ export class GameSession {
   }
 
   private calendarTimer: TimerHandle | null = null;
+  private calendarDeadline: number | null = null;
   private turnTimer: TimerHandle | null = null;
   private monthTimer: TimerHandle | null = null;
   private revealTimer: TimerHandle | null = null;
@@ -113,6 +116,9 @@ export class GameSession {
   result: FinishedPayload | null = null;
   private turnDeadline: number | null = null;
   private inviteTimer: TimerHandle | null = null;
+  private inviteDeadline: number | null = null;
+  /** Akhir ronde menunggu Ajakan aktif selesai tanpa menjeda countdown Ajakan. */
+  private waitingForInviteAtRoundEnd = false;
   /** Payload invite:incoming yang sedang menunggu jawaban (untuk snapshot). */
   private pendingInviteInfo: { targetId: string; payload: InviteIncomingPayload } | null = null;
   /** Pemain tereliminasi yang memilih jadi penonton (public.spectators). */
@@ -158,6 +164,10 @@ export class GameSession {
     choice: CalendarChoiceId,
   ): Ack {
     if (this.finished) return { ok: false, error: "GAME_FINISHED" };
+    if (this.isPastDeadline(this.calendarDeadline)) {
+      this.closeCalendar();
+      return { ok: false, error: "EVENT_CLOSED" };
+    }
     const result = answerCalendarEvent(this.state, playerId, eventId, choice);
     if (!result.ok) return { ok: false, error: result.code, message: result.message };
     this.state = result.state;
@@ -172,6 +182,10 @@ export class GameSession {
   /** turn:choose (mode "normal") dan turn:jump (mode "deadEnd"). */
   move(playerId: string, turnId: string, hex: HexCoord, kind: "choose" | "jump"): Ack {
     if (this.finished) return { ok: false, error: "GAME_FINISHED" };
+    if (this.isPastDeadline(this.turnDeadline)) {
+      this.onTurnTimeout(this.state.pendingTurn?.turnId ?? turnId);
+      return { ok: false, error: "STALE_VERSION" };
+    }
     const pending = this.state.pendingTurn;
     if (pending && pending.playerId === playerId && pending.turnId === turnId) {
       const expected = kind === "choose" ? "normal" : "deadEnd";
@@ -195,6 +209,7 @@ export class GameSession {
     if (!result.ok) return { ok: false, error: result.code, message: result.message };
     const now = this.runtime.clock.now();
     const deadline = now + INVITE_SECONDS * 1000;
+    this.inviteDeadline = deadline;
     const inviteId = result.state.pendingInvite?.inviteId ?? "";
     const events = result.events.map((event): DomainEvent => {
       if (event.type !== "invite:incoming") return event;
@@ -209,7 +224,7 @@ export class GameSession {
     this.state = result.state;
     this.inviteTimer = this.runtime.clock.setTimeout(
       () => this.onInviteTimeout(inviteId),
-      INVITE_SECONDS * 1000,
+      INVITE_SECONDS * 1000 + DEADLINE_GRACE_MS + 1,
     );
     this.emit(events, now);
     return { ok: true, inviteId, deadline };
@@ -218,6 +233,10 @@ export class GameSession {
   /** invite:respond. */
   respondInvite(playerId: string, inviteId: string, answer: "join" | "decline"): Ack {
     if (this.finished) return { ok: false, error: "GAME_FINISHED" };
+    if (this.isPastDeadline(this.inviteDeadline)) {
+      this.onInviteTimeout(this.state.pendingInvite?.inviteId ?? inviteId);
+      return { ok: false, error: "INVITE_EXPIRED" };
+    }
     const result = respondInvite(this.state, playerId, inviteId, answer);
     if (!result.ok) return { ok: false, error: result.code, message: result.message };
     this.afterInvite(result);
@@ -246,11 +265,16 @@ export class GameSession {
       this.state = { ...this.state, pendingTurn: null };
       return this.runTurn();
     }
+    if (this.waitingForInviteAtRoundEnd) {
+      this.waitingForInviteAtRoundEnd = false;
+      this.nextRound();
+    }
   }
 
   private clearInviteTimer(): void {
     if (this.inviteTimer !== null) this.runtime.clock.clearTimeout(this.inviteTimer);
     this.inviteTimer = null;
+    this.inviteDeadline = null;
   }
 
   inviteCardFor(playerId: string): Snapshot["me"]["inviteCard"] {
@@ -281,9 +305,10 @@ export class GameSession {
   /** Setelah Fase Kalender: timer Event Tanggal bila ada, selain itu giliran. */
   private afterCalendarPhase(): void {
     if (this.state.phase === "calendarEvent") {
+      this.calendarDeadline = this.runtime.clock.now() + CALENDAR_SECONDS * 1000;
       this.calendarTimer = this.runtime.clock.setTimeout(
         () => this.closeCalendar(),
-        CALENDAR_SECONDS * 1000,
+        CALENDAR_SECONDS * 1000 + DEADLINE_GRACE_MS + 1,
       );
       return;
     }
@@ -317,7 +342,7 @@ export class GameSession {
     this.turnDeadline = now + this.turnSeconds * 1000;
     this.turnTimer = this.runtime.clock.setTimeout(
       () => this.onTurnTimeout(pending.turnId),
-      this.turnSeconds * 1000,
+      this.turnSeconds * 1000 + DEADLINE_GRACE_MS + 1,
     );
   }
 
@@ -338,6 +363,10 @@ export class GameSession {
 
   /** Fase Pembalikan (selalu, termasuk Langkah 24), lalu jeda animasi sebelum ronde berikutnya. */
   private nextRound(): void {
+    if (this.state.pendingInvite) {
+      this.waitingForInviteAtRoundEnd = true;
+      return;
+    }
     const result = endRound(this.state, this.random);
     this.state = result.state;
     this.emit(result.events);
@@ -408,6 +437,7 @@ export class GameSession {
   private clearCalendarTimer(): void {
     if (this.calendarTimer !== null) this.runtime.clock.clearTimeout(this.calendarTimer);
     this.calendarTimer = null;
+    this.calendarDeadline = null;
   }
 
   private clearMonthTimer(): void {
@@ -424,6 +454,10 @@ export class GameSession {
     if (this.turnTimer !== null) this.runtime.clock.clearTimeout(this.turnTimer);
     this.turnTimer = null;
     this.turnDeadline = null;
+  }
+
+  private isPastDeadline(deadline: number | null): boolean {
+    return deadline !== null && this.runtime.clock.now() > deadline + DEADLINE_GRACE_MS;
   }
 
   /** State publik untuk snapshot. */

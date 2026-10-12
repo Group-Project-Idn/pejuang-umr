@@ -38,6 +38,15 @@ describe("dispatch", () => {
     expect(sent.every((item) => item.to === null && item.type === "player:status")).toBe(true);
   });
 
+  it("mengirim Hutang melewati batas Bangkrut tanpa membocorkan status ke pemain lain", () => {
+    const { io, sent, session } = setup(["a", "b"]);
+    const status = { ...session.state.players.a!.status, debt: 25_000_001, stress: 1 };
+    dispatch(io, session, [
+      { type: "player:status", target: { kind: "player", playerId: "a" }, payload: status },
+    ]);
+    expect(sent).toEqual([{ to: null, playerId: "a", type: "player:status", payload: status }]);
+  });
+
   it("mengabaikan pemain yang sedang putus", () => {
     const { io, sent, session, events } = setup(["a"]);
     dispatch(io, session, events);

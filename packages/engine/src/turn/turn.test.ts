@@ -421,14 +421,14 @@ describe("chooseHex", () => {
   });
 
   it("kekurangan dari Realita saat Hutang 25jt menjadi Hutang lalu Bangkrut di Fase Pembalikan", () => {
-    // hanging-out: Rencana -500.000; Realita zonk -750.000, kekurangan 250.000 menjadi Hutang.
+    // Rencana berlaku saat melangkah; kekurangan Realita baru menjadi Hutang saat Fase Pembalikan.
     const first = makeGame().public.turnOrder[0]!;
     const game = withStatus(forceTile(makeGame(), "hanging-out"), first, {
-      wealth: 1_000_000,
+      wealth: 500_000,
       debt: 25_000_000,
     });
     const chosen = choose(game, new SequenceRandomSource([0, 0.1]));
-    expect(chosen.state.players[first]!.status.wealth).toBe(500_000);
+    expect(chosen.state.players[first]!.status.wealth).toBe(0);
     expect(chosen.state.players[first]!.status.debt).toBe(25_000_000);
     expect(chosen.state.players[first]!.eliminated).toBe(false);
 
@@ -440,7 +440,7 @@ describe("chooseHex", () => {
     expect(resolved.turnId).toBe(chosen.state.pendingRealities[0]!.turnId);
     const player = revealed.state.players[first]!;
     expect(player.status.wealth).toBe(0);
-    expect(player.status.debt).toBe(25_250_000);
+    expect(player.status.debt).toBe(25_750_000);
     expect(player.eliminated).toBe(true);
     expect(player.eliminatedReason).toBe("bankrupt");
     expect(ofType(revealed.events, "player:eliminated")[0]!.payload.reason).toBe("bankrupt");
@@ -459,7 +459,7 @@ describe("chooseHex", () => {
     expect(player.eliminated).toBe(false);
   });
 
-  it("Bangkrut: Doom saat Hutang 25jt dan Kekayaan 0", () => {
+  it("Doom saat Hutang 25jt dan Kekayaan 0 menambah Hutang; Bangkrut menunggu Pembalikan", () => {
     const first = makeGame().public.turnOrder[0]!;
     const game = withStatus(forceTile(makeGame(), "buying-vitamins"), first, {
       wealth: 0,

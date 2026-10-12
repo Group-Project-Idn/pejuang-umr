@@ -24,6 +24,7 @@ import {
   InviteIncomingPayloadSchema,
   InviteResolvedPayloadSchema,
 } from "./invite";
+import { PrivateStatusSchema } from "./common";
 
 const EFFECT = { stat: "wealth", delta: 1_500_000 } as const;
 
@@ -56,6 +57,17 @@ const PRIVATE_STATUS = {
 } as const;
 
 describe("bentuk payload S->C", () => {
+  it("status privat dan ringkasan bulan menerima Hutang di atas batas Bangkrut", () => {
+    const after = { ...PRIVATE_STATUS, debt: 25_000_001 };
+    expect(PrivateStatusSchema.safeParse(after).success).toBe(true);
+    expect(PrivateStatusSchema.safeParse({ ...after, debt: -1 }).success).toBe(false);
+    expect(PrivateStatusSchema.safeParse({ ...after, debt: 0.5 }).success).toBe(false);
+    expect(MonthSummaryPayloadSchema.safeParse({
+      month: 3, salary: 5_730_000, livingCost: 4_600_000,
+      interest: 750_000, interestAddedToDebt: 0, doomAmount: null,
+      before: PRIVATE_STATUS, after,
+    }).success).toBe(true);
+  });
   it("TileOptionSchema menerima opsi heksa yang valid", () => {
     expect(TileOptionSchema.safeParse(TILE_OPTION).success).toBe(true);
   });
@@ -136,6 +148,16 @@ describe("bentuk payload S->C", () => {
         expiresAtMonth: 3,
       }).success,
     ).toBe(true);
+  });
+
+  it("InviteCardSchema menolak motif Jebakan yang sudah dihapus", () => {
+    expect(InviteCardSchema.safeParse({
+      cardId: "card-1",
+      plan: "hangout",
+      planEffects: [EFFECT],
+      motive: "trap",
+      expiresAtMonth: 3,
+    }).success).toBe(false);
   });
 
   it("InviteIncomingPayloadSchema menerima ajakan masuk yang valid", () => {

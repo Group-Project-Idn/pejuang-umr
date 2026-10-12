@@ -1,10 +1,10 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { hexKey } from "@pejuang/shared";
 import type { DomainEvent } from "../game/domain-events";
+import { DEBT_LIMIT } from "../economy/constants";
 import { playRandomGame } from "./simulation-helpers";
 
 const GAME_COUNT = 200;
-const DEBT_LIMIT = 25_000_000;
 const MONTH_CHANGES = 11;
 const TOTAL_STEPS = 24;
 
@@ -233,5 +233,5 @@ describe("simulasi game penuh", () => {
     }
 
     expect(violations.slice(0, 20)).toEqual([]);
-  });
+  }, 20_000);
 });

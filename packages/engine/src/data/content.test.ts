@@ -12,6 +12,7 @@ import {
 import { SEASON_ZONKS } from "./season-zonks";
 import { TILES } from "./tiles";
 import { SEASON_BY_MONTH } from "./schema";
+import { toMultiplayerEffects } from "./multiplier";
 
 const FORBIDDEN_IMPORT = "@pejuang/engine";
 const webSrcDir = join(
@@ -170,12 +171,23 @@ describe("katalog data konten", () => {
     }
   });
 
-  it("memuat 4 Rencana Ajakan dengan bobot motif 50/25/25", () => {
+  it("Zonk Musim Hujan dan Kemarau sesuai efek GDD 3.4 v1.12", () => {
+    const expected = [
+      ["rainy", "Motor Mogok Terendam Banjir", [{ stat: "wealth", delta: -500_000 }, { stat: "stress", delta: 1 }]],
+      ["rainy", "Atap Kos Bocor, Barang Rusak", [{ stat: "wealth", delta: -300_000 }]],
+      ["rainy", "Tarif Ojol Naik Saat Hujan", [{ stat: "wealth", delta: -150_000 }, { stat: "stress", delta: 1 }]],
+      ["dry", "Tagihan Listrik Naik karena Kipas dan AC", [{ stat: "wealth", delta: -250_000 }]],
+      ["dry", "Air PAM Mati, Beli Air Galon", [{ stat: "wealth", delta: -200_000 }, { stat: "stress", delta: 1 }]],
+      ["dry", "Motor Penuh Debu, Cuci dan Servis Ringan", [{ stat: "wealth", delta: -150_000 }]],
+    ];
+    expect(SEASON_ZONKS.filter((zonk) => zonk.season !== "transition").map(({ season, title, effects }) => [season, title, effects])).toEqual(expected);
+  });
+
+  it("memuat 4 Rencana Ajakan dengan bobot motif 50/50", () => {
     expect(INVITE_PLANS).toHaveLength(4);
     expect(INVITE_MOTIVE_WEIGHTS).toEqual({
       sincere: 50,
-      commission: 25,
-      trap: 25,
+      commission: 50,
     });
   });
 
@@ -203,17 +215,15 @@ describe("katalog data konten", () => {
 
   it("efek motif Ajakan mengikuti tabel Motif dan hasilnya", () => {
     expect(INVITE_MOTIVE_EFFECTS.sincere.join.planAppliesToTarget).toBe(true);
-    expect(INVITE_MOTIVE_EFFECTS.sincere.decline.declineWealthPenalty).toBe(
-      -3_000_000,
-    );
+    expect(INVITE_MOTIVE_EFFECTS.sincere.decline.declineTarget).toEqual([{ stat: "stress", delta: 1 }]);
+    expect(INVITE_MOTIVE_EFFECTS.commission.decline.declineTarget).toEqual([{ stat: "stress", delta: -1 }]);
     expect(INVITE_MOTIVE_EFFECTS.commission.join.senderExtra).toContainEqual({
       stat: "wealth",
-      delta: 3_000_000,
+      delta: 500_000,
     });
-    expect(INVITE_MOTIVE_EFFECTS.trap.join.planAppliesToTarget).toBe(false);
-    expect(INVITE_MOTIVE_EFFECTS.trap.join.targetExtra).toContainEqual({
+    expect(INVITE_MOTIVE_EFFECTS.commission.join.targetExtra).toContainEqual({
       stat: "wealth",
-      delta: -2_000_000,
+      delta: -500_000,
     });
   });
 
@@ -221,7 +231,6 @@ describe("katalog data konten", () => {
     const joinReveal = {
       sincere: "target" as const,
       commission: "target" as const,
-      trap: "target" as const,
     };
     for (const motive of Object.keys(INVITE_MOTIVE_EFFECTS) as Array<
       keyof typeof INVITE_MOTIVE_EFFECTS
@@ -230,11 +239,8 @@ describe("katalog data konten", () => {
         joinReveal[motive],
       );
     }
-    expect(INVITE_MOTIVE_EFFECTS.sincere.decline.revealMotiveTo).toBe(
-      "everyone",
-    );
-    for (const motive of ["commission", "trap"] as const) {
-      expect(INVITE_MOTIVE_EFFECTS[motive].decline.revealMotiveTo).toBe("none");
+    for (const motive of ["sincere", "commission"] as const) {
+      expect(INVITE_MOTIVE_EFFECTS[motive].decline.revealMotiveTo).toBe("target");
     }
   });
 
@@ -344,6 +350,19 @@ describe("nilai konten 1x (GDD 1.3 v1.12)", () => {
       { stat: "wealth", delta: -250_000 },
       { stat: "stress", delta: -1 },
     ]);
+  });
+
+  it("semua stat tidak dikali atau dijepit dan input tidak dimutasi", () => {
+    const effects = [{ stat: "wealth", delta: -750_000 }, { stat: "debt", delta: 5_000_000 }, { stat: "health", delta: -4 }, { stat: "stress", delta: 4 }] as const;
+    const result = toMultiplayerEffects(effects);
+    expect(result).toEqual(effects);
+    expect(result[0]).not.toBe(effects[0]);
+  });
+
+  it("Jalan-jalan menggantikan Bayar Hutang dan Kondangan berlaku Rp250.000", () => {
+    expect(TILES.some((tile) => tile.id === "paying-debt")).toBe(false);
+    expect(TILES.find((tile) => tile.id === "day-trip")).toMatchObject({ category: "social", baseZonkPct: 20, plan: [{ stat: "wealth", delta: -1_000_000 }, { stat: "health", delta: 1 }, { stat: "stress", delta: -2 }] });
+    expect(CALENDAR_EVENTS.find((event) => event.id === "wedding")?.choices.join.effects).toContainEqual({ stat: "wealth", delta: -250_000 });
   });
 });
 
