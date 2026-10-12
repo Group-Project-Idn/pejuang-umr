@@ -27,7 +27,7 @@ import type { Server, Socket } from "socket.io";
 import { broadcastConnection } from "../services/connection";
 import { systemClock, type Clock } from "../game/clock";
 import { dispatch } from "../game/event-dispatcher";
-import { GameSession, identitiesFromRoom } from "../game/game-session";
+import { GameSession, identitiesFromRoom, type SessionTiming } from "../game/game-session";
 import type { GameRepository } from "../repositories/game-repository";
 import type { IdempotencyRepository } from "../repositories/idempotency-repository";
 import type { RoomRepository } from "../repositories/room-repository";
@@ -85,6 +85,7 @@ export function registerRoomHandlers(
     random?: RandomSource;
     createGameId?: () => string;
     clock?: Clock;
+    timing?: Partial<SessionTiming>;
   } = {},
 ): void {
   const countdownMs = options.countdownMs ?? 3_000;
@@ -334,6 +335,7 @@ export function registerRoomHandlers(
               identitiesFromRoom(playingRoom.players),
               {
                 clock,
+                timing: options.timing,
                 send: (events) => dispatch(io, session, events),
                 onFinished: () => {
                   const finished = rooms.markFinished(room.code);

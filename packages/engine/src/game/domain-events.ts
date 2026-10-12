@@ -16,6 +16,7 @@ export type DomainEventType =
   | "turn:dead-end"
   | "tile:opened"
   | "tile:resolved"
+  | "round:reveal"
   | "gold:spawned"
   | "gold:expired"
   | "invite:card"

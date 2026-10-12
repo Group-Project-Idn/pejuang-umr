@@ -22,19 +22,14 @@ import {
 } from "../data";
 import { applyEffects } from "../economy/apply-effects";
 import { processMonthChange } from "../economy/month-change";
-import {
-  isBankrupt,
-  isBurnout,
-  type EliminationReason,
-} from "../economy/elimination";
+import { payDebt } from "../economy/pay-debt";
 import { isMonthChangeStep } from "../economy/schedule";
 import type { DomainEvent } from "../game/domain-events";
 import type { CalendarChoiceId, GameState } from "../game/game-state";
+import { withPhase } from "../game/phase";
 import { pickGoldHex } from "../gold/placement";
-import { calculateWelfareScore } from "../score/score";
 import { dealInviteCard, isInviteCardStep } from "../invite/deal-invite";
 import type { RandomSource } from "../random";
-import { checkEarlyFinish } from "./turn";
 
 export interface RoundResult {
   state: GameState;
@@ -186,51 +181,6 @@ export function startRound(state: GameState, random: RandomSource): RoundResult 
     });
   }
 
-  if (isMonthChangeStep(step)) {
-    for (const playerId of state.baseTurnOrder) {
-      const player = players[playerId];
-      if (!player || player.eliminated) continue;
-      const result = processMonthChange(player.status, calendar.month);
-      // Sementara (sampai G3): eliminasi dicek di sini seperti sebelumnya.
-      const eliminated: EliminationReason | null = isBankrupt(result.status)
-        ? "bankrupt"
-        : isBurnout(result.status)
-          ? "burnout"
-          : null;
-      const target = { kind: "player", playerId } as const;
-      events.push({ type: "month:summary", target, payload: result.summary as MonthSummaryPayload });
-      events.push({ type: "player:status", target, payload: result.status });
-      players[playerId] = {
-        status: result.status,
-        eliminated: eliminated !== null,
-        eliminatedAtStep: eliminated ? step : null,
-        eliminatedReason: eliminated,
-        frozenScore: eliminated ? calculateWelfareScore(result.status).score : null,
-        inviteCard: eliminated ? null : player.inviteCard,
-      };
-      if (eliminated) {
-        publicState = {
-          ...publicState,
-          eliminated: [...publicState.eliminated, playerId],
-          scores: publicState.scores.map((row) =>
-            row.playerId === playerId ? { ...row, eliminated: true } : row,
-          ),
-        };
-        events.push({
-          type: "player:eliminated",
-          target: { kind: "room" },
-          payload: {
-            version: 0,
-            playerId,
-            reason: eliminated,
-            step,
-            frozenScore: players[playerId]!.frozenScore ?? undefined,
-          },
-        });
-      }
-    }
-  }
-
   const next: GameState = {
     ...state,
     players,
@@ -238,10 +188,6 @@ export function startRound(state: GameState, random: RandomSource): RoundResult 
     movedThisRound: [],
     inviteUsedThisRound: false,
   };
-  const early = checkEarlyFinish(next);
-  if (early) {
-    return { state: early.state, events: [...events, ...early.events], nextAction: "finished" };
-  }
   publicState.turnOrder = orderForStep(next, step);
 
   // GDD 4.7 v1.12: Petak Emas (muncul di langkah 1, 5, 9, 13, 17, 21). Petak Emas
@@ -316,19 +262,126 @@ export function startRound(state: GameState, random: RandomSource): RoundResult 
     });
   }
 
-  const def = getCalendarEventAtStep(step);
-  if (def) {
-    events.push(buildCalendarEvent(def));
+  // GDD 2.4 v1.12: Ganti Bulan memproses gaji, biaya, dan bunga, lalu menunggu
+  // slider Bayar Hutang. Event Tanggal (bila ada) menyusul setelah popup ditutup.
+  if (isMonthChangeStep(step)) {
+    const debtorIds: string[] = [];
+    for (const playerId of state.baseTurnOrder) {
+      const player = players[playerId];
+      if (!player || player.eliminated) continue;
+      const result = processMonthChange(player.status, calendar.month);
+      const hasDebt = result.status.debt > 0;
+      if (hasDebt) debtorIds.push(playerId);
+      const payload = {
+        ...result.summary,
+        payDebt: hasDebt
+          ? { max: Math.min(result.status.wealth, result.status.debt), deadline: 0 } // deadline diisi server
+          : null,
+      } as MonthSummaryPayload;
+      const target = { kind: "player", playerId } as const;
+      events.push({ type: "month:summary", target, payload });
+      events.push({ type: "player:status", target, payload: result.status });
+      players[playerId] = { ...player, status: result.status };
+    }
     return {
-      state: {
-        ...next,
-        phase: "calendarEvent",
-        pendingCalendarEvent: { eventId: def.id, answers: {} },
-      },
+      state: withPhase(
+        { ...next, pendingMonth: { month: calendar.month, debtorIds, answers: {} } },
+        "monthChange",
+      ),
       events,
     };
   }
-  return { state: { ...next, phase: "turn" }, events };
+
+  return { state: enterCalendarEventOrTurn(next, events), events };
+}
+
+/** Event Tanggal bila ada di langkah ini (phase calendarEvent + calendar:event), selain itu giliran. */
+function enterCalendarEventOrTurn(state: GameState, events: DomainEvent[]): GameState {
+  const def = getCalendarEventAtStep(state.public.calendar.step);
+  if (!def) return withPhase(state, "turn");
+  events.push(buildCalendarEvent(def));
+  return withPhase(
+    { ...state, pendingCalendarEvent: { eventId: def.id, answers: {} } },
+    "calendarEvent",
+  );
+}
+
+export type MonthPaymentResult =
+  | {
+      ok: true;
+      state: GameState;
+      events: DomainEvent[];
+      paid: number;
+      debtCleared: boolean;
+      stressDelta: 0 | -2;
+    }
+  | { ok: false; code: ErrorCode; message: string };
+
+/**
+ * GDD 2.4 v1.12: jawaban slider Bayar Hutang. Nominal 0..min(Kekayaan, Hutang) saat ini;
+ * langsung diterapkan. Hutang lunas memberi Level Stress -2.
+ */
+export function answerMonthPayment(
+  state: GameState,
+  playerId: string,
+  month: number,
+  amount: number,
+): MonthPaymentResult {
+  const pending = state.pendingMonth;
+  if (
+    state.phase !== "monthChange" ||
+    !pending ||
+    pending.month !== month ||
+    !pending.debtorIds.includes(playerId) ||
+    playerId in pending.answers
+  ) {
+    return { ok: false, code: "PAYMENT_CLOSED", message: "Pembayaran Hutang sudah ditutup." };
+  }
+  const player = state.players[playerId]!;
+  const max = Math.min(player.status.wealth, player.status.debt);
+  if (!Number.isInteger(amount) || amount < 0 || amount > max) {
+    return {
+      ok: false,
+      code: "INVALID_PAYLOAD",
+      message: `Nominal harus bilangan bulat antara 0 dan ${max}.`,
+    };
+  }
+  const result = payDebt(player.status, amount);
+  return {
+    ok: true,
+    state: {
+      ...state,
+      players: { ...state.players, [playerId]: { ...player, status: result.status } },
+      pendingMonth: { ...pending, answers: { ...pending.answers, [playerId]: result.paid } },
+    },
+    events: [{ type: "player:status", target: { kind: "player", playerId }, payload: result.status }],
+    paid: result.paid,
+    debtCleared: result.debtCleared,
+    stressDelta: result.stressDelta,
+  };
+}
+
+/** True bila ada pemain berhutang yang ditunggu di popup Ganti Bulan. */
+export function hasMonthDebtors(state: GameState): boolean {
+  return (state.pendingMonth?.debtorIds.length ?? 0) > 0;
+}
+
+/** True bila semua debtor sudah menjawab (juga true bila tidak ada debtor). */
+export function allMonthPaymentsAnswered(state: GameState): boolean {
+  const pending = state.pendingMonth;
+  if (!pending) return true;
+  return pending.debtorIds.every((id) => id in pending.answers);
+}
+
+/**
+ * Menutup popup Ganti Bulan: debtor yang belum menjawab dianggap bayar 0, lalu
+ * lanjut ke Event Tanggal (bila ada di langkah ini) atau giliran.
+ */
+export function closeMonthChange(state: GameState): RoundResult {
+  if (state.phase !== "monthChange") return { state, events: [] };
+  const events: DomainEvent[] = [];
+  const next = enterCalendarEventOrTurn({ ...state, pendingMonth: null }, events);
+  return { state: next, events };
 }
 
 /** Menyimpan jawaban satu pemain untuk Event Tanggal yang sedang terbuka. */
@@ -365,17 +418,18 @@ export function answerCalendarEvent(
   };
 }
 
-/** Menutup Event Tanggal: yang belum menjawab otomatis "skip", lalu efek diterapkan. */
+/**
+ * Menutup Event Tanggal: yang belum menjawab otomatis "skip", lalu efek diterapkan.
+ * Eliminasi (Bangkrut, Burnout) baru dicek di Fase Pembalikan (GDD 4.2 v1.12).
+ */
 export function closeCalendarEvent(state: GameState, random: RandomSource): RoundResult {
   const pending = state.pendingCalendarEvent;
   const def = getCalendarEventAtStep(state.public.calendar.step);
   if (!pending || !def) {
-    return { state: { ...state, pendingCalendarEvent: null, phase: "turn" }, events: [] };
+    return { state: withPhase({ ...state, pendingCalendarEvent: null }, "turn"), events: [] };
   }
   const events: DomainEvent[] = [];
   const players = { ...state.players };
-  const step = state.public.calendar.step;
-  let publicState = state.public;
   for (const playerId of state.public.turnOrder) {
     const player = players[playerId];
     if (!player || player.eliminated) continue;
@@ -388,20 +442,8 @@ export function closeCalendarEvent(state: GameState, random: RandomSource): Roun
       effects.push(...choice.chance.effects);
       flavor = choice.chance.text;
     }
-    // Kekurangan Kekayaan dari Event Tanggal tidak menyebabkan Bangkrut (GDD 1.4);
-    // hanya Burnout Total yang bisa mengeliminasi di sini.
     const status = applyEffects(player.status, effects).status;
-    const burnout = isBurnout(status);
-    players[playerId] = burnout
-      ? {
-          status,
-          eliminated: true,
-          eliminatedAtStep: step,
-          eliminatedReason: "burnout",
-          frozenScore: calculateWelfareScore(status).score,
-          inviteCard: null,
-        }
-      : { ...player, status };
+    players[playerId] = { ...player, status };
     const target = { kind: "player", playerId } as const;
     events.push({
       type: "calendar:result",
@@ -415,37 +457,9 @@ export function closeCalendarEvent(state: GameState, random: RandomSource): Roun
       },
     });
     events.push({ type: "player:status", target, payload: status });
-    if (burnout) {
-      publicState = {
-        ...publicState,
-        eliminated: [...publicState.eliminated, playerId],
-        scores: publicState.scores.map((row) =>
-          row.playerId === playerId ? { ...row, eliminated: true } : row,
-        ),
-      };
-      events.push({
-        type: "player:eliminated",
-        target: { kind: "room" },
-        payload: {
-          version: 0,
-          playerId,
-          reason: "burnout",
-          step,
-          frozenScore: calculateWelfareScore(status).score,
-        },
-      });
-    }
   }
-  const next: GameState = {
-    ...state,
-    players,
-    public: publicState,
-    pendingCalendarEvent: null,
-    phase: "turn",
+  return {
+    state: withPhase({ ...state, players, pendingCalendarEvent: null }, "turn"),
+    events,
   };
-  const early = checkEarlyFinish(next);
-  if (early) {
-    return { state: early.state, events: [...events, ...early.events], nextAction: "finished" };
-  }
-  return { state: next, events };
 }

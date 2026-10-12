@@ -1,10 +1,13 @@
 import type { PawnId, Snapshot, TurnSeconds } from "@pejuang/shared";
 import {
-  TOTAL_STEPS,
+  allMonthPaymentsAnswered,
   answerCalendarEvent,
+  answerMonthPayment,
   chooseHex,
   closeCalendarEvent,
+  closeMonthChange,
   endRound,
+  hasMonthDebtors,
   expireInvite,
   finishGame,
   respondInvite,
@@ -25,15 +28,39 @@ import type {
   Ack,
   HexCoord,
   InviteIncomingPayload,
+  MonthSummaryPayload,
   PublicGameState,
 } from "@pejuang/shared";
+import {
+  DEFAULT_MONTH_PAY_SECONDS,
+  DEFAULT_MONTH_SUMMARY_ONLY_MS,
+  DEFAULT_REVEAL_STEP_MS,
+} from "../config";
 import { systemClock, type Clock, type TimerHandle } from "./clock";
 
 export const CALENDAR_SECONDS = 15;
 export const INVITE_SECONDS = 15;
 
+/** Pengaturan waktu fase Ganti Bulan dan Fase Pembalikan (dari config server). */
+export interface SessionTiming {
+  /** Jeda animasi per pemain di Fase Pembalikan (ms). */
+  revealStepMs: number;
+  /** Lama popup Ganti Bulan menunggu slider Bayar Hutang (detik). */
+  monthPaySeconds: number;
+  /** Lama popup Ganti Bulan bila tidak ada debtor (ms). */
+  monthSummaryOnlyMs: number;
+}
+
+const DEFAULT_TIMING: SessionTiming = {
+  revealStepMs: DEFAULT_REVEAL_STEP_MS,
+  monthPaySeconds: DEFAULT_MONTH_PAY_SECONDS,
+  monthSummaryOnlyMs: DEFAULT_MONTH_SUMMARY_ONLY_MS,
+};
+
 export interface SessionRuntime {
   clock: Clock;
+  /** Nilai yang tidak diisi memakai default. */
+  timing?: Partial<SessionTiming>;
   /** Meneruskan event engine ke klien (dispatcher). */
   send(events: DomainEvent[]): void;
   /** Dipanggil sekali saat game selesai (mis. status room "finished"). */
@@ -42,6 +69,7 @@ export interface SessionRuntime {
 
 type PendingTurnPayload = NonNullable<Snapshot["me"]["pendingTurn"]>;
 type PendingCalendarPayload = NonNullable<Snapshot["me"]["pendingCalendar"]>;
+type PendingMonthPayload = NonNullable<Snapshot["me"]["pendingMonth"]>;
 type FinishedPayload = NonNullable<Snapshot["result"]>;
 
 /**
@@ -53,6 +81,9 @@ export class GameSession {
   private version = 0;
   private lastTurn: { playerId: string; payload: PendingTurnPayload } | null = null;
   private lastCalendar: PendingCalendarPayload | null = null;
+  /** month:summary terakhir per pemain (dengan deadline asli), untuk snapshot. */
+  private readonly lastMonth = new Map<string, PendingMonthPayload>();
+  private readonly timing: SessionTiming;
 
   constructor(
     readonly roomCode: string,
@@ -67,10 +98,16 @@ export class GameSession {
     },
   ) {
     this.state = state;
+    const given = Object.fromEntries(
+      Object.entries(runtime.timing ?? {}).filter(([, value]) => value !== undefined),
+    );
+    this.timing = { ...DEFAULT_TIMING, ...given };
   }
 
   private calendarTimer: TimerHandle | null = null;
   private turnTimer: TimerHandle | null = null;
+  private monthTimer: TimerHandle | null = null;
+  private revealTimer: TimerHandle | null = null;
   finished = false;
   /** Payload game:finished persis seperti yang dikirim (dengan version), untuk snapshot. */
   result: FinishedPayload | null = null;
@@ -89,8 +126,30 @@ export class GameSession {
   /** Membersihkan semua timer. */
   dispose(): void {
     this.clearCalendarTimer();
+    this.clearMonthTimer();
+    this.clearRevealTimer();
     this.clearTurnTimer();
     this.clearInviteTimer();
+  }
+
+  /** month:pay-debt: jawaban slider Bayar Hutang. Popup ditutup cepat bila semua debtor sudah menjawab. */
+  payMonthDebt(
+    playerId: string,
+    month: number,
+    amount: number,
+  ): Ack<{ paid: number; debtCleared: boolean; stressDelta: 0 | -2 }> {
+    if (this.finished) return { ok: false, error: "GAME_FINISHED" };
+    const result = answerMonthPayment(this.state, playerId, month, amount);
+    if (!result.ok) return { ok: false, error: result.code, message: result.message };
+    this.state = result.state;
+    this.emit(result.events);
+    if (allMonthPaymentsAnswered(this.state)) this.closeMonth();
+    return {
+      ok: true,
+      paid: result.paid,
+      debtCleared: result.debtCleared,
+      stressDelta: result.stressDelta,
+    };
   }
 
   answerCalendar(
@@ -204,9 +263,23 @@ export class GameSession {
   }
 
   private runRound(): void {
+    if (this.finished) return;
     const result = startRound(this.state, this.random);
     this.applyRoundResult(result);
     if (result.nextAction === "finished") return this.finish();
+    if (this.state.phase === "monthChange") {
+      // Debtor ditunggu sampai MONTH_PAY_SECONDS; tanpa debtor popup hanya tampil sebentar.
+      const waitMs = hasMonthDebtors(this.state)
+        ? this.timing.monthPaySeconds * 1000
+        : this.timing.monthSummaryOnlyMs;
+      this.monthTimer = this.runtime.clock.setTimeout(() => this.closeMonth(), waitMs);
+      return;
+    }
+    this.afterCalendarPhase();
+  }
+
+  /** Setelah Fase Kalender: timer Event Tanggal bila ada, selain itu giliran. */
+  private afterCalendarPhase(): void {
     if (this.state.phase === "calendarEvent") {
       this.calendarTimer = this.runtime.clock.setTimeout(
         () => this.closeCalendar(),
@@ -215,6 +288,15 @@ export class GameSession {
       return;
     }
     this.runTurn();
+  }
+
+  private closeMonth(): void {
+    if (this.finished || this.state.phase !== "monthChange") return;
+    this.clearMonthTimer();
+    const result = closeMonthChange(this.state);
+    this.applyRoundResult(result);
+    this.lastMonth.clear();
+    this.afterCalendarPhase();
   }
 
   private closeCalendar(): void {
@@ -254,12 +336,20 @@ export class GameSession {
     else this.finish();
   }
 
+  /** Fase Pembalikan (selalu, termasuk Langkah 24), lalu jeda animasi sebelum ronde berikutnya. */
   private nextRound(): void {
-    if (this.state.public.calendar.step >= TOTAL_STEPS) return this.finish();
     const result = endRound(this.state, this.random);
     this.state = result.state;
     this.emit(result.events);
-    this.runRound();
+    if (result.nextAction === "finished") return this.finish();
+    const reveal = result.events.find((event) => event.type === "round:reveal");
+    const players = reveal?.type === "round:reveal" ? reveal.payload.order.length : 0;
+    const delay = this.timing.revealStepMs * players;
+    if (delay <= 0) return this.runRound();
+    this.revealTimer = this.runtime.clock.setTimeout(() => {
+      this.revealTimer = null;
+      this.runRound();
+    }, delay);
   }
 
   private finish(): void {
@@ -288,6 +378,18 @@ export class GameSession {
             payload: { ...event.payload, deadline: now + CALENDAR_SECONDS * 1000 },
           };
         }
+        if (event.type === "month:summary" && event.payload.payDebt) {
+          return {
+            ...event,
+            payload: {
+              ...event.payload,
+              payDebt: {
+                ...event.payload.payDebt,
+                deadline: now + this.timing.monthPaySeconds * 1000,
+              },
+            },
+          };
+        }
         if (event.type === "turn:start") {
           return {
             ...event,
@@ -306,6 +408,16 @@ export class GameSession {
   private clearCalendarTimer(): void {
     if (this.calendarTimer !== null) this.runtime.clock.clearTimeout(this.calendarTimer);
     this.calendarTimer = null;
+  }
+
+  private clearMonthTimer(): void {
+    if (this.monthTimer !== null) this.runtime.clock.clearTimeout(this.monthTimer);
+    this.monthTimer = null;
+  }
+
+  private clearRevealTimer(): void {
+    if (this.revealTimer !== null) this.runtime.clock.clearTimeout(this.revealTimer);
+    this.revealTimer = null;
   }
 
   private clearTurnTimer(): void {
@@ -355,6 +467,8 @@ export class GameSession {
       this.result = payload as FinishedPayload;
     } else if (event.type === "calendar:event") {
       this.lastCalendar = payload as PendingCalendarPayload;
+    } else if (event.type === "month:summary" && event.target.kind === "player") {
+      this.lastMonth.set(event.target.playerId, payload as MonthSummaryPayload);
     }
   }
 
@@ -368,6 +482,14 @@ export class GameSession {
     if (!pending || pending.playerId !== playerId) return null;
     if (this.lastTurn?.playerId !== playerId) return null;
     return this.lastTurn.payload.turnId === pending.turnId ? this.lastTurn.payload : null;
+  }
+
+  /** month:summary terakhir bila popup Ganti Bulan masih terbuka dan pemain ini debtor yang belum menjawab. */
+  pendingMonthFor(playerId: string): PendingMonthPayload | null {
+    const pending = this.state.pendingMonth;
+    if (this.state.phase !== "monthChange" || !pending) return null;
+    if (!pending.debtorIds.includes(playerId) || playerId in pending.answers) return null;
+    return this.lastMonth.get(playerId) ?? null;
   }
 
   pendingCalendarFor(playerId: string): PendingCalendarPayload | null {

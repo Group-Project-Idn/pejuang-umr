@@ -22,16 +22,18 @@ export function createGame(
     };
   }
   const state: GameState = {
-    public: { ...publicState, calendar: getCalendarInfo(1) },
+    public: { ...publicState, calendar: getCalendarInfo(1), phase: "calendar" },
     board,
     players,
     baseTurnOrder: [...publicState.turnOrder],
     pendingTurn: null,
     pendingCalendarEvent: null,
+    pendingMonth: null,
     movedThisRound: [],
     phase: "roundStart",
     inviteUsedThisRound: false,
     pendingInvite: null,
+    pendingRealities: [],
   };
   const events: DomainEvent[] = playerIds.map((playerId) => ({
     type: "player:status",

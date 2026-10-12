@@ -55,6 +55,7 @@ describe("simulasi game penuh", () => {
       const label = `seed ${seed} (${playerCount} pemain)`;
       const fail = (message: string) => violations.push(`${label}: ${message}`);
       const eliminatedSoFar = new Set<string>();
+      const revealedRounds = new Set<number>();
 
       const { state, events, initialUsedHexKeys, playerIds, inviteLog, inviteLimitRejections: limited } =
         playRandomGame(
@@ -106,7 +107,39 @@ describe("simulasi game penuh", () => {
               fail(`Bangkrut dengan Hutang ${debt} <= ${DEBT_LIMIT} (${playerId})`);
             }
           }
+          // Realita yang belum dibuka tidak boleh bocor ke state publik maupun event.
+          for (const hidden of current.pendingRealities) {
+            const entry = current.public.openedHexes.find(
+              (opened) =>
+                opened.byPlayerId === hidden.playerId &&
+                opened.step === current.public.calendar.step &&
+                hexKey(opened.hex) === hexKey(hidden.hex),
+            );
+            if (!entry || entry.reality !== null || entry.outcome !== null) {
+              fail(`openedHexes memuat Realita tersembunyi ${hidden.playerId}`);
+            }
+            if (produced.some((e) => JSON.stringify(e.payload).includes(hidden.text))) {
+              fail(`event memuat Realita tersembunyi ${hidden.playerId}`);
+            }
+          }
+          if (
+            current.phase === "monthChange" &&
+            produced.some((e) => e.type === "calendar:event" || e.type === "turn:start")
+          ) {
+            fail("Event Tanggal atau giliran dimulai saat popup Ganti Bulan masih terbuka");
+          }
           for (const event of produced) {
+            // tile:resolved ronde N selalu setelah round:reveal ronde N.
+            if (event.type === "round:reveal") revealedRounds.add(event.payload.round);
+            if (event.type === "tile:resolved") {
+              const round = event.payload.round;
+              if (round === undefined || !revealedRounds.has(round)) {
+                fail(`tile:resolved ronde ${round} sebelum round:reveal`);
+              }
+              if (round !== current.public.calendar.step && round !== current.public.calendar.step - 1) {
+                fail(`tile:resolved ronde ${round} di langkah ${current.public.calendar.step}`);
+              }
+            }
             // Motif rahasia: tidak boleh ada di event room maupun invite:incoming.
             if (
               (event.target.kind === "room" || event.type === "invite:incoming") &&
