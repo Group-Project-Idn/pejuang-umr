@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import {
+  CharacterIdSchema,
   GuestRequestSchema,
   RoomCodeSchema,
   type RoomLookupResponse,
@@ -52,6 +53,12 @@ async function handleGuest(
   const parsed = GuestRequestSchema.safeParse(rawBody);
   if (!parsed.success) {
     sendError(response, 400, "INVALID_PAYLOAD", "Ada yang salah. Coba lagi.");
+    return;
+  }
+
+  // Avatar tamu harus salah satu karakter (GDD 9.1 v1.12).
+  if (!CharacterIdSchema.safeParse(parsed.data.avatarId).success) {
+    sendError(response, 400, "INVALID_PAYLOAD", "Karakter tidak dikenal.");
     return;
   }
 
