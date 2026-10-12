@@ -161,7 +161,7 @@ type WaitingRoomProps = {
   onCopyCode: () => void;
   onSelectPawn: (pawn: PawnId) => void;
   onReady: () => void;
-  onTimer: (seconds: 30 | 60) => void;
+  onTimer: (seconds: 15 | 30 | 60) => void;
   onKick: (targetPlayerId: string) => void;
   onStart: () => void;
 };
@@ -223,9 +223,9 @@ export function WaitingRoom({
                   <section className="room-note">
                     <h2>TIMER GILIRAN</h2>
                     <div className="room-timer-options">
-                      {([30, 60] as const).map((seconds) => (
+                      {([15, 30, 60] as const).map((seconds) => (
                         <button key={seconds} type="button" onClick={() => onTimer(seconds)} disabled={busy || !roomPlayer?.isHost} aria-pressed={room.turnSeconds === seconds}>
-                          <strong>{seconds} dtk</strong><span>{seconds === 30 ? "Cepat" : "Santai"}</span>
+                          <strong>{seconds} dtk</strong><span>{seconds === 15 ? "Kilat" : seconds === 30 ? "Cepat" : "Santai"}</span>
                         </button>
                       ))}
                     </div>

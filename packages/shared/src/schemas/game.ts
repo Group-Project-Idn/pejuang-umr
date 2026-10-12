@@ -93,7 +93,7 @@ export const TurnStartPayloadSchema = z.object({
   turnId: z.string().min(1),
   playerId: z.string().min(1),
   deadline: z.number().int(),
-  turnSeconds: z.union([z.literal(30), z.literal(60)]),
+  turnSeconds: z.union([z.literal(15), z.literal(30), z.literal(60)]),
 });
 
 export const TurnTimerPayloadSchema = z.object({
@@ -145,7 +145,7 @@ export const GameStartedPayloadSchema = z.object({
   serverTime: z.number().int(),
   gameId: z.string().min(1),
   boardRadius: z.union([z.literal(4), z.literal(5), z.literal(6)]),
-  turnSeconds: z.union([z.literal(30), z.literal(60)]),
+  turnSeconds: z.union([z.literal(15), z.literal(30), z.literal(60)]),
   turnOrder: z.array(z.string().min(1)),
   startPositions: z.array(
     z.object({ playerId: z.string().min(1), hex: HexCoordSchema }),

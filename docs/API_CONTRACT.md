@@ -138,7 +138,6 @@ Pakai tabel ini untuk tahu layar mana memanggil apa.
 | **Ajakan** (pilih target)           | Tekan Kartu Ajakan, pilih lawan           | `invite:send`                                                                                           |
 | Ajakan (masuk)                      | Popup diterima, Ikut / Tolak              | `invite:incoming` → `invite:respond`                                                                    |
 | Ajakan (hasil)                      | Motif terbuka                             | `invite:resolved`                                                                                       |
-| Timer Giliran dijeda                | Pemain aktif sedang menjawab Ajakan       | `turn:timer` [+]                                                                                        |
 | **Emote**                           | Tekan ikon smiley                         | `emote:send` → `emote:shown`                                                                            |
 | **Pause**                           | Tekan pause                               | Tidak ada request (menu pribadi, game tidak berhenti)                                                   |
 | **Hasil Akhir Multiplayer**         | Langkah 24 selesai atau tinggal 1 pemain  | `game:finished`                                                                                         |
@@ -190,7 +189,7 @@ type RoomState = {
   code: string; // "UMR-4821"
   status: "waiting" | "countdown" | "playing" | "finished";
   hostId: string;
-  turnSeconds: 30 | 60;
+  turnSeconds: 15 | 30 | 60;
   players: RoomPlayer[]; // maksimal 4
   maxPlayers: 4;
   canStart: boolean;
@@ -582,12 +581,12 @@ Error: `PAWN_TAKEN`. Warna dan bentuk dipasangkan tetap (krem-lingkaran, biru es
 |       |                                                      |
 | ----- | ---------------------------------------------------- |
 | Layar | Room, kartu "TIMER GILIRAN (diatur host)"            |
-| Aksi  | Host memilih "30 dtk - Cepat" atau "60 dtk - Santai" |
+| Aksi  | Host memilih "15 dtk - Kilat", "30 dtk - Cepat", atau "60 dtk - Santai" |
 
 ```ts
 {
   requestId: string;
-  turnSeconds: 30 | 60;
+  turnSeconds: 15 | 30 | 60;
 }
 // ack
 Ack;
@@ -708,7 +707,7 @@ Error: `NOT_HOST`, `NOT_ENOUGH_PLAYERS`, `PLAYERS_NOT_READY`.
   serverTime: number;
   gameId: string;
   boardRadius: 4 | 5 | 6;            // 2 pemain = 4, 3 = 5, 4 = 6
-  turnSeconds: 30 | 60;
+  turnSeconds: 15 | 30 | 60;
   turnOrder: string[];
   startPositions: { playerId: string; hex: HexCoord }[];  // cincin radius 2
   calendar: CalendarInfo;
@@ -903,7 +902,7 @@ Urutan proses mengikuti GDD 2.4: gaji → biaya hidup → bunga → Doom Spendin
   turnId: string;
   playerId: string;
   deadline: number;
-  turnSeconds: 30 | 60;
+  turnSeconds: 15 | 30 | 60;
 }
 ```
 
@@ -979,12 +978,9 @@ Ack;
 
 Error sama dengan `turn:choose`. Lompatan menggantikan langkah, Level Stress +1, lalu petak tujuan dijalankan seperti biasa.
 
-### `turn:timer` · S→R **[+]**
+### `turn:timer` · legacy
 
-|       |                                                                          |
-| ----- | ------------------------------------------------------------------------ |
-| Layar | Timer cincin di bar bawah (semua pemain)                                 |
-| Aksi  | Timer Giliran dijeda saat pemain aktif menjawab Ajakan, lalu dilanjutkan |
+Event legacy; tidak dikirim oleh server. GDD 4.8 v1.12 menetapkan Ajakan tidak menjeda Timer Giliran.
 
 ```ts
 {
@@ -995,8 +991,6 @@ Error sama dengan `turn:choose`. Lompatan menggantikan langkah, Level Stress +1,
   remainingMs: number;
 }
 ```
-
-Alasan ditambahkan: GDD 4.3 dan 4.8 mewajibkan timer dijeda, dan semua pemain perlu melihat timer berhenti.
 
 ### `tile:opened` · S→R
 
@@ -1173,13 +1167,13 @@ Ack<{ inviteId: string; deadline: number }>;
 
 Error: `GAME_FINISHED`, `NO_INVITE_CARD`, `INVITE_LIMIT` (sudah ada 1 Ajakan di ronde ini atau Ajakan lain masih menunggu jawaban; kartu tidak terpakai), `INVALID_TARGET` (diri sendiri, target tereliminasi, atau pengirim sudah tereliminasi).
 
-Aturan (GDD 4.8 v1.11): boleh dikirim di fase apa pun selama game belum selesai, termasuk saat Event Tanggal. Target yang sedang putus tetap boleh diajak (dihitung Tolak setelah 10 detik).
+Aturan (GDD 4.8 v1.11): boleh dikirim di fase apa pun selama game belum selesai, termasuk saat Event Tanggal. Target yang sedang putus tetap boleh diajak (dihitung Tolak setelah 15 detik).
 
 ### `invite:incoming` · S→C (P, target)
 
 |       |                                                                  |
 | ----- | ---------------------------------------------------------------- |
-| Layar | Popup Ajakan masuk (Rencana tanpa motif, hitung mundur 10 detik) |
+| Layar | Popup Ajakan masuk (Rencana tanpa motif, hitung mundur 15 detik) |
 | Aksi  | Ada pemain yang mengajak                                         |
 
 ```ts
@@ -1189,11 +1183,11 @@ type InviteIncomingPayload = {
   fromName: string;
   plan: InviteCard["plan"];
   planEffects: Effect[];
-  deadline: number; // 10 detik
+  deadline: number; // 15 detik
 };
 ```
 
-`fromName` dan `deadline` diisi server (engine tidak tahu nama pemain dan waktu). Jika target sedang giliran, server mengirim `turn:timer` (`paused: true`).
+`fromName` dan `deadline` diisi server (engine tidak tahu nama pemain dan waktu). Ajakan tidak menjeda Timer Giliran.
 
 ### `invite:respond` · C→S
 
@@ -1239,9 +1233,9 @@ Kapan motif dibuka (GDD 4.8):
 - Target **menolak** Komisi/Jebakan: motif tidak dibuka (`null`), tidak ada efek.
 - Target **menolak** Tulus: target Kekayaan -Rp3.000.000 dan motif dibuka ke semua lewat `game:patch` (`inviteSincereDeclined`).
 
-Setelah ini server mengirim `player:status` ke pihak yang berubah dan `turn:timer` (`paused: false`) jika timer sempat dijeda.
+Setelah ini server mengirim `player:status` ke pihak yang berubah.
 
-Efek Ajakan dicek Burnout (bukan Bangkrut, bukan Doom Spending). Jika ada yang tereliminasi, server mengirim `player:eliminated`, dan game bisa langsung berakhir (`game:finished`) jika tinggal 1 pemain. Jika target yang sedang giliran tereliminasi, `turn:timer` `paused: false` tidak dikirim, dan giliran berpindah ke pemain berikutnya (GDD 4.8 v1.11).
+Efek Ajakan dicek Burnout (bukan Bangkrut, bukan Doom Spending). Jika ada yang tereliminasi, server mengirim `player:eliminated`, dan game bisa langsung berakhir (`game:finished`) jika tinggal 1 pemain. Jika target yang sedang giliran tereliminasi, giliran berpindah ke pemain berikutnya (GDD 4.8 v1.11).
 
 ### `emote:send` · C→S
 

@@ -143,13 +143,13 @@ describe("invite lewat socket", () => {
     const cardId = giveCard(ctx, sender.playerId, "commission");
     const before = ctx.clock.now();
     const ack = await send(sender, cardId, active);
-    expect(ack).toMatchObject({ ok: true, deadline: before + 10_000 });
+    expect(ack).toMatchObject({ ok: true, deadline: before + 15_000 });
     if (!ack.ok) return;
     await until(() => ctx.find(active, "invite:incoming").length > 0, "invite:incoming");
     expect(ctx.find(active, "invite:incoming")[0]!.payload).toMatchObject({
       fromPlayerId: sender.playerId,
       fromName: sender === ctx.host ? "Host" : sender === ctx.second ? "Dua" : "Tiga",
-      deadline: before + 10_000,
+      deadline: before + 15_000,
     });
     expect(await respond(active, ack.inviteId, "join")).toEqual({ ok: true });
     await until(() => ctx.find(sender, "invite:resolved").length > 0, "resolved pengirim");
@@ -159,7 +159,7 @@ describe("invite lewat socket", () => {
     expect(third.log.filter((e) => e.type.startsWith("invite:") && e.type !== "invite:card")).toHaveLength(0);
   });
 
-  it("target diam 10 detik -> autoDeclined true", async () => {
+  it("target diam 15 detik -> autoDeclined true", async () => {
     const ctx = await setup();
     const { active, others } = await startTurns(ctx);
     const sender = others[0];
@@ -167,12 +167,12 @@ describe("invite lewat socket", () => {
     const ack = await send(sender, cardId, others[1]);
     expect(ack.ok).toBe(true);
     void active;
-    ctx.clock.advance(10_000);
+    ctx.clock.advance(15_000);
     await until(() => ctx.find(sender, "invite:resolved").length > 0, "resolved");
     expect(ctx.find(sender, "invite:resolved")[0]!.payload).toMatchObject({ answer: "decline", autoDeclined: true });
   });
 
-  it("target sedang giliran: timer dijeda lalu dilanjutkan dengan sisa waktu yang sama", async () => {
+  it("Ajakan ke pemain aktif tidak menjeda timer giliran", async () => {
     const ctx = await setup();
     const { active, others } = await startTurns(ctx);
     const sender = others[0];
@@ -180,22 +180,24 @@ describe("invite lewat socket", () => {
     const cardId = giveCard(ctx, sender.playerId, "commission");
     const ack = await send(sender, cardId, active);
     if (!ack.ok) throw new Error("send gagal");
-    await until(() => ctx.find(sender, "turn:timer").length > 0, "turn:timer paused");
-    expect(ctx.find(sender, "turn:timer")[0]!.payload).toMatchObject({
-      paused: true,
-      deadline: null,
-      remainingMs: 20_000,
+    const deadline = ctx.session().publicState().turnDeadline;
+    expect(deadline).toBe(ctx.clock.now() + 20_000);
+    expect(ctx.find(sender, "turn:timer")).toHaveLength(0);
+    ctx.clock.advance(15_000);
+    await until(() => ctx.find(sender, "invite:resolved").length > 0, "invite:resolved");
+    expect(ctx.find(sender, "invite:resolved").at(-1)!.payload).toMatchObject({
+      answer: "decline",
+      autoDeclined: true,
     });
-    expect(ctx.session().publicState().turnDeadline).toBeNull();
-    ctx.clock.advance(4_000);
-    await respond(active, ack.inviteId, "decline");
-    await until(() => ctx.find(sender, "turn:timer").length > 1, "turn:timer resume");
-    const resumed = ctx.find(sender, "turn:timer")[1]!.payload;
-    expect(resumed).toMatchObject({ paused: false, remainingMs: 20_000, deadline: ctx.clock.now() + 20_000 });
-    expect(ctx.session().publicState().turnDeadline).toBe(ctx.clock.now() + 20_000);
+    expect(ctx.session().publicState().turnDeadline).toBe(deadline);
+    expect(ctx.find(sender, "turn:timer")).toHaveLength(0);
+    expect(ctx.find(sender, "tile:opened")).toHaveLength(0);
+    ctx.clock.advance(5_000);
+    await until(() => ctx.find(sender, "tile:opened").length > 0, "tile:opened");
+    expect(ctx.find(sender, "tile:opened")[0]!.payload.autoPicked).toBe(true);
   });
 
-  it("pemain aktif tidak bisa memilih heksa saat timer dijeda untuk Ajakan", async () => {
+  it("pemain aktif tetap bisa memilih heksa saat Ajakan menunggu", async () => {
     const ctx = await setup();
     const { active, others } = await startTurns(ctx);
     const sender = others[0];
@@ -203,12 +205,12 @@ describe("invite lewat socket", () => {
     const ack = await send(sender, cardId, active);
     if (!ack.ok) throw new Error("send gagal");
     const options = ctx.find(active, "turn:options")[0]!.payload;
-    const blocked = await active.socket.emitWithAck("turn:choose", {
+    const chosen = await active.socket.emitWithAck("turn:choose", {
       requestId: rid(),
       turnId: options.turnId,
       hex: options.options[0].hex,
     });
-    expect(blocked).toMatchObject({ ok: false, error: "NOT_YOUR_TURN" });
+    expect(chosen).toEqual({ ok: true });
   });
 
   it("Ajakan kedua di ronde yang sama -> INVITE_LIMIT", async () => {
@@ -245,7 +247,7 @@ describe("invite lewat socket", () => {
     expect(JSON.stringify(patch.payload)).not.toContain("motive");
   });
 
-  it("target yang sedang giliran Burnout -> giliran pindah, tanpa turn:timer paused false dan tanpa timer tersisa", async () => {
+  it("target yang sedang giliran Burnout -> giliran berpindah dan timer lama dibersihkan", async () => {
     const ctx = await setup();
     const { active, others } = await startTurns(ctx);
     const sender = others[0];
@@ -254,13 +256,12 @@ describe("invite lewat socket", () => {
     const cardId = giveCard(ctx, sender.playerId, "trap");
     const ack = await send(sender, cardId, active);
     if (!ack.ok) throw new Error("send gagal");
-    await until(() => ctx.find(sender, "turn:timer").length > 0, "paused");
     const turnsBefore = ctx.find(sender, "turn:start").length;
     await respond(active, ack.inviteId, "join");
     await until(() => ctx.find(sender, "turn:start").length > turnsBefore, "giliran berikutnya");
     const next = ctx.find(sender, "turn:start").at(-1)!.payload;
     expect(next.playerId).not.toBe(active.playerId);
-    expect(ctx.find(sender, "turn:timer").filter((e) => e.payload.paused === false)).toHaveLength(0);
+    expect(ctx.find(sender, "turn:timer")).toHaveLength(0);
     expect(ctx.session().state.players[active.playerId]!.eliminated).toBe(true);
     // Hanya timer giliran pemain berikutnya; tidak ada timer Ajakan/giliran lama yang tertinggal.
     expect(ctx.clock.pending).toBe(withTurnTimer);
@@ -289,7 +290,7 @@ describe("invite lewat socket", () => {
     const janitorOnly = ctx.clock.pending - 1;
     const cardId = giveCard(ctx, sender.playerId, "commission");
     await send(sender, cardId, active);
-    expect(ctx.clock.pending).toBe(janitorOnly + 1); // timer giliran dijeda, tersisa timer Ajakan
+    expect(ctx.clock.pending).toBe(janitorOnly + 2); // timer giliran tetap berjalan bersama timer Ajakan
     ctx.session().dispose();
     expect(ctx.clock.pending).toBe(janitorOnly);
   });

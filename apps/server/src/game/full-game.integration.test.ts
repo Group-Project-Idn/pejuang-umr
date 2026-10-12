@@ -155,7 +155,7 @@ describe("game penuh 3 bot", () => {
           targetPlayerId: target.playerId,
         });
       });
-      // Target menjawab bergantian Ikut/Tolak; bot pasif tidak pernah menjawab (timeout 10 detik).
+      // Target menjawab bergantian Ikut/Tolak; bot pasif tidak pernah menjawab (timeout 15 detik).
       let incomingSeen = 0;
       socket.on("invite:incoming", (payload) => {
         if (index === 2) return;
@@ -307,27 +307,8 @@ describe("game penuh 3 bot", () => {
     // Bot pasif tidak menjawab: Ajakan ke dia habis waktu.
     expect(resolvedAll.some((e) => e.payload.autoDeclined === true)).toBe(true);
 
-    // 6. Setiap turn:timer paused true diikuti paused false (turnId sama) sebelum turn:start berikutnya.
-    for (const bot of bots) {
-      let open: string | null = null;
-      for (const e of bot.log) {
-        if (e.type === "turn:timer") {
-          if (e.payload.paused) {
-            expect(open, `jeda ganda di ${bot.name}`).toBeNull();
-            open = e.payload.turnId;
-          } else {
-            expect(e.payload.turnId).toBe(open);
-            expect(e.payload.remainingMs).toBeGreaterThan(0);
-            open = null;
-          }
-        } else if (e.type === "player:eliminated" && open?.includes(e.payload.playerId)) {
-          open = null; // Burnout saat dijeda: giliran dibatalkan, tidak ada paused false
-        } else if (e.type === "turn:start" || e.type === "game:finished") {
-          if (e.type === "turn:start") expect(open, `turn:start saat masih dijeda di ${bot.name}`).toBeNull();
-          open = null;
-        }
-      }
-    }
+    // GDD 4.8: Ajakan tidak pernah menjeda Timer Giliran.
+    expect(bots.flatMap((bot) => bot.log).filter((entry) => entry.type === "turn:timer")).toHaveLength(0);
 
     expect(Date.now() - startedAt).toBeLessThan(20_000);
   }, 20_000);

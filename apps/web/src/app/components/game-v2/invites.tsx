@@ -59,7 +59,7 @@ export type InviteIncomingViewProps = {
   onRespond: (inviteId: string, answer: "join" | "decline") => void;
 };
 
-/** Ajakan masuk: ikut atau tolak dalam 10 detik (timer authoritative dari server). */
+/** Ajakan masuk: ikut atau tolak dalam 15 detik (timer authoritative dari server). */
 export function InviteIncomingView({ invite, pending, onRespond }: InviteIncomingViewProps) {
   return (
     <BottomSheet open={invite !== null} title="Ada ajakan buat kamu" onClose={() => undefined}>

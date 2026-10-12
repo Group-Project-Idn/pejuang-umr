@@ -19,7 +19,7 @@ export const RoomStateSchema = z.object({
   code: z.string().regex(/^UMR-\d{4}$/),
   status: z.enum(["waiting", "countdown", "playing", "finished"]),
   hostId: z.string().min(1),
-  turnSeconds: z.union([z.literal(30), z.literal(60)]),
+  turnSeconds: z.union([z.literal(15), z.literal(30), z.literal(60)]),
   players: z.array(RoomPlayerSchema).max(4),
   maxPlayers: z.literal(4),
   canStart: z.boolean(),

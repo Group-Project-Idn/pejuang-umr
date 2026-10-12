@@ -24,7 +24,7 @@ export const RoomPawnRequestSchema = RequestPayloadSchema.extend({
 });
 
 export const RoomTimerRequestSchema = RequestPayloadSchema.extend({
-  turnSeconds: z.union([z.literal(30), z.literal(60)]),
+  turnSeconds: z.union([z.literal(15), z.literal(30), z.literal(60)]),
 });
 
 export const RoomKickRequestSchema = RequestPayloadSchema.extend({
