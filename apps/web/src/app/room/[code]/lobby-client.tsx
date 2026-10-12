@@ -3,9 +3,12 @@
 import type {
   Ack,
   CalendarEventPayload,
+  DeadEndPayload,
+  HexCoord,
   PrivateStatus,
   RoomState,
   Snapshot,
+  TurnOptionsPayload,
 } from "@pejuang/shared";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -37,7 +40,9 @@ import {
   applySessionPlayerConnection,
   applySessionPublicEvent,
   applySessionSnapshot,
+  applySessionTurnOptions,
   applySessionTurnTimer,
+  clearAcceptedPrivateAction,
   createRoomSessionView,
   type RoomSessionView,
   type SessionTransition,
@@ -184,6 +189,12 @@ export function LobbyClient({ code }: { code: string }) {
     const onCalendarEvent = (payload: CalendarEventPayload) => {
       commitTransition((current) => applySessionCalendarEvent(current, payload));
     };
+    const onTurnOptions = (payload: TurnOptionsPayload) => {
+      commitSession((current) => applySessionTurnOptions(current, payload));
+    };
+    const onDeadEnd = (payload: DeadEndPayload) => {
+      commitSession((current) => applySessionTurnOptions(current, payload));
+    };
     const onKicked = () => {
       clearRoomCode();
       router.replace("/lobby");
@@ -209,6 +220,8 @@ export function LobbyClient({ code }: { code: string }) {
       ["game:patch", onGamePatch],
       ["player:status", onPlayerStatus],
       ["calendar:event", onCalendarEvent],
+      ["turn:options", onTurnOptions],
+      ["turn:dead-end", onDeadEnd],
       ["turn:timer", onTurnTimer],
       ["player:connection", onConnection],
       ["game:started", onGameStarted],
@@ -262,6 +275,49 @@ export function LobbyClient({ code }: { code: string }) {
     emit(socket);
   }
 
+  function answerCalendar(eventId: string, choice: CalendarEventPayload["choices"][number]["id"]) {
+    if (!socket || pending) return;
+    setPending("calendar");
+    socket.timeout(3_000).emit(
+      "calendar:answer",
+      { requestId: createRequestId(), eventId, choice },
+      (error, response) => {
+        const result: Ack = error ? { ok: false, error: "INTERNAL" } : response;
+        if (result.ok) {
+          const next = clearAcceptedPrivateAction(sessionViewRef.current, {
+            kind: "calendar",
+            eventId,
+          });
+          sessionViewRef.current = next;
+          setSessionView(next);
+        }
+        handleResponse("Jawaban kalender", result);
+      },
+    );
+  }
+
+  function chooseHex(turnId: string, hex: HexCoord, mode: "normal" | "deadEnd") {
+    if (!socket || pending) return;
+    setPending("turn");
+    const event = mode === "deadEnd" ? "turn:jump" : "turn:choose";
+    socket.timeout(3_000).emit(
+      event,
+      { requestId: createRequestId(), turnId, hex },
+      (error, response) => {
+        const result: Ack = error ? { ok: false, error: "INTERNAL" } : response;
+        if (result.ok) {
+          const next = clearAcceptedPrivateAction(sessionViewRef.current, {
+            kind: "turn",
+            turnId,
+          });
+          sessionViewRef.current = next;
+          setSessionView(next);
+        }
+        handleResponse(mode === "deadEnd" ? "Lompat" : "Pilih heksa", result);
+      },
+    );
+  }
+
   async function copyRoomCode() {
     const copied = await copyTextToClipboard(code, navigator.clipboard);
     setMessage(copied
@@ -283,6 +339,10 @@ export function LobbyClient({ code }: { code: string }) {
         connectionStatus={status}
         serverClockOffsetMs={sessionView.serverClockOffsetMs}
         timerRemainingMs={sessionView.gameView.timerRemainingMs}
+        actionMessage={message}
+        actionPending={pending === "calendar" || pending === "turn"}
+        onAnswerCalendar={answerCalendar}
+        onChooseHex={chooseHex}
       />
     );
   }

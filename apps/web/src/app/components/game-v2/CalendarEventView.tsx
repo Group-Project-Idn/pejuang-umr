@@ -5,7 +5,10 @@ import Button from "../ui/Button";
 export type CalendarEventViewProps = {
   event: CalendarEventPayload | null;
   pending: boolean;
-  onAnswer: (eventId: string, choiceId: string) => void;
+  onAnswer: (
+    eventId: string,
+    choiceId: CalendarEventPayload["choices"][number]["id"],
+  ) => void;
 };
 
 /** Popup Event Tanggal: pilih satu jawaban, lalu kirim ke server. */
@@ -17,8 +20,9 @@ export default function CalendarEventView({ event, pending, onAnswer }: Calendar
           className="grid gap-3"
           onSubmit={(ev) => {
             ev.preventDefault();
-            const choiceId = String(new FormData(ev.currentTarget).get("choice") ?? "");
-            if (choiceId) onAnswer(event.eventId, choiceId);
+            const choiceId = new FormData(ev.currentTarget).get("choice");
+            const choice = event.choices.find((candidate) => candidate.id === choiceId);
+            if (choice) onAnswer(event.eventId, choice.id);
           }}
         >
           <p className="text-body-sm text-teks-sekunder">{event.dateLabel}</p>

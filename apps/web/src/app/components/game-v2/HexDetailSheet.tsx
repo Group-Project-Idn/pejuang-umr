@@ -1,3 +1,4 @@
+import { formatRupiah } from "@pejuang/shared";
 import type { Effect, TileOption } from "@pejuang/shared";
 import { TILE_DETAILS } from "@/data/game";
 import BottomSheet from "../ui/BottomSheet";
@@ -10,6 +11,13 @@ const STAT_LABEL: Record<Effect["stat"], string> = {
   health: "Kesehatan",
   stress: "Level stres",
 };
+
+function effectValue(effect: Effect): string {
+  const value = effect.stat === "wealth" || effect.stat === "debt"
+    ? formatRupiah(effect.delta)
+    : String(Math.abs(effect.delta));
+  return `${effect.delta > 0 ? "+" : effect.delta < 0 ? "−" : ""}${value.replace("-", "")}`;
+}
 
 export type HexDetailSheetProps = {
   option: TileOption | null;
@@ -36,7 +44,7 @@ export default function HexDetailSheet({ option, pending, onChoose, onClose }: H
             <ul className="grid gap-1">
               {option.plan.map((effect, index) => (
                 <li key={`${effect.stat}-${index}`} className="text-body-sm text-teks-utama">
-                  {STAT_LABEL[effect.stat]} {effect.delta > 0 ? `+${effect.delta}` : effect.delta}
+                  {STAT_LABEL[effect.stat]} {effectValue(effect)}
                 </li>
               ))}
             </ul>

@@ -1,9 +1,11 @@
 import type {
   CalendarEventPayload,
+  DeadEndPayload,
   PrivateStatus,
   PublicGameState,
   RoomState,
   Snapshot,
+  TurnOptionsPayload,
 } from "@pejuang/shared";
 import {
   applyGamePatch,
@@ -110,6 +112,49 @@ export function applyPrivateStatus(
   };
 }
 
+/** Menyimpan opsi privat hanya untuk pemilik socket yang menerimanya. */
+export function applySessionTurnOptions(
+  current: RoomSessionView,
+  payload: TurnOptionsPayload | DeadEndPayload,
+): RoomSessionView {
+  if (!current.me || current.me.isSpectator) return current;
+  if (current.gameView.game?.activePlayerId !== current.me.playerId) return current;
+  return {
+    ...current,
+    me: { ...current.me, pendingTurn: payload },
+    privateRevision: current.privateRevision + 1,
+  };
+}
+
+/** Menutup prompt privat setelah server menerima aksi yang sesuai. */
+export function clearAcceptedPrivateAction(
+  current: RoomSessionView,
+  action: { kind: "turn"; turnId: string } | { kind: "calendar"; eventId: string },
+): RoomSessionView {
+  if (!current.me) return current;
+  if (
+    action.kind === "turn" &&
+    current.me.pendingTurn?.turnId === action.turnId
+  ) {
+    return {
+      ...current,
+      me: { ...current.me, pendingTurn: null },
+      privateRevision: current.privateRevision + 1,
+    };
+  }
+  if (
+    action.kind === "calendar" &&
+    current.me.pendingCalendar?.eventId === action.eventId
+  ) {
+    return {
+      ...current,
+      me: { ...current.me, pendingCalendar: null },
+      privateRevision: current.privateRevision + 1,
+    };
+  }
+  return current;
+}
+
 function versionTransition(
   current: RoomSessionView,
   version: number,
@@ -170,6 +215,19 @@ export function applySessionPublicEvent(
   return versionTransition(current, event.payload.version, (state) => {
     const nextGame = applyPublicGameEvent(state.gameView.game, event);
     const finished = event.type === "game:finished";
+    const clearCalendar = event.type === "turn:start";
+    const clearTurn =
+      event.type === "tile:opened" &&
+      state.me?.pendingTurn?.turnId === event.payload.turnId;
+    const nextMe = finished
+      ? clearPrivatePending(state.me)
+      : state.me && (clearCalendar || clearTurn)
+        ? {
+            ...state.me,
+            pendingCalendar: clearCalendar ? null : state.me.pendingCalendar,
+            pendingTurn: clearTurn ? null : state.me.pendingTurn,
+          }
+        : state.me;
     return {
       ...state,
       gameView: {
@@ -179,9 +237,9 @@ export function applySessionPublicEvent(
             ? null
             : state.gameView.timerRemainingMs,
       },
-      me: finished ? clearPrivatePending(state.me) : state.me,
+      me: nextMe,
       result: finished ? event.payload : state.result,
-      privateRevision: finished
+      privateRevision: finished || clearCalendar || clearTurn
         ? state.privateRevision + 1
         : state.privateRevision,
     };

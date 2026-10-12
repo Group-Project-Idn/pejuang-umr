@@ -123,11 +123,13 @@ describe("game penuh 3 bot", () => {
       });
       openSockets.push(socket);
       const log: Received[] = [];
+      let calendarChoiceIndex = index;
       socket.onAny((type, payload) => log.push({ type, payload }));
       const bot = { socket, playerId: guest.identity.playerId, name, log };
       socket.on("calendar:event", (event) => {
         if (index === 2) return;
-        const choice = event.choices[Math.floor(Math.random() * event.choices.length)]!;
+        const choice = event.choices[calendarChoiceIndex % event.choices.length]!;
+        calendarChoiceIndex += 1;
         void socket.emitWithAck("calendar:answer", {
           requestId: rid(),
           eventId: event.eventId,
