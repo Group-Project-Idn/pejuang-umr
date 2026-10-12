@@ -266,7 +266,16 @@ describe("game penuh 3 bot", () => {
     expect(hiddenTileIds.length).toBeGreaterThan(0);
     for (const bot of bots) {
       for (const entry of bot.log) {
-        const keys = collectKeys(entry.payload);
+        // `points` di game:finished (Poin Keuangan/Kesehatan/Ketenangan) adalah komponen skor publik
+        // (v1.12), bukan status privat, jadi dikecualikan dari pemeriksaan kunci status.
+        const keys = collectKeys(
+          entry.type === "game:finished"
+            ? {
+                ...entry.payload,
+                ranking: entry.payload.ranking.map(({ points: _points, ...rest }: any) => rest),
+              }
+            : entry.payload,
+        );
         // Motif hanya milik pemilik kartu (invite:card) dan hasil Ajakan per pemain (invite:resolved).
         if (!MOTIVE_ALLOWED_TYPES.has(entry.type)) {
           expect(keys.has("motive"), `motive di ${entry.type}`).toBe(false);

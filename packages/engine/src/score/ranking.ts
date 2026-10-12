@@ -1,9 +1,8 @@
 import type { PrivateStatus, ScoreRow } from "@pejuang/shared";
-import {
-  calculateWelfareScore,
-  type ModifierPct,
-  type WellnessModifierKind,
-} from "./score";
+import { calculateWelfareScore, type WelfarePoints } from "./score";
+
+/** Selisih skor di bawah ini dianggap sama (galat pembulatan desimal). */
+const SCORE_EPSILON = 1e-9;
 
 /** Satu entri pemain yang akan diperingkat (GDD 1.2). */
 export interface RankingEntry {
@@ -11,6 +10,8 @@ export interface RankingEntry {
   status: PrivateStatus;
   eliminated: boolean;
   eliminatedAtStep: number | null;
+  /** Skor yang dibekukan saat eliminasi (GDD 1.2 v1.12); bila kosong dihitung dari status. */
+  frozenScore?: number | null;
 }
 
 /** Hasil peringkat satu pemain (GDD 1.2, API_CONTRACT 9.5). */
@@ -19,8 +20,7 @@ export interface RankedPlayer {
   rank: number;
   score: number;
   netWorth: number;
-  modifier: WellnessModifierKind;
-  modifierPct: ModifierPct;
+  points: WelfarePoints;
   eliminated: boolean;
   eliminatedAtStep: number | null;
 }
@@ -46,10 +46,10 @@ function compareByRankingRules(a: WorkingEntry, b: WorkingEntry): number {
     if (aStep !== bStep) {
       return bStep - aStep;
     }
-    // Langkah sama: jatuh ke aturan b.
+    // Langkah sama: urut menurut skor beku, lalu tie-breaker (GDD 1.2 v1.12).
   }
   // b. Skor tinggi -> Hutang kecil -> Level Stress rendah.
-  if (a.score !== b.score) {
+  if (Math.abs(a.score - b.score) > SCORE_EPSILON) {
     return b.score - a.score;
   }
   if (a.debt !== b.debt) {
@@ -90,10 +90,9 @@ export function rankPlayers(
     return {
       playerId: entry.playerId,
       rank: 0,
-      score: welfare.score,
+      score: entry.eliminated ? (entry.frozenScore ?? welfare.score) : welfare.score,
       netWorth: welfare.netWorth,
-      modifier: welfare.modifier,
-      modifierPct: welfare.modifierPct,
+      points: welfare.points,
       eliminated: entry.eliminated,
       eliminatedAtStep: entry.eliminatedAtStep,
       debt: entry.status.debt,
@@ -118,8 +117,7 @@ export function rankPlayers(
     rank: entry.rank,
     score: entry.score,
     netWorth: entry.netWorth,
-    modifier: entry.modifier,
-    modifierPct: entry.modifierPct,
+    points: entry.points,
     eliminated: entry.eliminated,
     eliminatedAtStep: entry.eliminatedAtStep,
   }));

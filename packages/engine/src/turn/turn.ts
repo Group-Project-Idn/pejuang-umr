@@ -21,6 +21,7 @@ import type { RandomSource } from "../random";
 import { buildTileOption, type RealityContext } from "../reality/tile-option";
 import { resolveReality } from "../reality/resolve-reality";
 import { rankPlayers, toScoreRows, type RankingEntry } from "../score/ranking";
+import { calculateWelfareScore } from "../score/score";
 import type { RoundResult } from "./round";
 
 export type TurnResult =
@@ -35,6 +36,8 @@ export type TurnResult =
 export interface PlayerIdentity {
   name: string;
   pawn: PawnId;
+  /** Diisi server (G5); engine meneruskannya ke `game:finished`. */
+  avatarId?: string;
 }
 
 /** Nilai awal; server mengisi turnSeconds dan deadline yang sebenarnya. */
@@ -182,7 +185,10 @@ function applyChoice(
   };
 
   // Fase Berjalan: pion pindah, heksa terbuka, Rencana diterapkan.
-  const board = markHexUsed(state.board, hex);
+  const board = {
+    ...markHexUsed(state.board, hex),
+    goldOrigin: option.isGold ? null : state.board.goldOrigin,
+  };
   if (pending.mode === "deadEnd") apply([{ stat: "stress", delta: 1 }]);
   apply(option.plan);
   events.push({
@@ -240,14 +246,27 @@ function applyChoice(
     isBankrupt(status) ? "bankrupt" : isBurnout(status) ? "burnout" : null;
 
   const updatedPlayer: PlayerState = eliminatedReason
-    ? { status, eliminated: true, eliminatedAtStep: step, eliminatedReason, inviteCard: null }
+    ? {
+        status,
+        eliminated: true,
+        eliminatedAtStep: step,
+        eliminatedReason,
+        frozenScore: calculateWelfareScore(status).score,
+        inviteCard: null,
+      }
     : { ...player, status };
   const players = { ...state.players, [playerId]: updatedPlayer };
   if (eliminatedReason) {
     events.push({
       type: "player:eliminated",
       target: room,
-      payload: { version: 0, playerId, reason: eliminatedReason, step },
+      payload: {
+        version: 0,
+        playerId,
+        reason: eliminatedReason,
+        step,
+        frozenScore: calculateWelfareScore(status).score,
+      },
     });
   }
   events.push({ type: "player:status", target, payload: status });
@@ -310,6 +329,7 @@ export function rankingEntries(
     status: players[playerId]!.status,
     eliminated: players[playerId]!.eliminated,
     eliminatedAtStep: players[playerId]!.eliminatedAtStep,
+    frozenScore: players[playerId]!.frozenScore ?? null,
   }));
 }
 
@@ -391,10 +411,12 @@ export function finishGame(
       playerId: player.playerId,
       name: identity?.name ?? player.playerId,
       pawn: identity?.pawn ?? pawns[index % pawns.length]!,
+      ...(identity?.avatarId ? { avatarId: identity.avatarId } : {}),
+      points: player.points,
       finalScore: player.score,
       netWorth: player.netWorth,
-      modifier: player.modifier,
-      modifierPct: player.modifierPct,
+      modifier: "none" as const,
+      modifierPct: 0 as const,
       eliminated: player.eliminated,
       eliminatedAtStep: player.eliminatedAtStep,
     };

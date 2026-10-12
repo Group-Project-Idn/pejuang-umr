@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { getHexDistance, hexKey } from "@pejuang/shared";
+import { getHexDistance, getNeighbors, hexKey } from "@pejuang/shared";
+import { getEnterableHexes } from "../board/movement";
 import { SequenceRandomSource } from "../random";
 import { createGame } from "../game/create-game";
 import type { DomainEvent } from "../game/domain-events";
@@ -209,14 +210,18 @@ describe("Petak Emas (GDD 4.7)", () => {
   const GOLD_STEPS = [1, 5, 9, 13, 17, 21];
   const CENTER = { q: 0, r: 0 };
 
-  it("gold:spawned hanya di langkah 1,5,9,13,17,21; posisi >= 4 dari pusat", () => {
+  it("gold:spawned hanya di langkah 1,5,9,13,17,21; posisi <= 4 dari pusat dan tidak bersebelahan dengan pion", () => {
     for (let step = 1; step <= 24; step += 1) {
       const { events } = startRound(gameAtStep(step), rand());
       const spawned = ofType(events, "gold:spawned");
       if (GOLD_STEPS.includes(step)) {
         expect(spawned, `langkah ${step}`).toHaveLength(1);
         const gold = spawned[0]!.payload.gold;
-        expect(getHexDistance(CENTER, gold.hex)).toBeGreaterThanOrEqual(4);
+        expect(getHexDistance(CENTER, gold.hex)).toBeLessThanOrEqual(4);
+        const game = gameAtStep(step);
+        for (const pawn of game.public.pawns) {
+          expect(getHexDistance(pawn.hex, gold.hex)).toBeGreaterThan(1);
+        }
         expect(gold.expiresAtStep).toBe(step + 4);
       } else {
         expect(spawned, `langkah ${step}`).toHaveLength(0);
@@ -236,10 +241,13 @@ describe("Petak Emas (GDD 4.7)", () => {
     expect(burdenAt).toBeGreaterThan(spawnedAt);
   });
 
-  it("Petak Emas tak diambil -> gold:expired di langkah +4, heksa mati, lalu spawn baru", () => {
+  it("Petak Emas tak diambil -> gold:expired di langkah +4, heksa kembali ke petak asli, lalu spawn baru", () => {
     const opened = startRound(gameAtStep(1), rand()).state;
     const gold1 = opened.public.gold!;
     expect(gold1).not.toBeNull();
+    const originalTile = opened.board.goldOrigin!.tileId;
+    expect(opened.board.goldOrigin!.hexKey).toBe(hexKey(gold1.hex));
+    expect(opened.board.tiles[hexKey(gold1.hex)]).toBe(gold1.goldId);
     expect(gold1.expiresAtStep).toBe(5);
 
     const at5: GameState = {
@@ -258,14 +266,67 @@ describe("Petak Emas (GDD 4.7)", () => {
       goldId: gold1.goldId,
       hex: gold1.hex,
     });
-    expect(state.board.deadHexKeys).toContain(hexKey(gold1.hex));
-    expect(state.public.deadHexes).toContainEqual(gold1.hex);
+    expect(state.public.deadHexes).toEqual([]);
+    expect(state.board.usedHexKeys).not.toContain(hexKey(gold1.hex));
+    // Isi asli tidak pernah dikirim: tidak ada di event maupun state publik.
+    expect(JSON.stringify(events)).not.toContain(`"${originalTile}"`);
+    expect(JSON.stringify(toPublicState(state))).not.toContain(`"${originalTile}"`);
+    expect(JSON.stringify(opened.public)).not.toContain(`"${originalTile}"`);
 
     const spawned = ofType(events, "gold:spawned");
     expect(spawned).toHaveLength(1);
     const gold2 = state.public.gold!;
     expect(gold2.expiresAtStep).toBe(9);
-    expect(hexKey(gold2.hex)).not.toBe(hexKey(gold1.hex));
+    // Heksa lama kembali menjadi petak biasa dan bisa dipilih lagi sebagai Petak Emas baru.
+    const restored = state.board.tiles[hexKey(gold1.hex)];
+    if (hexKey(gold2.hex) === hexKey(gold1.hex)) {
+      expect(state.board.tiles[hexKey(gold1.hex)]).toBe(gold2.goldId);
+      expect(state.board.goldOrigin?.tileId).toBe(originalTile);
+    } else {
+      expect(restored).toBe(originalTile);
+      expect(state.board.goldOrigin?.hexKey).toBe(hexKey(gold2.hex));
+    }
+  });
+
+  it("heksa Petak Emas yang kembali bisa menyala lagi seperti heksa tertutup lain", () => {
+    const opened = startRound(gameAtStep(1), rand()).state;
+    const gold1 = opened.public.gold!;
+    const at5: GameState = {
+      ...opened,
+      phase: "roundStart",
+      movedThisRound: [],
+      pendingCalendarEvent: null,
+      public: { ...opened.public, calendar: getCalendarInfo(5) },
+    };
+    const { state } = startRound(at5, new SequenceRandomSource([0.5]));
+    const key = hexKey(gold1.hex);
+    if (state.public.gold && hexKey(state.public.gold.hex) === key) return;
+    expect(state.board.usedHexKeys).not.toContain(key);
+    expect(Object.keys(state.board.tiles)).toContain(key);
+    const neighbor = getNeighbors(gold1.hex).find(
+      (hex) => !state.board.usedHexKeys.includes(hexKey(hex)),
+    )!;
+    expect(getEnterableHexes(state.board, neighbor).map(hexKey)).toContain(key);
+  });
+
+  it("Petak Emas yang diambil tidak mengembalikan petak asli saat Petak Emas berikutnya muncul", () => {
+    const opened = startRound(gameAtStep(1), rand()).state;
+    const gold1 = opened.public.gold!;
+    const taken: GameState = {
+      ...opened,
+      board: {
+        ...opened.board,
+        usedHexKeys: [...opened.board.usedHexKeys, hexKey(gold1.hex)],
+        goldOrigin: null,
+      },
+      public: { ...opened.public, gold: null, calendar: getCalendarInfo(5) },
+      phase: "roundStart",
+      movedThisRound: [],
+      pendingCalendarEvent: null,
+    };
+    const { state, events } = startRound(taken, rand());
+    expect(ofType(events, "gold:expired")).toHaveLength(0);
+    expect(state.board.tiles[hexKey(gold1.hex)]).toBe(gold1.goldId);
   });
 });
 

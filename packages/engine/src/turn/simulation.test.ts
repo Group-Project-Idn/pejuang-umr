@@ -61,6 +61,21 @@ describe("simulasi game penuh", () => {
         playerCount,
         seed,
         (current, produced) => {
+          // Heksa Mati dihapus (v1.12): tidak ada di state publik maupun papan.
+          if (current.public.deadHexes.length > 0) fail("public.deadHexes tidak kosong");
+          if ("deadHexKeys" in current.board) fail("board memuat deadHexKeys");
+          // Isi petak asli di bawah Petak Emas tidak pernah dikirim ke klien.
+          const origin = current.board.goldOrigin;
+          if (origin) {
+            if (current.board.tiles[origin.hexKey] !== current.public.gold?.goldId) {
+              fail("goldOrigin tidak cocok dengan Petak Emas aktif");
+            }
+            const needle = `"${origin.tileId}"`;
+            if (JSON.stringify(current.public).includes(needle)) fail("public memuat isi asli");
+            if (produced.some((e) => JSON.stringify(e.payload).includes(needle))) {
+              fail("event memuat isi petak asli");
+            }
+          }
           // Privasi: JSON public state tidak memuat isi heksa selain Petak Emas aktif.
           if (
             index % 5 === 0 &&

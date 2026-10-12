@@ -5,6 +5,7 @@ import {
   createBoard,
   createInitialGameState,
   createStartPositions,
+  getBoardRadius,
   getHexDistance,
   hexKey,
   isInsideBoard,
@@ -42,19 +43,33 @@ describe("engine", () => {
   });
 
   it.each([
-    [2, [4, 4]],
-    [3, [4, 4, 4]],
-    [4, [3, 3, 3, 3]],
-  ])("menaruh titik awal %i pemain di cincin radius 2", (count, gaps) => {
+    [2, 3, [9, 9]],
+    [3, 3, [6, 6, 6]],
+    [4, 2, [3, 3, 3, 3]],
+  ])("menaruh titik awal %i pemain di cincin radius %i", (count, ringRadius, gaps) => {
     const ids = Array.from({ length: count }, (_, index) => `p${index}`);
     const hexes = createStartPositions(ids).map(({ hex }) => hex);
     expect(new Set(hexes.map(hexKey)).size).toBe(count);
-    expect(hexes.every((hex) => getHexDistance({ q: 0, r: 0 }, hex) === 2)).toBe(
-      true,
-    );
-    const distances = hexes.slice(0, count === 2 ? 1 : count).map((hex, index) =>
+    expect(
+      hexes.every((hex) => getHexDistance({ q: 0, r: 0 }, hex) === ringRadius),
+    ).toBe(true);
+    // Jarak antar pemain bersebelahan lewat cincin: berselang sama (2 pemain berseberangan).
+    const distances = hexes.map((hex, index) =>
       getHexDistance(hex, hexes[(index + 1) % count]!),
     );
-    expect(distances).toEqual(gaps.slice(0, distances.length));
+    if (count === 2) {
+      expect(distances[0]).toBe(ringRadius * 2);
+    } else {
+      expect(new Set(distances).size).toBe(1);
+    }
+    expect(gaps).toHaveLength(count);
+  });
+
+  it.each([2, 3, 4])("papan selalu radius 6 untuk %i pemain", (count) => {
+    const ids = Array.from({ length: count }, (_, index) => `p${index}`);
+    expect(getBoardRadius(ids.length)).toBe(6);
+    const state = createInitialGameState(ids, "g", new SequenceRandomSource([0.3]));
+    expect(state.boardRadius).toBe(6);
+    expect(state.deadHexes).toEqual([]);
   });
 });
