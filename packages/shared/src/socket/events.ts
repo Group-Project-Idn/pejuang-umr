@@ -7,6 +7,7 @@ import type {
   GameStartRequestSchema,
   InviteRespondRequestSchema,
   InviteSendRequestSchema,
+  MonthPayDebtRequestSchema,
   RoomRematchRequestSchema,
   SpectateEnterRequestSchema,
   TurnChooseRequestSchema,
@@ -28,6 +29,8 @@ import {
   GoldSpawnedPayloadSchema,
   PlayerConnectionPayloadSchema,
   PlayerEliminatedPayloadSchema,
+  ReflectionReadyPayloadSchema,
+  RoundRevealPayloadSchema,
   EmoteShownPayloadSchema,
   RoomCountdownPayloadSchema,
   RoomKickedPayloadSchema,
@@ -45,6 +48,7 @@ import {
   InviteResolvedPayloadSchema,
 } from "../schemas/invite";
 import type {
+  RoomAvatarRequestSchema,
   RoomCreateRequestSchema,
   RoomJoinRequestSchema,
   RoomKickRequestSchema,
@@ -86,6 +90,11 @@ export interface ClientToServerEvents {
     payload: z.infer<typeof RoomReadyRequestSchema>,
     ack: AckCallback,
   ) => void;
+  "room:avatar": (
+    payload: z.infer<typeof RoomAvatarRequestSchema>,
+    ack: AckCallback,
+  ) => void;
+  /** @deprecated v0.3: diganti `room:avatar`. */
   "room:pawn": (
     payload: z.infer<typeof RoomPawnRequestSchema>,
     ack: AckCallback,
@@ -118,6 +127,15 @@ export interface ClientToServerEvents {
     payload: z.infer<typeof TurnJumpRequestSchema>,
     ack: AckCallback,
   ) => void;
+  "month:pay-debt": (
+    payload: z.infer<typeof MonthPayDebtRequestSchema>,
+    ack: AckCallback<{
+      paid: number;
+      debtCleared: boolean;
+      stressDelta: 0 | -2;
+    }>,
+  ) => void;
+  /** @deprecated v0.3: mode penonton dihapus. */
   "spectate:enter": (
     payload: z.infer<typeof SpectateEnterRequestSchema>,
     ack: AckCallback<{ snapshot: Snapshot }>,
@@ -154,7 +172,10 @@ export interface ServerToClientEvents {
   "turn:start": (payload: z.infer<typeof TurnStartPayloadSchema>) => void;
   "turn:options": (payload: z.infer<typeof TurnOptionsPayloadSchema>) => void;
   "turn:dead-end": (payload: z.infer<typeof DeadEndPayloadSchema>) => void;
+  /** @deprecated v0.3: timer ditangani lewat `turn:start.deadline`. */
   "turn:timer": (payload: z.infer<typeof TurnTimerPayloadSchema>) => void;
+  "round:reveal": (payload: z.infer<typeof RoundRevealPayloadSchema>) => void;
+  "reflection:ready": (payload: z.infer<typeof ReflectionReadyPayloadSchema>) => void;
   "tile:opened": (payload: z.infer<typeof TileOpenedPayloadSchema>) => void;
   "tile:resolved": (payload: z.infer<typeof TileResolvedPayloadSchema>) => void;
   "gold:spawned": (payload: z.infer<typeof GoldSpawnedPayloadSchema>) => void;

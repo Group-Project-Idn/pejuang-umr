@@ -34,6 +34,5 @@ describe("applyDoomSpending (GDD 2.5)", () => {
     const result = applyDoomSpending(makeStatus(250_000, 0, 9), new SequenceRandomSource([0]));
     expect(result.status.wealth).toBe(0);
     expect(result.status.debt).toBe(500_000);
-    expect(result.shortfallWrittenOff).toBe(0);
   });
 });

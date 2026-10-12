@@ -249,7 +249,7 @@ describe("chooseHex", () => {
   });
 
   it("memindahkan pion, membuka heksa, dan mengubah Kekayaan sesuai Rencana + Realita", () => {
-    // hanging-out: Rencana Kekayaan -500rb (MP -1.000.000), Realita safe tanpa efek.
+    // hanging-out: Rencana Kekayaan -500rb, Realita safe tanpa efek.
     const { state, playerId, turnId } = begin(forceTile(makeGame(), "hanging-out"));
     const hex = state.pendingTurn!.options[0]!;
     const result = chooseHex(state, playerId, turnId, hex, safeRandom());
@@ -266,7 +266,7 @@ describe("chooseHex", () => {
       outcome: "safe",
     });
     expect(ofType(result.events, "tile:resolved")[0]!.payload.outcome).toBe("safe");
-    expect(next.players[playerId]!.status.wealth).toBe(6_500_000);
+    expect(next.players[playerId]!.status.wealth).toBe(7_000_000);
 
     expect(ofType(result.events, "player:status")[0]!.target).toEqual({
       kind: "player",
@@ -309,12 +309,12 @@ describe("chooseHex", () => {
     expect(doom.payload.stressAfter).toBe(9);
     const status = result.state.players[playerId]!.status;
     expect(status.stress).toBe(9);
-    expect(status.wealth).toBe(7_500_000 - 500_000 - doom.payload.amount);
+    expect(status.wealth).toBe(7_500_000 - 250_000 - doom.payload.amount);
     expect(result.state.players[playerId]!.eliminated).toBe(false);
   });
 
-  it("kekurangan dari Realita saat Hutang 25jt dihapus tanpa eliminasi", () => {
-    // hanging-out: Rencana -1.000.000 habis tepat; Realita zonk -1.500.000 melewati limit Hutang.
+  it("kekurangan dari Realita saat Hutang 25jt menjadi Hutang dan Bangkrut", () => {
+    // hanging-out: Rencana -500.000; Realita zonk -750.000, kekurangan 250.000 menjadi Hutang.
     const first = makeGame().public.turnOrder[0]!;
     const game = withStatus(forceTile(makeGame(), "hanging-out"), first, {
       wealth: 1_000_000,
@@ -328,13 +328,28 @@ describe("chooseHex", () => {
     expect(resolved.outcome).toBe("zonk");
     expect(resolved.effects).toContainEqual({
       stat: "wealth",
-      delta: -1_500_000,
+      delta: -750_000,
     });
     const player = result.state.players[playerId]!;
     expect(player.status.wealth).toBe(0);
+    expect(player.status.debt).toBe(25_250_000);
+    expect(player.eliminated).toBe(true);
+    expect(player.eliminatedReason).toBe("bankrupt");
+    expect(ofType(result.events, "player:eliminated")[0]!.payload.reason).toBe("bankrupt");
+  });
+
+  it("Hutang tepat Rp25jt setelah giliran belum Bangkrut", () => {
+    const first = makeGame().public.turnOrder[0]!;
+    const game = withStatus(forceTile(makeGame(), "hanging-out"), first, {
+      wealth: 1_000_000,
+      debt: 25_000_000,
+    });
+    const { state, playerId, turnId } = begin(game);
+    const result = chooseHex(state, playerId, turnId, state.pendingTurn!.options[0]!, safeRandom());
+    if (!result.ok) throw new Error(result.message);
+    const player = result.state.players[playerId]!;
     expect(player.status.debt).toBe(25_000_000);
     expect(player.eliminated).toBe(false);
-    expect(ofType(result.events, "player:eliminated")).toHaveLength(0);
   });
 
   it("Bangkrut: Doom saat Hutang 25jt dan Kekayaan 0", () => {
@@ -357,7 +372,7 @@ describe("chooseHex", () => {
   });
 
   it("Burnout: Kesehatan 0 setelah Rencana", () => {
-    // quick-freelance: Kesehatan -1 (MP -2) dari Kesehatan 1.
+    // quick-freelance: Kesehatan -1 dari Kesehatan 1.
     const first = makeGame().public.turnOrder[0]!;
     const game = withStatus(forceTile(makeGame(), "quick-freelance"), first, {
       health: 1,

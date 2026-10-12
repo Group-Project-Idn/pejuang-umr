@@ -1,4 +1,4 @@
-import type { PawnId, Snapshot } from "@pejuang/shared";
+import type { PawnId, Snapshot, TurnSeconds } from "@pejuang/shared";
 import {
   TOTAL_STEPS,
   answerCalendarEvent,
@@ -58,7 +58,7 @@ export class GameSession {
     readonly roomCode: string,
     state: GameState,
     readonly random: RandomSource,
-    readonly turnSeconds: 15 | 30 | 60,
+    readonly turnSeconds: TurnSeconds,
     readonly identities: Record<string, PlayerIdentity>,
     private readonly runtime: SessionRuntime = {
       clock: systemClock,

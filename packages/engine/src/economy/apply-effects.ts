@@ -5,13 +5,28 @@ export interface ApplyEffectsResult {
   status: PrivateStatus;
   debtAdded: number;
   debtStress: number;
-  shortfallWrittenOff: number;
 }
 
 function clampGauge(value: number): number {
   return Math.min(10, Math.max(0, value));
 }
 
+/**
+ * Jumlah kelipatan Rp5.000.000 yang dilewati saat Hutang naik dari `before`
+ * ke `after` (GDD 2.3 v1.12): lebih dari kelipatan, bukan sama dengan.
+ */
+function multiplesCrossed(before: number, after: number): number {
+  if (after <= before) return 0;
+  const below = (debt: number) =>
+    debt <= 0 ? 0 : Math.floor((debt - 1) / DEBT_STRESS_STEP);
+  return below(after) - below(before);
+}
+
+/**
+ * Menerapkan satu transaksi efek (GDD 2.3 v1.12). Hutang tidak punya batas
+ * atas dan kekurangan Kekayaan selalu menjadi Hutang. Hutang hanya berkurang
+ * lewat {@link payDebt}, jadi efek `debt` negatif diabaikan.
+ */
 export function applyEffects(
   status: PrivateStatus,
   effects: readonly Effect[],
@@ -19,36 +34,15 @@ export function applyEffects(
   const total = { wealth: 0, debt: 0, health: 0, stress: 0 };
   for (const effect of effects) total[effect.stat] += effect.delta;
 
-  const limit = status.debtLimit;
-  let wealthDelta = total.wealth;
-  let debt = status.debt;
-  let debtAdded = 0;
-
-  if (total.debt > 0) {
-    const added = Math.min(total.debt, limit - debt);
-    debt += added;
-    debtAdded += added;
-    if (total.wealth > 0) wealthDelta = added;
-  } else if (total.debt < 0) {
-    // Bayar Hutang (GDD 2.3 #3, #3a): dibatasi sisa Hutang dan Kekayaan yang ada.
-    const payable = total.wealth < 0 ? Math.min(-total.debt, status.wealth) : -total.debt;
-    const paid = Math.min(payable, debt);
-    debt -= paid;
-    if (total.wealth < 0) wealthDelta = -paid;
-  }
-
-  let wealth = status.wealth + wealthDelta;
-  let shortfallWrittenOff = 0;
+  let debt = status.debt + Math.max(0, total.debt);
+  let wealth = status.wealth + total.wealth;
   if (wealth < 0) {
-    const shortfall = -wealth;
-    const moved = Math.min(shortfall, limit - debt);
-    debt += moved;
-    debtAdded += moved;
-    shortfallWrittenOff = shortfall - moved;
+    debt += -wealth;
     wealth = 0;
   }
 
-  const debtStress = Math.ceil(debtAdded / DEBT_STRESS_STEP);
+  const debtAdded = debt - status.debt;
+  const debtStress = multiplesCrossed(status.debt, debt);
 
   return {
     status: {
@@ -60,6 +54,5 @@ export function applyEffects(
     },
     debtAdded,
     debtStress,
-    shortfallWrittenOff,
   };
 }

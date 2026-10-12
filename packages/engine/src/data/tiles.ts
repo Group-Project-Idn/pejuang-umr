@@ -1,7 +1,7 @@
 import { TileDefinitionSchema, type TileDefinition } from "./schema";
 
 // Katalog petak dari GDD 5.1 (rencana) dan 5.2 (tumpukan realita).
-// Nilai disimpan dalam nilai Solo (persis tabel GDD); engine mengali saat Multiplayer.
+// Nilai persis tabel GDD (1×), dipakai apa adanya.
 
 const TILE_DEFINITIONS: TileDefinition[] = [
   {
@@ -308,6 +308,64 @@ const TILE_DEFINITIONS: TileDefinition[] = [
     ],
   },
   {
+    id: "day-trip",
+    category: "social",
+    title: "Jalan-jalan",
+    plan: [
+      { stat: "wealth", delta: -1_000_000 },
+      { stat: "health", delta: 1 },
+      { stat: "stress", delta: -2 },
+    ],
+    baseZonkPct: 20,
+    realities: [
+      {
+        id: "day-trip-zonk-1",
+        outcome: "zonk",
+        text: "Macet parah di jalan",
+        effects: [
+          { stat: "stress", delta: 2 },
+        ],
+      },
+      {
+        id: "day-trip-zonk-2",
+        outcome: "zonk",
+        text: "Harga tiket dan makan di tempat wisata mahal",
+        effects: [
+          { stat: "wealth", delta: -500_000 },
+        ],
+      },
+      {
+        id: "day-trip-zonk-3",
+        outcome: "zonk",
+        text: "Kehujanan di jalan pulang",
+        effects: [
+          { stat: "health", delta: -1 },
+          { stat: "stress", delta: 1 },
+        ],
+      },
+      {
+        id: "day-trip-safe-1",
+        outcome: "safe",
+        text: "Jalan-jalan sesuai rencana",
+        effects: [],
+      },
+      {
+        id: "day-trip-safe-2",
+        outcome: "safe",
+        text: "Pulang capek tapi senang",
+        effects: [],
+      },
+      {
+        id: "day-trip-lucky-1",
+        outcome: "lucky",
+        text: "Dapat promo tiket",
+        effects: [
+          { stat: "wealth", delta: 250_000 },
+        ],
+      },
+    ],
+  },
+  {
     id: "buying-vitamins",
     category: "health",
     title: "Beli Vitamin",
@@ -503,55 +561,6 @@ const TILE_DEFINITIONS: TileDefinition[] = [
         outcome: "lucky",
         text: "Biaya admin dibebaskan",
         effects: [{ stat: "stress", delta: -1 }],
-      },
-    ],
-  },
-  {
-    id: "paying-debt",
-    category: "finance",
-    title: "Bayar Hutang",
-    plan: [
-      { stat: "wealth", delta: -2_500_000 },
-      { stat: "debt", delta: -2_500_000 },
-      { stat: "stress", delta: -1 },
-    ],
-    baseZonkPct: 10,
-    realities: [
-      {
-        id: "paying-debt-zonk-1",
-        outcome: "zonk",
-        text: "Salah transfer",
-        effects: [{ stat: "wealth", delta: -500_000 }],
-      },
-      {
-        id: "paying-debt-zonk-2",
-        outcome: "zonk",
-        text: "Denda keterlambatan tercatat",
-        effects: [{ stat: "debt", delta: 500_000 }],
-      },
-      {
-        id: "paying-debt-zonk-3",
-        outcome: "zonk",
-        text: "Aplikasi error, antre di CS",
-        effects: [{ stat: "stress", delta: 2 }],
-      },
-      {
-        id: "paying-debt-safe-1",
-        outcome: "safe",
-        text: "Pembayaran lunas tercatat",
-        effects: [],
-      },
-      {
-        id: "paying-debt-safe-2",
-        outcome: "safe",
-        text: "Pembayaran masuk, notifikasi terkirim",
-        effects: [],
-      },
-      {
-        id: "paying-debt-lucky-1",
-        outcome: "lucky",
-        text: "Cashback pelunasan",
-        effects: [{ stat: "wealth", delta: 500_000 }],
       },
     ],
   },

@@ -11,7 +11,6 @@ import {
 } from "./invite-plans";
 import { SEASON_ZONKS } from "./season-zonks";
 import { TILES } from "./tiles";
-import { toMultiplayerEffects } from "./multiplier";
 import { SEASON_BY_MONTH } from "./schema";
 
 const FORBIDDEN_IMPORT = "@pejuang/engine";
@@ -35,11 +34,12 @@ function listSourceFiles(dir: string): string[] {
 }
 
 describe("katalog data konten", () => {
-  it("memuat 12 petak biasa dengan 3 petak per kategori", () => {
+  it("memuat 12 petak biasa: 3 Kerja, 4 Sosial, 3 Kesehatan, 2 Keuangan", () => {
     expect(TILES).toHaveLength(12);
-    for (const category of ["work", "social", "health", "finance"]) {
+    const expected = { work: 3, social: 4, health: 3, finance: 2 };
+    for (const [category, count] of Object.entries(expected)) {
       expect(TILES.filter((tile) => tile.category === category)).toHaveLength(
-        3,
+        count,
       );
     }
   });
@@ -248,32 +248,101 @@ describe("katalog data konten", () => {
   });
 });
 
-describe("pengali Multiplayer", () => {
-  it("plan Lembur Proyek: wealth +2.500.000 menjadi +5.000.000", () => {
+describe("nilai konten 1x (GDD 1.3 v1.12)", () => {
+  it("Lembur Proyek: Rencana wealth +2.500.000 apa adanya", () => {
     const lembur = TILES.find((tile) => tile.id === "overtime-project");
-    expect(lembur).toBeDefined();
-    expect(toMultiplayerEffects(lembur?.plan ?? [])).toEqual([
-      { stat: "wealth", delta: 5_000_000 },
-    ]);
+    expect(lembur?.plan).toEqual([{ stat: "wealth", delta: 2_500_000 }]);
   });
 
-  it("'Bos marah': stress +3 tetap +3, health -2 menjadi -3", () => {
+  it("'Bos marah': stress +3, health -2 apa adanya", () => {
     const bosMarah = TILES.flatMap((tile) => tile.realities).find(
       (reality) => reality.text === "Bos marah",
     );
-    expect(bosMarah).toBeDefined();
-    expect(toMultiplayerEffects(bosMarah?.effects ?? [])).toEqual([
+    expect(bosMarah?.effects).toEqual([
       { stat: "stress", delta: 3 },
-      { stat: "health", delta: -3 },
+      { stat: "health", delta: -2 },
     ]);
   });
 
-  it("plan Ketemu Teman Lama: wealth -250.000 dan stress -1 menjadi -500.000 dan -2", () => {
-    const temanLama = TILES.find((tile) => tile.id === "old-friend-meetup");
-    expect(temanLama).toBeDefined();
-    expect(toMultiplayerEffects(temanLama?.plan ?? [])).toEqual([
-      { stat: "wealth", delta: -500_000 },
-      { stat: "stress", delta: -2 },
+  it("tidak ada efek debt bernilai negatif di konten", () => {
+    const effects = [
+      ...TILES.flatMap((tile) => [
+        ...tile.plan,
+        ...tile.realities.flatMap((reality) => reality.effects),
+      ]),
+      ...GOLD_TILES.flatMap((tile) => tile.plan),
+      ...SEASON_ZONKS.flatMap((zonk) => zonk.effects),
+      ...CALENDAR_EVENTS.flatMap((event) =>
+        Object.values(event.choices).flatMap((choice) => [
+          ...choice.effects,
+          ...(choice.chance?.effects ?? []),
+        ]),
+      ),
+    ];
+    expect(effects.filter((e) => e.stat === "debt" && e.delta < 0)).toEqual([]);
+  });
+
+  it("petak Jalan-jalan (day-trip) sesuai GDD 5.1 dan 5.2", () => {
+    expect(TILES.find((tile) => tile.id === "paying-debt")).toBeUndefined();
+    const trip = TILES.find((tile) => tile.id === "day-trip");
+    expect(trip).toMatchObject({
+      category: "social",
+      title: "Jalan-jalan",
+      baseZonkPct: 20,
+      plan: [
+        { stat: "wealth", delta: -1_000_000 },
+        { stat: "health", delta: 1 },
+        { stat: "stress", delta: -2 },
+      ],
+    });
+    expect(trip?.realities.map((r) => [r.outcome, r.text, r.effects])).toEqual([
+      ["zonk", "Macet parah di jalan", [{ stat: "stress", delta: 2 }]],
+      [
+        "zonk",
+        "Harga tiket dan makan di tempat wisata mahal",
+        [{ stat: "wealth", delta: -500_000 }],
+      ],
+      [
+        "zonk",
+        "Kehujanan di jalan pulang",
+        [
+          { stat: "health", delta: -1 },
+          { stat: "stress", delta: 1 },
+        ],
+      ],
+      ["safe", "Jalan-jalan sesuai rencana", []],
+      ["safe", "Pulang capek tapi senang", []],
+      ["lucky", "Dapat promo tiket", [{ stat: "wealth", delta: 250_000 }]],
+    ]);
+  });
+
+  it("Zonk Musim memakai id dan fokus GDD 3.4 v1.12", () => {
+    expect(SEASON_ZONKS.map((zonk) => zonk.id)).toEqual([
+      "rainy-flooded-motorbike",
+      "rainy-leaky-room",
+      "rainy-ojol-surge",
+      "dry-electricity-bill",
+      "dry-pam-water-outage",
+      "dry-dusty-motorbike",
+      "transition-fever",
+      "transition-flu-cough",
+      "transition-feverish-day",
+    ]);
+    const focusOf = (season: string) => [
+      ...new Set(
+        SEASON_ZONKS.filter((z) => z.season === season).map((z) => z.focus),
+      ),
+    ];
+    expect(focusOf("rainy")).toEqual(["Banjir dan Kehujanan"]);
+    expect(focusOf("dry")).toEqual(["Panas dan Polusi"]);
+    expect(focusOf("transition")).toEqual(["Sakit"]);
+  });
+
+  it("Kondangan Teman: join Kekayaan -250.000, Level Stress -1", () => {
+    const wedding = CALENDAR_EVENTS.find((event) => event.id === "wedding");
+    expect(wedding?.choices.join.effects).toEqual([
+      { stat: "wealth", delta: -250_000 },
+      { stat: "stress", delta: -1 },
     ]);
   });
 });

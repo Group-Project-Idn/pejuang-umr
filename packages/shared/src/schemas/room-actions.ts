@@ -1,8 +1,10 @@
 import { z } from "zod";
 import {
+  CharacterIdSchema,
   PawnIdSchema,
   RequestPayloadSchema,
   RoomCodeSchema,
+  TurnSecondsSchema,
 } from "./common";
 
 export const RoomCreateRequestSchema = RequestPayloadSchema;
@@ -19,12 +21,17 @@ export const RoomReadyRequestSchema = RequestPayloadSchema.extend({
   ready: z.boolean(),
 });
 
+export const RoomAvatarRequestSchema = RequestPayloadSchema.extend({
+  avatarId: CharacterIdSchema,
+});
+
+/** @deprecated v0.3: diganti `room:avatar`. */
 export const RoomPawnRequestSchema = RequestPayloadSchema.extend({
   pawn: PawnIdSchema,
 });
 
 export const RoomTimerRequestSchema = RequestPayloadSchema.extend({
-  turnSeconds: z.union([z.literal(15), z.literal(30), z.literal(60)]),
+  turnSeconds: TurnSecondsSchema,
 });
 
 export const RoomKickRequestSchema = RequestPayloadSchema.extend({

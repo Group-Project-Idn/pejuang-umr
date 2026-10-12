@@ -5,6 +5,7 @@ import type {
   RoomPlayer,
   RoomState,
   SocketData,
+  TurnSeconds,
 } from "@pejuang/shared";
 
 type RoomMutationResult =
@@ -182,7 +183,7 @@ export class RoomRepository {
     }));
   }
 
-  setTimer(playerId: string, turnSeconds: 15 | 30 | 60): RoomMutationResult {
+  setTimer(playerId: string, turnSeconds: TurnSeconds): RoomMutationResult {
     const room = this.getByPlayerMutable(playerId);
     if (!room) return { ok: false, error: "NOT_IN_ROOM" };
     if (room.hostId !== playerId) return { ok: false, error: "NOT_HOST" };

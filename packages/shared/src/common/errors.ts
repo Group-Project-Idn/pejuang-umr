@@ -25,6 +25,9 @@ export const ERROR_CODES = [
   "INVITE_EXPIRED",
   "NOT_ELIMINATED",
   "GAME_FINISHED",
+  "AVATAR_TAKEN",
+  "INVITE_NOT_ALLOWED",
+  "PAYMENT_CLOSED",
   "INTERNAL",
 ] as const;
 

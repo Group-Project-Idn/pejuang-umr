@@ -14,7 +14,7 @@ import { getCalendarInfo } from "../calendar/calendar";
 import { applyEffects } from "../economy/apply-effects";
 import { applyDoomSpending } from "../economy/doom";
 import { TOTAL_STEPS } from "../economy/schedule";
-import { isBurnout, type EliminationReason } from "../economy/elimination";
+import { isBankrupt, isBurnout, type EliminationReason } from "../economy/elimination";
 import type { DomainEvent } from "../game/domain-events";
 import type { GameState, PlayerState } from "../game/game-state";
 import type { RandomSource } from "../random";
@@ -180,7 +180,6 @@ function applyChoice(
   const apply = (effects: Parameters<typeof applyEffects>[1]) => {
     status = applyEffects(status, effects).status;
   };
-  let bankrupt = false;
 
   // Fase Berjalan: pion pindah, heksa terbuka, Rencana diterapkan.
   const board = markHexUsed(state.board, hex);
@@ -230,7 +229,6 @@ function applyChoice(
   const doom = applyDoomSpending(status, random);
   if (doom.triggered) {
     status = doom.status;
-    bankrupt = doom.shortfallWrittenOff > 0;
     events.push({
       type: "doom:triggered",
       target,
@@ -239,7 +237,7 @@ function applyChoice(
   }
 
   const eliminatedReason: EliminationReason | null =
-    bankrupt ? "bankrupt" : isBurnout(status) ? "burnout" : null;
+    isBankrupt(status) ? "bankrupt" : isBurnout(status) ? "burnout" : null;
 
   const updatedPlayer: PlayerState = eliminatedReason
     ? { status, eliminated: true, eliminatedAtStep: step, eliminatedReason, inviteCard: null }

@@ -117,7 +117,7 @@ function resolveInvite(
   const rule = INVITE_MOTIVE_EFFECTS[motive][answer];
   const step = state.public.calendar.step;
 
-  // Nilai Ajakan sudah nilai Multiplayer: tidak dikali.
+  // Nilai Ajakan dipakai apa adanya (1×).
   const targetEffects: Effect[] =
     answer === "join"
       ? [...(rule.planAppliesToTarget ? pending.planEffects : []), ...rule.targetExtra]

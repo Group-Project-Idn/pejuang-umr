@@ -3,61 +3,64 @@ import {
   type SeasonZonkDefinition,
 } from "./schema";
 
-// 9 Zonk Musim dari GDD 3.4 (3 varian per musim). Nilai Solo persis tabel GDD.
+// 9 Zonk Musim dari GDD 3.4 (3 varian per musim). Nilai persis tabel GDD (1×).
 
 const SEASON_ZONK_DEFINITIONS: SeasonZonkDefinition[] = [
   {
-    id: "rainy-mud-engine",
+    id: "rainy-flooded-motorbike",
     season: "rainy",
-    focus: "Cuci Kendaraan",
-    title: "Motor Kena Lumpur Banjir",
+    focus: "Banjir dan Kehujanan",
+    title: "Motor Mogok Terendam Banjir",
+    effects: [
+      { stat: "wealth", delta: -500_000 },
+      { stat: "stress", delta: 1 },
+    ],
+  },
+  {
+    id: "rainy-leaky-room",
+    season: "rainy",
+    focus: "Banjir dan Kehujanan",
+    title: "Atap Kos Bocor, Barang Rusak",
+    effects: [
+      { stat: "wealth", delta: -300_000 },
+    ],
+  },
+  {
+    id: "rainy-ojol-surge",
+    season: "rainy",
+    focus: "Banjir dan Kehujanan",
+    title: "Tarif Ojol Naik Saat Hujan",
+    effects: [
+      { stat: "wealth", delta: -150_000 },
+      { stat: "stress", delta: 1 },
+    ],
+  },
+  {
+    id: "dry-electricity-bill",
+    season: "dry",
+    focus: "Panas dan Polusi",
+    title: "Tagihan Listrik Naik karena Kipas dan AC",
     effects: [
       { stat: "wealth", delta: -250_000 },
+    ],
+  },
+  {
+    id: "dry-pam-water-outage",
+    season: "dry",
+    focus: "Panas dan Polusi",
+    title: "Air PAM Mati, Beli Air Galon",
+    effects: [
+      { stat: "wealth", delta: -200_000 },
       { stat: "stress", delta: 1 },
     ],
   },
   {
-    id: "rainy-wet-oil-change",
-    season: "rainy",
-    focus: "Cuci Kendaraan",
-    title: "Cuci dan Ganti Oli Habis Kehujanan",
-    effects: [{ stat: "wealth", delta: -500_000 }],
-  },
-  {
-    id: "rainy-moldy-body",
-    season: "rainy",
-    focus: "Cuci Kendaraan",
-    title: "Bodi dan Jok Berjamur",
-    effects: [
-      { stat: "wealth", delta: -750_000 },
-      { stat: "stress", delta: 1 },
-    ],
-  },
-  {
-    id: "dry-overheat-engine",
+    id: "dry-dusty-motorbike",
     season: "dry",
-    focus: "Kendaraan Rusak",
-    title: "Mesin Overheat",
+    focus: "Panas dan Polusi",
+    title: "Motor Penuh Debu, Cuci dan Servis Ringan",
     effects: [
-      { stat: "wealth", delta: -1_500_000 },
-      { stat: "stress", delta: 1 },
-    ],
-  },
-  {
-    id: "dry-dead-battery",
-    season: "dry",
-    focus: "Kendaraan Rusak",
-    title: "Aki Soak",
-    effects: [{ stat: "wealth", delta: -1_000_000 }],
-  },
-  {
-    id: "dry-burst-tire",
-    season: "dry",
-    focus: "Kendaraan Rusak",
-    title: "Ban Pecah di Aspal Panas",
-    effects: [
-      { stat: "wealth", delta: -750_000 },
-      { stat: "stress", delta: 1 },
+      { stat: "wealth", delta: -150_000 },
     ],
   },
   {
