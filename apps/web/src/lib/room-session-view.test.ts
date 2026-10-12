@@ -91,6 +91,27 @@ const newerStatus: PrivateStatus = {
 };
 
 describe("room session recovery", () => {
+  it("menerima round:reveal di antara tile:opened dan tile:resolved tanpa meminta resume", () => {
+    const initial = applySessionSnapshot(createRoomSessionView(), snapshot(3), 10_000);
+    const reveal = applySessionPublicEvent(initial, {
+      type: "round:reveal",
+      payload: { version: 4, round: 1, step: 1, order: [] },
+    });
+    expect(reveal.needsResume).toBe(false);
+    expect(reveal.state.gameView.game?.phase).toBe("reveal");
+    const duplicate = applySessionPublicEvent(reveal.state, {
+      type: "round:reveal",
+      payload: { version: 4, round: 1, step: 1, order: [] },
+    });
+    expect(duplicate.needsResume).toBe(false);
+    expect(duplicate.state).toBe(reveal.state);
+    const next = applySessionPublicEvent(reveal.state, {
+      type: "tile:resolved",
+      payload: { version: 5, round: 1, turnId: "turn-1", playerId: "p1", hex: { q: 1, r: 0 }, outcome: "safe", text: "Aman", effects: [], seasonal: false },
+    });
+    expect(next.needsResume).toBe(false);
+    expect(next.state.gameView.game?.version).toBe(5);
+  });
   it("mengganti snapshot publik, privat, result, dan clock dalam satu state", () => {
     const incoming = snapshot(4);
     const state = applySessionSnapshot(createRoomSessionView(), incoming, 9_500);

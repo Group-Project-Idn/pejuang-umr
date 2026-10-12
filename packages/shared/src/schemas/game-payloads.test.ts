@@ -24,6 +24,7 @@ import {
   InviteIncomingPayloadSchema,
   InviteResolvedPayloadSchema,
 } from "./invite";
+import { PrivateStatusSchema } from "./common";
 
 const EFFECT = { stat: "wealth", delta: 1_500_000 } as const;
 
@@ -56,6 +57,17 @@ const PRIVATE_STATUS = {
 } as const;
 
 describe("bentuk payload S->C", () => {
+  it("status privat dan ringkasan bulan menerima Hutang di atas batas Bangkrut", () => {
+    const after = { ...PRIVATE_STATUS, debt: 25_000_001 };
+    expect(PrivateStatusSchema.safeParse(after).success).toBe(true);
+    expect(PrivateStatusSchema.safeParse({ ...after, debt: -1 }).success).toBe(false);
+    expect(PrivateStatusSchema.safeParse({ ...after, debt: 0.5 }).success).toBe(false);
+    expect(MonthSummaryPayloadSchema.safeParse({
+      month: 3, salary: 5_730_000, livingCost: 4_600_000,
+      interest: 750_000, interestAddedToDebt: 0, doomAmount: null,
+      before: PRIVATE_STATUS, after,
+    }).success).toBe(true);
+  });
   it("TileOptionSchema menerima opsi heksa yang valid", () => {
     expect(TileOptionSchema.safeParse(TILE_OPTION).success).toBe(true);
   });
@@ -138,6 +150,16 @@ describe("bentuk payload S->C", () => {
     ).toBe(true);
   });
 
+  it("InviteCardSchema menolak motif Jebakan yang sudah dihapus", () => {
+    expect(InviteCardSchema.safeParse({
+      cardId: "card-1",
+      plan: "hangout",
+      planEffects: [EFFECT],
+      motive: "trap",
+      expiresAtMonth: 3,
+    }).success).toBe(false);
+  });
+
   it("InviteIncomingPayloadSchema menerima ajakan masuk yang valid", () => {
     expect(
       InviteIncomingPayloadSchema.safeParse({
@@ -175,10 +197,9 @@ describe("bentuk payload S->C", () => {
             playerId: "p1",
             name: "Nick",
             pawn: "cream-circle",
-            finalScore: 100,
+            finalScore: 70,
             netWorth: 5_000_000,
-            modifier: "bonus",
-            modifierPct: 20,
+            points: { finance: 60, health: 80, calm: 70 },
             eliminated: false,
             eliminatedAtStep: null,
           },
@@ -279,16 +300,20 @@ describe("bentuk payload S->C", () => {
         version: 1,
         serverTime: 1_000,
         gameId: "game-1",
-        boardRadius: 4,
+        boardRadius: 6,
         turnSeconds: 30,
         turnOrder: ["p1", "p2"],
         startPositions: [
-          { playerId: "p1", hex: { q: 4, r: -4 } },
-          { playerId: "p2", hex: { q: -4, r: 4 } },
+          { playerId: "p1", hex: { q: 3, r: -3 } },
+          { playerId: "p2", hex: { q: -3, r: 3 } },
         ],
         calendar: CALENDAR_INFO,
       }).success,
     ).toBe(true);
+    expect(GameStartedPayloadSchema.safeParse({
+      version: 1, serverTime: 1_000, gameId: "game-1", boardRadius: 4,
+      turnSeconds: 30, turnOrder: ["p1", "p2"], startPositions: [], calendar: CALENDAR_INFO,
+    }).success).toBe(false);
   });
 
   it("SeasonChangedPayloadSchema menerima pergantian musim yang valid", () => {

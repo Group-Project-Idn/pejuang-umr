@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Effect, InviteCard, InvitePlan, PrivateStatus } from "@pejuang/shared";
-import { INVITE_PLANS, type ActiveInviteMotive } from "../data";
+import { INVITE_PLANS, type InviteMotive } from "../data";
 import { SequenceRandomSource } from "../random";
 import { createGame } from "../game/create-game";
 import type { DomainEvent } from "../game/domain-events";
@@ -15,7 +15,7 @@ function ofType<T extends DomainEvent["type"]>(events: readonly DomainEvent[], t
 
 const seeded = () => new SequenceRandomSource([0.5]);
 
-function cardOf(plan: InvitePlan, motive: ActiveInviteMotive, cardId = "c"): InviteCard {
+function cardOf(plan: InvitePlan, motive: InviteMotive, cardId = "c"): InviteCard {
   return {
     cardId,
     plan,
@@ -49,7 +49,7 @@ function begin(ids = ["a", "b", "c"]) {
 }
 
 /** x (pemain aktif) mengajak y dengan kartu tertentu. */
-function invited(plan: InvitePlan, motive: ActiveInviteMotive) {
+function invited(plan: InvitePlan, motive: InviteMotive) {
   const { state, x, y, z } = begin();
   const sent = sendInvite(withCard(state, x, cardOf(plan, motive)), x, "c", y);
   if (!sent.ok) throw new Error(sent.message);
@@ -216,7 +216,7 @@ describe("respondInvite dan expireInvite hanya mencatat", () => {
 /** x mengajak y, y menjawab (atau tidak), x memilih heksa, lalu Fase Pembalikan. */
 function playToReveal(
   plan: InvitePlan,
-  motive: ActiveInviteMotive,
+  motive: InviteMotive,
   answer: "join" | "decline" | null,
   yStatus: Partial<PrivateStatus> = { wealth: 5_000_000, health: 5, stress: 5 },
 ) {

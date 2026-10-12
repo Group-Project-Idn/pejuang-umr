@@ -276,6 +276,27 @@ describe("invite lewat socket (GDD 4.8 v1.12)", () => {
     expect(ctx.find(second, "invite:incoming")).toHaveLength(0);
   });
 
+  it("menerima jawaban tepat pada grace 500 ms dan menolak sesudahnya", async () => {
+    const accepted = await setup();
+    const acceptedTurn = await startTurns(accepted);
+    const acceptedCard = giveCard(accepted, acceptedTurn.active.playerId, "commission");
+    const acceptedAck = await send(acceptedTurn.active, acceptedCard, acceptedTurn.others[0]);
+    if (!acceptedAck.ok) throw new Error("send gagal");
+    accepted.clock.advance(15_500);
+    expect(await respond(acceptedTurn.others[0], acceptedAck.inviteId, "join")).toEqual({ ok: true });
+
+    const expired = await setup();
+    const expiredTurn = await startTurns(expired);
+    const expiredCard = giveCard(expired, expiredTurn.active.playerId, "commission");
+    const expiredAck = await send(expiredTurn.active, expiredCard, expiredTurn.others[0]);
+    if (!expiredAck.ok) throw new Error("send gagal");
+    expired.clock.advance(15_501);
+    expect(await respond(expiredTurn.others[0], expiredAck.inviteId, "join")).toMatchObject({
+      ok: false,
+      error: "INVITE_EXPIRED",
+    });
+  });
+
   it("reconnect saat Ajakan masih terbuka mendapat pendingInvite dengan deadline asli", async () => {
     const ctx = await setup();
     await startTurns(ctx);
@@ -326,10 +347,10 @@ describe("invite lewat socket (GDD 4.8 v1.12)", () => {
     await chooseFor(ctx, last);
     await tick();
     expect(ctx.find(last, "round:reveal")).toHaveLength(0);
-    ctx.clock.advance(14_999);
+    ctx.clock.advance(15_000); // deadline lewat, masih dalam grace 500 ms
     await tick();
     expect(ctx.find(last, "round:reveal")).toHaveLength(0);
-    ctx.clock.advance(1);
+    ctx.clock.advance(501);
     await until(() => ctx.find(last, "round:reveal").length > 0, "round:reveal");
     await until(() => ctx.find(last, "invite:resolved").length > 0, "invite:resolved");
     expect(ctx.find(last, "invite:resolved")[0]!.payload).toMatchObject({

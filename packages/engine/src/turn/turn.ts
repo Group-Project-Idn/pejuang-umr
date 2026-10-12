@@ -549,6 +549,17 @@ export function finishGame(
   state: GameState,
   identities: Record<string, PlayerIdentity> = {},
 ): RoundResult {
+  // GDD 4.7: Petak Emas yang belum diambil hangus juga saat permainan berakhir.
+  const gold = state.public.gold;
+  const origin = state.board.goldOrigin;
+  const board = gold && origin && origin.hexKey === hexKey(gold.hex)
+    ? { ...state.board, tiles: { ...state.board.tiles, [origin.hexKey]: origin.tileId }, goldOrigin: null }
+    : state.board;
+  const expiryEvents: DomainEvent[] = gold ? [{
+    type: "gold:expired",
+    target: { kind: "room" },
+    payload: { version: 0, goldId: gold.goldId, hex: gold.hex },
+  }] : [];
   const ranked = rankPlayers(rankingEntries(state.players, state.baseTurnOrder));
   const pawns = PawnIdSchema.options;
   const ranking = ranked.map((player) => {
@@ -563,8 +574,6 @@ export function finishGame(
       points: player.points,
       finalScore: player.score,
       netWorth: player.netWorth,
-      modifier: "none" as const,
-      modifierPct: 0 as const,
       eliminated: player.eliminated,
       eliminatedAtStep: player.eliminatedAtStep,
     };
@@ -573,12 +582,14 @@ export function finishGame(
     state: withPhase(
       {
         ...state,
+        board,
         pendingTurn: null,
-        public: { ...state.public, activePlayerId: null },
+        public: { ...state.public, activePlayerId: null, gold: null },
       },
       "finished",
     ),
     events: [
+      ...expiryEvents,
       { type: "game:finished", target: { kind: "room" }, payload: { version: 0, ranking } },
     ],
   };

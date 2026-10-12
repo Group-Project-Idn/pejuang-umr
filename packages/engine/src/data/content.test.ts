@@ -12,6 +12,7 @@ import {
 import { SEASON_ZONKS } from "./season-zonks";
 import { TILES } from "./tiles";
 import { SEASON_BY_MONTH } from "./schema";
+import { toMultiplayerEffects } from "./multiplier";
 
 const FORBIDDEN_IMPORT = "@pejuang/engine";
 const webSrcDir = join(
@@ -168,6 +169,18 @@ describe("katalog data konten", () => {
         SEASON_ZONKS.filter((zonk) => zonk.season === season),
       ).toHaveLength(3);
     }
+  });
+
+  it("Zonk Musim Hujan dan Kemarau sesuai efek GDD 3.4 v1.12", () => {
+    const expected = [
+      ["rainy", "Motor Mogok Terendam Banjir", [{ stat: "wealth", delta: -500_000 }, { stat: "stress", delta: 1 }]],
+      ["rainy", "Atap Kos Bocor, Barang Rusak", [{ stat: "wealth", delta: -300_000 }]],
+      ["rainy", "Tarif Ojol Naik Saat Hujan", [{ stat: "wealth", delta: -150_000 }, { stat: "stress", delta: 1 }]],
+      ["dry", "Tagihan Listrik Naik karena Kipas dan AC", [{ stat: "wealth", delta: -250_000 }]],
+      ["dry", "Air PAM Mati, Beli Air Galon", [{ stat: "wealth", delta: -200_000 }, { stat: "stress", delta: 1 }]],
+      ["dry", "Motor Penuh Debu, Cuci dan Servis Ringan", [{ stat: "wealth", delta: -150_000 }]],
+    ];
+    expect(SEASON_ZONKS.filter((zonk) => zonk.season !== "transition").map(({ season, title, effects }) => [season, title, effects])).toEqual(expected);
   });
 
   it("memuat 4 Rencana Ajakan dengan nilai GDD 4.8 v1.12 dan bobot motif 50/50", () => {
@@ -340,6 +353,19 @@ describe("nilai konten 1x (GDD 1.3 v1.12)", () => {
       { stat: "wealth", delta: -250_000 },
       { stat: "stress", delta: -1 },
     ]);
+  });
+
+  it("semua stat tidak dikali atau dijepit dan input tidak dimutasi", () => {
+    const effects = [{ stat: "wealth", delta: -750_000 }, { stat: "debt", delta: 5_000_000 }, { stat: "health", delta: -4 }, { stat: "stress", delta: 4 }] as const;
+    const result = toMultiplayerEffects(effects);
+    expect(result).toEqual(effects);
+    expect(result[0]).not.toBe(effects[0]);
+  });
+
+  it("Jalan-jalan menggantikan Bayar Hutang dan Kondangan berlaku Rp250.000", () => {
+    expect(TILES.some((tile) => tile.id === "paying-debt")).toBe(false);
+    expect(TILES.find((tile) => tile.id === "day-trip")).toMatchObject({ category: "social", baseZonkPct: 20, plan: [{ stat: "wealth", delta: -1_000_000 }, { stat: "health", delta: 1 }, { stat: "stress", delta: -2 }] });
+    expect(CALENDAR_EVENTS.find((event) => event.id === "wedding")?.choices.join.effects).toContainEqual({ stat: "wealth", delta: -250_000 });
   });
 });
 

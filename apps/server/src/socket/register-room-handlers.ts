@@ -350,7 +350,7 @@ export function registerRoomHandlers(
             version: session.nextVersion(),
             serverTime: Date.now(),
             gameId: game.gameId,
-            boardRadius: game.boardRadius,
+            boardRadius: 6,
             turnSeconds: playingRoom.turnSeconds,
             turnOrder: game.turnOrder,
             startPositions: game.pawns,

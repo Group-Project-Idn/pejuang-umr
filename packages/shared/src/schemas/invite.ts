@@ -8,7 +8,7 @@ export const InvitePlanSchema = z.enum([
   "staycation",
 ]);
 
-export const InviteMotiveSchema = z.enum(["sincere", "commission", "trap"]);
+export const InviteMotiveSchema = z.enum(["sincere", "commission"]);
 
 export const InviteCardSchema = z.strictObject({
   cardId: z.string().min(1),

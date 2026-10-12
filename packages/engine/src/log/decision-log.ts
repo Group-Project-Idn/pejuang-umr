@@ -1,5 +1,5 @@
 import type { Category, Effect, Outcome } from "@pejuang/shared";
-import type { ActiveInviteMotive } from "../data";
+import type { InviteMotive } from "../data";
 
 /**
  * Log keputusan per pemain (GDD 6.5 v1.12). Hanya hidup di GameState (server):
@@ -51,7 +51,7 @@ export type DecisionEntry =
       answer: "join" | "decline";
       autoDeclined: boolean;
       /** Motif dibuka di Fase Pembalikan, jadi baru tercatat saat hasil Ajakan. */
-      motive: ActiveInviteMotive;
+      motive: InviteMotive;
     }
   | { kind: "doom"; step: number; amount: number }
   | ({ kind: "roundEnd"; step: number } & IndicatorSnapshot);

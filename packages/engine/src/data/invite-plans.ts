@@ -1,5 +1,6 @@
 import {
   InvitePlanDefinitionSchema,
+  type InviteMotive,
   type InvitePlanDefinition,
 } from "./schema";
 
@@ -45,14 +46,8 @@ export const INVITE_PLANS = INVITE_PLAN_DEFINITIONS.map((plan) =>
   InvitePlanDefinitionSchema.parse(plan),
 );
 
-/**
- * Motif yang masih dibagikan engine (GDD 4.8 v1.12). Nilai "trap" tetap ada di
- * shared untuk kompatibilitas kontrak, tetapi engine tidak pernah membagikannya.
- */
-export type ActiveInviteMotive = "sincere" | "commission";
-
 /** Peluang motif saat kartu didapat (GDD 4.8 v1.12): Tulus 50%, Komisi 50%. */
-export const INVITE_MOTIVE_WEIGHTS: Record<ActiveInviteMotive, number> = {
+export const INVITE_MOTIVE_WEIGHTS: Record<InviteMotive, number> = {
   sincere: 50,
   commission: 50,
 };
@@ -68,7 +63,7 @@ type InviteOutcomeRule = {
 
 /** Hasil Ajakan per motif dan jawaban (GDD 4.8 v1.12). Motif dibuka ke pengirim dan target. */
 export const INVITE_MOTIVE_EFFECTS: Record<
-  ActiveInviteMotive,
+  InviteMotive,
   { join: InviteOutcomeRule; decline: InviteOutcomeRule }
 > = {
   sincere: {

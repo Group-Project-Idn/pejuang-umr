@@ -41,6 +41,8 @@ import { systemClock, type Clock, type TimerHandle } from "./clock";
 
 export const CALENDAR_SECONDS = 15;
 export const INVITE_SECONDS = 15;
+/** Toleransi transport; deadline yang dikirim ke klien tetap tidak berubah. */
+export const DEADLINE_GRACE_MS = 500;
 
 /** Pengaturan waktu fase Ganti Bulan dan Fase Pembalikan (dari config server). */
 export interface SessionTiming {
@@ -106,8 +108,10 @@ export class GameSession {
   }
 
   private calendarTimer: TimerHandle | null = null;
+  private calendarDeadline: number | null = null;
   private turnTimer: TimerHandle | null = null;
   private monthTimer: TimerHandle | null = null;
+  private monthDeadline: number | null = null;
   private revealTimer: TimerHandle | null = null;
   finished = false;
   /** Payload game:finished persis seperti yang dikirim (dengan version), untuk snapshot. */
@@ -122,6 +126,8 @@ export class GameSession {
   >();
   /** Semua pemain sudah melangkah tetapi Fase Pembalikan menunggu Ajakan terbuka (D6). */
   private awaitingInvites = false;
+  /** Batas waktu (epoch ms) tiap Ajakan terbuka, untuk menolak jawaban yang terlambat. */
+  private readonly inviteDeadlines = new Map<string, number>();
   /** Pemain tereliminasi yang memilih jadi penonton (public.spectators). */
   private readonly spectators = new Set<string>();
 
@@ -146,6 +152,10 @@ export class GameSession {
     amount: number,
   ): Ack<{ paid: number; debtCleared: boolean; stressDelta: 0 | -2 }> {
     if (this.finished) return { ok: false, error: "GAME_FINISHED" };
+    if (this.state.phase === "monthChange" && this.isPastDeadline(this.monthDeadline)) {
+      this.closeMonth();
+      return { ok: false, error: "PAYMENT_CLOSED" };
+    }
     const result = answerMonthPayment(this.state, playerId, month, amount);
     if (!result.ok) return { ok: false, error: result.code, message: result.message };
     this.state = result.state;
@@ -165,6 +175,10 @@ export class GameSession {
     choice: CalendarChoiceId,
   ): Ack {
     if (this.finished) return { ok: false, error: "GAME_FINISHED" };
+    if (this.isPastDeadline(this.calendarDeadline)) {
+      this.closeCalendar();
+      return { ok: false, error: "EVENT_CLOSED" };
+    }
     const result = answerCalendarEvent(this.state, playerId, eventId, choice);
     if (!result.ok) return { ok: false, error: result.code, message: result.message };
     this.state = result.state;
@@ -179,6 +193,10 @@ export class GameSession {
   /** turn:choose (mode "normal") dan turn:jump (mode "deadEnd"). */
   move(playerId: string, turnId: string, hex: HexCoord, kind: "choose" | "jump"): Ack {
     if (this.finished) return { ok: false, error: "GAME_FINISHED" };
+    if (this.isPastDeadline(this.turnDeadline)) {
+      this.onTurnTimeout(this.state.pendingTurn?.turnId ?? turnId);
+      return { ok: false, error: "STALE_VERSION" };
+    }
     const pending = this.state.pendingTurn;
     if (pending && pending.playerId === playerId && pending.turnId === turnId) {
       const expected = kind === "choose" ? "normal" : "deadEnd";
@@ -208,6 +226,7 @@ export class GameSession {
     const now = this.runtime.clock.now();
     const deadline = now + INVITE_SECONDS * 1000;
     const inviteId = result.state.roundInvites[result.state.roundInvites.length - 1]!.inviteId;
+    this.inviteDeadlines.set(inviteId, deadline);
     const events = result.events.map((event): DomainEvent => {
       if (event.type !== "invite:incoming") return event;
       const payload = {
@@ -221,7 +240,10 @@ export class GameSession {
     this.state = result.state;
     this.inviteTimers.set(
       inviteId,
-      this.runtime.clock.setTimeout(() => this.onInviteTimeout(inviteId), INVITE_SECONDS * 1000),
+      this.runtime.clock.setTimeout(
+        () => this.onInviteTimeout(inviteId),
+        INVITE_SECONDS * 1000 + DEADLINE_GRACE_MS + 1,
+      ),
     );
     this.emit(events, now);
     return { ok: true, inviteId, deadline };
@@ -230,6 +252,10 @@ export class GameSession {
   /** invite:respond. Hanya mencatat jawaban; hasilnya muncul di Fase Pembalikan. */
   respondInvite(playerId: string, inviteId: string, answer: "join" | "decline"): Ack {
     if (this.finished) return { ok: false, error: "GAME_FINISHED" };
+    if (this.isPastDeadline(this.inviteDeadlines.get(inviteId) ?? null)) {
+      this.onInviteTimeout(inviteId);
+      return { ok: false, error: "INVITE_EXPIRED" };
+    }
     const result = respondInvite(this.state, playerId, inviteId, answer);
     if (!result.ok) return { ok: false, error: result.code, message: result.message };
     this.state = result.state;
@@ -251,6 +277,7 @@ export class GameSession {
     const timer = this.inviteTimers.get(inviteId);
     if (timer !== undefined) this.runtime.clock.clearTimeout(timer);
     this.inviteTimers.delete(inviteId);
+    this.inviteDeadlines.delete(inviteId);
     this.openInvites.delete(inviteId);
     if (this.awaitingInvites && !hasOpenInvites(this.state)) {
       this.awaitingInvites = false;
@@ -261,6 +288,7 @@ export class GameSession {
   private clearInviteTimers(): void {
     for (const timer of this.inviteTimers.values()) this.runtime.clock.clearTimeout(timer);
     this.inviteTimers.clear();
+    this.inviteDeadlines.clear();
   }
 
   inviteCardFor(playerId: string): Snapshot["me"]["inviteCard"] {
@@ -282,10 +310,13 @@ export class GameSession {
     if (result.nextAction === "finished") return this.finish();
     if (this.state.phase === "monthChange") {
       // Debtor ditunggu sampai MONTH_PAY_SECONDS; tanpa debtor popup hanya tampil sebentar.
-      const waitMs = hasMonthDebtors(this.state)
-        ? this.timing.monthPaySeconds * 1000
-        : this.timing.monthSummaryOnlyMs;
-      this.monthTimer = this.runtime.clock.setTimeout(() => this.closeMonth(), waitMs);
+      const hasDebtors = hasMonthDebtors(this.state);
+      const waitMs = hasDebtors ? this.timing.monthPaySeconds * 1000 : this.timing.monthSummaryOnlyMs;
+      this.monthDeadline = hasDebtors ? this.runtime.clock.now() + waitMs : null;
+      this.monthTimer = this.runtime.clock.setTimeout(
+        () => this.closeMonth(),
+        waitMs + (hasDebtors ? DEADLINE_GRACE_MS + 1 : 0),
+      );
       return;
     }
     this.afterCalendarPhase();
@@ -294,9 +325,10 @@ export class GameSession {
   /** Setelah Fase Kalender: timer Event Tanggal bila ada, selain itu giliran. */
   private afterCalendarPhase(): void {
     if (this.state.phase === "calendarEvent") {
+      this.calendarDeadline = this.runtime.clock.now() + CALENDAR_SECONDS * 1000;
       this.calendarTimer = this.runtime.clock.setTimeout(
         () => this.closeCalendar(),
-        CALENDAR_SECONDS * 1000,
+        CALENDAR_SECONDS * 1000 + DEADLINE_GRACE_MS + 1,
       );
       return;
     }
@@ -330,7 +362,7 @@ export class GameSession {
     this.turnDeadline = now + this.turnSeconds * 1000;
     this.turnTimer = this.runtime.clock.setTimeout(
       () => this.onTurnTimeout(pending.turnId),
-      this.turnSeconds * 1000,
+      this.turnSeconds * 1000 + DEADLINE_GRACE_MS + 1,
     );
   }
 
@@ -433,11 +465,13 @@ export class GameSession {
   private clearCalendarTimer(): void {
     if (this.calendarTimer !== null) this.runtime.clock.clearTimeout(this.calendarTimer);
     this.calendarTimer = null;
+    this.calendarDeadline = null;
   }
 
   private clearMonthTimer(): void {
     if (this.monthTimer !== null) this.runtime.clock.clearTimeout(this.monthTimer);
     this.monthTimer = null;
+    this.monthDeadline = null;
   }
 
   private clearRevealTimer(): void {
@@ -449,6 +483,10 @@ export class GameSession {
     if (this.turnTimer !== null) this.runtime.clock.clearTimeout(this.turnTimer);
     this.turnTimer = null;
     this.turnDeadline = null;
+  }
+
+  private isPastDeadline(deadline: number | null): boolean {
+    return deadline !== null && this.runtime.clock.now() > deadline + DEADLINE_GRACE_MS;
   }
 
   /** State publik untuk snapshot. */

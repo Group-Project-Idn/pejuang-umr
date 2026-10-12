@@ -1,6 +1,6 @@
 import type { Effect, HexCoord, InviteCard, InvitePlan, Outcome, PrivateStatus, PublicGameState } from "@pejuang/shared";
 import type { BoardState } from "../board/board-state";
-import type { ActiveInviteMotive } from "../data";
+import type { InviteMotive } from "../data";
 import type { DecisionLog } from "../log/decision-log";
 import type { EliminationReason } from "../economy/elimination";
 
@@ -49,7 +49,7 @@ export interface RoundInvite {
   targetId: string;
   plan: InvitePlan;
   planEffects: Effect[];
-  motive: ActiveInviteMotive;
+  motive: InviteMotive;
   /** null selama target belum menjawab. */
   answer: "join" | "decline" | null;
   autoDeclined: boolean;

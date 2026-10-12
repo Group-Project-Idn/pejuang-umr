@@ -5,7 +5,6 @@ import Button from "../ui/Button";
 const MOTIVE_LABEL = {
   sincere: "Tulus",
   commission: "Komisi",
-  trap: "Jebakan",
 } as const;
 
 const PLAN_LABEL: Record<InvitePlan, string> = {

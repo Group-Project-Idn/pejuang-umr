@@ -2,10 +2,10 @@ import { afterAll, describe, expect, it } from "vitest";
 import { ReflectionSchema, hexKey } from "@pejuang/shared";
 import { buildPlayerReflection } from "../reflection/rules-insight";
 import type { DomainEvent } from "../game/domain-events";
+import { DEBT_LIMIT } from "../economy/constants";
 import { playRandomGame } from "./simulation-helpers";
 
 const GAME_COUNT = 200;
-const DEBT_LIMIT = 25_000_000;
 const MONTH_CHANGES = 11;
 const TOTAL_STEPS = 24;
 

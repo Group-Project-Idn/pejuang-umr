@@ -1,5 +1,5 @@
 import type { Effect, ErrorCode } from "@pejuang/shared";
-import { INVITE_MOTIVE_EFFECTS, type ActiveInviteMotive } from "../data";
+import { INVITE_MOTIVE_EFFECTS } from "../data";
 import type { DomainEvent } from "../game/domain-events";
 import type { GameState, RoundInvite } from "../game/game-state";
 import { appendDecision } from "../log/decision-log";
@@ -19,11 +19,6 @@ function fail(code: ErrorCode, message: string): { ok: false; code: ErrorCode; m
 /** Ada Ajakan ronde ini yang belum dijawab target (untuk server: tunda Fase Pembalikan). */
 export function hasOpenInvites(state: GameState): boolean {
   return state.roundInvites.some((invite) => invite.answer === null);
-}
-
-/** Motif "trap" tidak punya aturan di engine; kartu lama diperlakukan sebagai Tulus. */
-function toActiveMotive(motive: string): ActiveInviteMotive {
-  return motive === "commission" ? "commission" : "sincere";
 }
 
 /**
@@ -75,7 +70,7 @@ export function sendInvite(
     targetId,
     plan: card.plan,
     planEffects: card.planEffects,
-    motive: toActiveMotive(card.motive),
+    motive: card.motive,
     answer: null,
     autoDeclined: false,
   };

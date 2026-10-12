@@ -4,7 +4,6 @@ export {
   INVITE_MOTIVE_EFFECTS,
   INVITE_MOTIVE_WEIGHTS,
   INVITE_PLANS,
-  type ActiveInviteMotive,
 } from "./invite-plans";
 export * from "./schema";
 export { SEASON_ZONKS } from "./season-zonks";

@@ -12,6 +12,7 @@ export type GameStarted = Parameters<ServerToClientEvents["game:started"]>[0];
 export type TurnStart = Parameters<ServerToClientEvents["turn:start"]>[0];
 export type TileOpened = Parameters<ServerToClientEvents["tile:opened"]>[0];
 export type TileResolved = Parameters<ServerToClientEvents["tile:resolved"]>[0];
+export type RoundReveal = Parameters<ServerToClientEvents["round:reveal"]>[0];
 export type GoldSpawned = Parameters<ServerToClientEvents["gold:spawned"]>[0];
 export type GoldExpired = Parameters<ServerToClientEvents["gold:expired"]>[0];
 export type SeasonChanged = Parameters<ServerToClientEvents["season:changed"]>[0];
@@ -27,6 +28,7 @@ export type PublicGameEvent =
   | { type: "game:started"; payload: GameStarted }
   | { type: "turn:start"; payload: TurnStart }
   | { type: "tile:opened"; payload: TileOpened }
+  | { type: "round:reveal"; payload: RoundReveal }
   | { type: "tile:resolved"; payload: TileResolved }
   | { type: "gold:spawned"; payload: GoldSpawned }
   | { type: "gold:expired"; payload: GoldExpired }
@@ -150,6 +152,7 @@ export function applyTurnStart(
     activePlayerId: payload.playerId,
     turnDeadline: payload.deadline,
     turnPaused: false,
+    phase: "turn",
   };
 }
 
@@ -181,6 +184,8 @@ export function applyTileOpened(
             category: payload.category,
             title: payload.title,
             outcome: null,
+            plan: payload.plan,
+            reality: null,
             byPlayerId: payload.playerId,
             step: current!.calendar.step,
           },
@@ -198,11 +203,24 @@ export function applyTileResolved(
     ...current!,
     version: payload.version,
     openedHexes: current!.openedHexes.map((opened) =>
-      hexKey(opened.hex) === target
-        ? { ...opened, outcome: payload.outcome }
+      hexKey(opened.hex) === target && opened.byPlayerId === payload.playerId && opened.step === payload.round
+        ? { ...opened, outcome: payload.outcome, reality: {
+            outcome: payload.outcome,
+            text: payload.text,
+            effects: payload.effects,
+            seasonal: payload.seasonal,
+          } }
         : opened,
     ),
   };
+}
+
+export function applyRoundReveal(
+  current: PublicGameState | null,
+  payload: RoundReveal,
+): PublicGameState | null {
+  if (isStale(current, payload.version)) return current;
+  return { ...current!, version: payload.version, phase: "reveal", activePlayerId: null, turnDeadline: null };
 }
 
 export function applyGoldSpawned(
@@ -223,7 +241,6 @@ export function applyGoldExpired(
     ...current!,
     version: payload.version,
     gold: null,
-    deadHexes: [...current!.deadHexes, payload.hex],
   };
 }
 
@@ -269,6 +286,7 @@ export function applyGameFinished(
     activePlayerId: null,
     turnDeadline: null,
     turnPaused: true,
+    phase: "finished",
   };
 }
 
@@ -284,6 +302,8 @@ export function applyPublicGameEvent(
       return applyTurnStart(current, event.payload);
     case "tile:opened":
       return applyTileOpened(current, event.payload);
+    case "round:reveal":
+      return applyRoundReveal(current, event.payload);
     case "tile:resolved":
       return applyTileResolved(current, event.payload);
     case "gold:spawned":

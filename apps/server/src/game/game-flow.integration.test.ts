@@ -130,12 +130,29 @@ describe("alur ronde", () => {
     expect(turn.turnSeconds).toBe(30);
   });
 
-  it("waktu giliran habis -> tile:opened autoPicked true", async () => {
+  it("waktu giliran lewat deadline + 500 ms -> tile:opened autoPicked true", async () => {
     const ctx = await setup();
     await answerAll(ctx);
-    ctx.clock.advance(30_000);
+    ctx.clock.advance(30_501);
     await until(() => ctx.find(ctx.host, "tile:opened").length > 0, "tile:opened");
     expect(ctx.find(ctx.host, "tile:opened")[0]!.payload.autoPicked).toBe(true);
+  });
+
+  it("turn:choose tepat pada grace 500 ms masih diterima", async () => {
+    const ctx = await setup();
+    await answerAll(ctx);
+    const turn = ctx.find(ctx.host, "turn:start")[0]!.payload;
+    const active = turn.playerId === ctx.host.playerId ? ctx.host : ctx.guest;
+    await until(() => ctx.find(active, "turn:options").length > 0, "turn:options");
+    const hex = ctx.find(active, "turn:options")[0]!.payload.options[0].hex;
+    ctx.clock.advance(30_500);
+    expect(
+      await active.socket.emitWithAck("turn:choose", {
+        requestId: rid(),
+        turnId: turn.turnId,
+        hex,
+      }),
+    ).toEqual({ ok: true });
   });
 
   it("turn:choose oleh pemain yang bukan gilirannya -> NOT_YOUR_TURN", async () => {
@@ -180,12 +197,36 @@ describe("alur ronde", () => {
     expect(ctx.find(ctx.host, "turn:start")[1]!.payload.playerId).not.toBe(turn.playerId);
   });
 
-  it("Event Tanggal tanpa jawaban -> setelah 15 detik calendar:result autoChosen true", async () => {
+  it("Event Tanggal tanpa jawaban -> setelah deadline + 500 ms autoChosen true", async () => {
     const ctx = await setup();
-    ctx.clock.advance(15_000);
+    ctx.clock.advance(15_501);
     await until(() => ctx.find(ctx.host, "calendar:result").length > 0, "calendar:result");
     expect(ctx.find(ctx.host, "calendar:result")[0]!.payload.autoChosen).toBe(true);
     await until(() => ctx.find(ctx.host, "turn:start").length > 0, "turn:start");
+  });
+
+  it("calendar:answer tepat pada grace 500 ms diterima, sesudahnya ditolak", async () => {
+    const accepted = await setup();
+    const acceptedEvent = accepted.find(accepted.host, "calendar:event")[0]!.payload;
+    accepted.clock.advance(15_500);
+    expect(
+      await accepted.host.socket.emitWithAck("calendar:answer", {
+        requestId: rid(),
+        eventId: acceptedEvent.eventId,
+        choice: "skip",
+      }),
+    ).toEqual({ ok: true });
+
+    const expired = await setup();
+    const expiredEvent = expired.find(expired.host, "calendar:event")[0]!.payload;
+    expired.clock.advance(15_501);
+    expect(
+      await expired.host.socket.emitWithAck("calendar:answer", {
+        requestId: rid(),
+        eventId: expiredEvent.eventId,
+        choice: "skip",
+      }),
+    ).toMatchObject({ ok: false, error: "EVENT_CLOSED" });
   });
 
   it("tanpa aksi pemain game berjalan sampai selesai: room finished dan game:finished terkirim", async () => {
