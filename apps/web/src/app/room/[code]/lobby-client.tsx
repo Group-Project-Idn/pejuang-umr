@@ -3,21 +3,15 @@
 import type {
   Ack,
   PrivateStatus,
-  PublicGameState,
   RoomState,
   Snapshot,
 } from "@pejuang/shared";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import GameInterface from "@/app/components/game/GameInterface";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { clearGuestSession, readGuestSession } from "@/lib/guest-session";
 import {
-  acceptSnapshot,
-  applyGamePatch,
-  applyPlayerConnection,
-  applyPublicGameEvent,
-  applyRealtimeTurnTimer,
   type GameFinished,
   type GamePatch,
   type GameStarted,
@@ -34,7 +28,21 @@ import {
 } from "@/lib/game-view";
 import { createRequestId } from "@/lib/request-id";
 import { clearRoomCode, writeRoomCode } from "@/lib/room-session";
+import {
+  applyPrivateStatus,
+  applyRoomState,
+  applySessionGamePatch,
+  applySessionPlayerConnection,
+  applySessionPublicEvent,
+  applySessionSnapshot,
+  applySessionTurnTimer,
+  createRoomSessionView,
+  createSingleFlightGate,
+  type RoomSessionView,
+  type SessionTransition,
+} from "@/lib/room-session-view";
 import { disconnectSocket, getSocket, type GameSocket } from "@/lib/socket";
+import { subscribeSocketEvents } from "@/lib/socket-subscriptions";
 import { WaitingRoom } from "./waiting-room";
 
 export { getStartHelper, ROOM_COPY } from "./waiting-room";
@@ -42,19 +50,17 @@ export { getStartHelper, ROOM_COPY } from "./waiting-room";
 export function LobbyClient({ code }: { code: string }) {
   const router = useRouter();
   const [socket, setSocket] = useState<GameSocket | null>(null);
-  const [room, setRoom] = useState<RoomState | null>(null);
-  const [gameView, setGameView] = useState<{
-    game: PublicGameState | null;
-    timerRemainingMs: number | null;
-  }>({ game: null, timerRemainingMs: null });
-  const [privateMe, setPrivateMe] = useState<Snapshot["me"] | null>(null);
+  const sessionViewRef = useRef<RoomSessionView>(createRoomSessionView());
+  const [sessionView, setSessionView] = useState<RoomSessionView>(
+    createRoomSessionView,
+  );
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [status, setStatus] = useState("menghubungkan...");
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
-  const [serverClockOffsetMs, setServerClockOffsetMs] = useState(0);
-  const game = gameView.game;
+  const room = sessionView.room;
+  const game = sessionView.gameView.game;
 
   useEffect(() => {
     const session = readGuestSession();
@@ -66,12 +72,26 @@ export function LobbyClient({ code }: { code: string }) {
     writeRoomCode(code);
     const gameSocket = getSocket(session.token);
     queueMicrotask(() => setSocket(gameSocket));
+    const resumeGate = createSingleFlightGate();
+    let mounted = true;
+    const commitSession = (
+      update: (current: RoomSessionView) => RoomSessionView,
+    ) => {
+      if (!mounted) return;
+      const next = update(sessionViewRef.current);
+      sessionViewRef.current = next;
+      setSessionView(next);
+    };
     const resume = () => {
+      if (!resumeGate.tryStart()) return;
+      const privateRevisionAtRequest = sessionViewRef.current.privateRevision;
       setStatus("memulihkan room...");
       gameSocket.timeout(3_000).emit(
         "session:resume",
         { requestId: createRequestId(), roomCode: code },
         (error, response) => {
+          const retryResume = resumeGate.finish();
+          if (!mounted) return;
           if (error) {
             setStatus("gagal terhubung");
             setMessage("Server tidak merespons saat memulihkan room.");
@@ -83,30 +103,35 @@ export function LobbyClient({ code }: { code: string }) {
             router.replace("/lobby");
             return;
           }
-          setRoom(response.snapshot.room);
-          setPrivateMe(response.snapshot.me);
-          setServerClockOffsetMs(response.snapshot.serverTime - Date.now());
-          setGameView((currentView) => {
-            const currentGame = currentView.game;
-            if (
-              currentGame &&
-              response.snapshot.game &&
-              currentGame.gameId === response.snapshot.game.gameId &&
-              currentGame.version > response.snapshot.game.version
-            ) {
-              return { ...currentView, timerRemainingMs: null };
-            }
-            return {
-              game: response.snapshot.game,
-              timerRemainingMs: null,
-            };
+          let snapshotAccepted = false;
+          commitSession((current) => {
+            const next = applySessionSnapshot(
+              current,
+              response.snapshot,
+              Date.now(),
+              privateRevisionAtRequest,
+            );
+            snapshotAccepted = next !== current;
+            return next;
           });
           setStatus("terhubung");
+          if (retryResume || !snapshotAccepted) queueMicrotask(resume);
         },
       );
     };
+    const commitTransition = (
+      transition: (current: RoomSessionView) => SessionTransition,
+    ) => {
+      let needsResume = false;
+      commitSession((current) => {
+        const result = transition(current);
+        needsResume = result.needsResume;
+        return result.state;
+      });
+      if (needsResume) resume();
+    };
     const onRoomState = (nextRoom: RoomState) => {
-      setRoom(nextRoom);
+      commitSession((current) => applyRoomState(current, nextRoom));
       if (nextRoom.status !== "countdown") setCountdown(null);
     };
     const onDisconnect = () => {
@@ -117,37 +142,19 @@ export function LobbyClient({ code }: { code: string }) {
       setCountdown(deadline);
     };
     const onSnapshot = (snapshot: Snapshot) => {
-      setRoom(snapshot.room);
-      setPrivateMe(snapshot.me);
-      setServerClockOffsetMs(snapshot.serverTime - Date.now());
-      setGameView((currentView) => {
-        const currentGame = currentView.game;
-        const current = currentGame
-          ? { ...snapshot, game: currentGame }
-          : null;
-        return {
-          game: acceptSnapshot(current, snapshot).game,
-          timerRemainingMs: null,
-        };
-      });
+      commitSession((current) =>
+        applySessionSnapshot(current, snapshot, Date.now()),
+      );
       setCountdown(null);
     };
     const onGamePatch = (patch: GamePatch) => {
-      setGameView((currentView) => ({
-        ...currentView,
-        game: applyGamePatch(currentView.game, patch),
-      }));
+      commitTransition((current) => applySessionGamePatch(current, patch));
     };
     const onPlayerStatus = (nextStatus: PrivateStatus) => {
-      setPrivateMe((currentMe) =>
-        currentMe ? { ...currentMe, status: nextStatus } : currentMe,
-      );
+      commitSession((current) => applyPrivateStatus(current, nextStatus));
     };
     const onPublicGameEvent = (event: PublicGameEvent) => {
-      setGameView((currentView) => ({
-        ...currentView,
-        game: applyPublicGameEvent(currentView.game, event),
-      }));
+      commitTransition((current) => applySessionPublicEvent(current, event));
     };
     const onGameStarted = (payload: GameStarted) =>
       onPublicGameEvent({ type: "game:started", payload });
@@ -168,14 +175,12 @@ export function LobbyClient({ code }: { code: string }) {
     const onGameFinished = (payload: GameFinished) =>
       onPublicGameEvent({ type: "game:finished", payload });
     const onConnection = (payload: PlayerConnection) => {
-      setRoom((currentRoom) =>
-        currentRoom ? applyPlayerConnection(currentRoom, payload) : currentRoom,
+      commitTransition((current) =>
+        applySessionPlayerConnection(current, payload),
       );
     };
     const onTurnTimer = (timer: TurnTimer) => {
-      setGameView((currentView) =>
-        applyRealtimeTurnTimer(currentView, timer),
-      );
+      commitTransition((current) => applySessionTurnTimer(current, timer));
     };
     const onKicked = () => {
       clearRoomCode();
@@ -192,49 +197,33 @@ export function LobbyClient({ code }: { code: string }) {
       setStatus("gagal terhubung");
       setMessage("Server bermasalah. Periksa koneksi internet kamu.");
     };
-    gameSocket.on("connect_error", onConnectError);
-    gameSocket.on("connect", resume);
-    gameSocket.on("room:state", onRoomState);
-    gameSocket.on("disconnect", onDisconnect);
-    gameSocket.on("room:countdown", onCountdown);
-    gameSocket.on("session:snapshot", onSnapshot);
-    gameSocket.on("game:patch", onGamePatch);
-    gameSocket.on("player:status", onPlayerStatus);
-    gameSocket.on("turn:timer", onTurnTimer);
-    gameSocket.on("player:connection", onConnection);
-    gameSocket.on("game:started", onGameStarted);
-    gameSocket.on("turn:start", onTurnStart);
-    gameSocket.on("tile:opened", onTileOpened);
-    gameSocket.on("tile:resolved", onTileResolved);
-    gameSocket.on("gold:spawned", onGoldSpawned);
-    gameSocket.on("gold:expired", onGoldExpired);
-    gameSocket.on("season:changed", onSeasonChanged);
-    gameSocket.on("player:eliminated", onPlayerEliminated);
-    gameSocket.on("game:finished", onGameFinished);
-    gameSocket.on("room:kicked", onKicked);
+    const unsubscribe = subscribeSocketEvents(gameSocket, [
+      ["connect_error", onConnectError],
+      ["connect", resume],
+      ["room:state", onRoomState],
+      ["disconnect", onDisconnect],
+      ["room:countdown", onCountdown],
+      ["session:snapshot", onSnapshot],
+      ["game:patch", onGamePatch],
+      ["player:status", onPlayerStatus],
+      ["turn:timer", onTurnTimer],
+      ["player:connection", onConnection],
+      ["game:started", onGameStarted],
+      ["turn:start", onTurnStart],
+      ["tile:opened", onTileOpened],
+      ["tile:resolved", onTileResolved],
+      ["gold:spawned", onGoldSpawned],
+      ["gold:expired", onGoldExpired],
+      ["season:changed", onSeasonChanged],
+      ["player:eliminated", onPlayerEliminated],
+      ["game:finished", onGameFinished],
+      ["room:kicked", onKicked],
+    ]);
     if (gameSocket.connected) resume();
     else gameSocket.connect();
     return () => {
-      gameSocket.off("connect_error", onConnectError);
-      gameSocket.off("connect", resume);
-      gameSocket.off("room:state", onRoomState);
-      gameSocket.off("disconnect", onDisconnect);
-      gameSocket.off("room:countdown", onCountdown);
-      gameSocket.off("session:snapshot", onSnapshot);
-      gameSocket.off("game:patch", onGamePatch);
-      gameSocket.off("player:status", onPlayerStatus);
-      gameSocket.off("turn:timer", onTurnTimer);
-      gameSocket.off("player:connection", onConnection);
-      gameSocket.off("game:started", onGameStarted);
-      gameSocket.off("turn:start", onTurnStart);
-      gameSocket.off("tile:opened", onTileOpened);
-      gameSocket.off("tile:resolved", onTileResolved);
-      gameSocket.off("gold:spawned", onGoldSpawned);
-      gameSocket.off("gold:expired", onGoldExpired);
-      gameSocket.off("season:changed", onSeasonChanged);
-      gameSocket.off("player:eliminated", onPlayerEliminated);
-      gameSocket.off("game:finished", onGameFinished);
-      gameSocket.off("room:kicked", onKicked);
+      mounted = false;
+      unsubscribe();
     };
   }, [code, router]);
 
@@ -286,10 +275,10 @@ export function LobbyClient({ code }: { code: string }) {
       <GameInterface
         room={room}
         game={game}
-        me={privateMe}
+        me={sessionView.me}
         connectionStatus={status}
-        serverClockOffsetMs={serverClockOffsetMs}
-        timerRemainingMs={gameView.timerRemainingMs}
+        serverClockOffsetMs={sessionView.serverClockOffsetMs}
+        timerRemainingMs={sessionView.gameView.timerRemainingMs}
       />
     );
   }
@@ -299,7 +288,7 @@ export function LobbyClient({ code }: { code: string }) {
       room={room}
       playerId={playerId}
       connectionStatus={status}
-      serverClockOffsetMs={serverClockOffsetMs}
+      serverClockOffsetMs={sessionView.serverClockOffsetMs}
       countdownDeadline={countdown}
       busy={busy || !socket}
       message={message}
