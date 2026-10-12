@@ -17,6 +17,7 @@ import { TOTAL_STEPS } from "../economy/schedule";
 import { isBankrupt, isBurnout, type EliminationReason } from "../economy/elimination";
 import type { DomainEvent } from "../game/domain-events";
 import type { GameState, PlayerState } from "../game/game-state";
+import { withPhase } from "../game/phase";
 import type { RandomSource } from "../random";
 import { buildTileOption, type RealityContext } from "../reality/tile-option";
 import { resolveReality } from "../reality/resolve-reality";
@@ -142,13 +143,15 @@ export function startTurn(state: GameState, random: RandomSource): RoundResult {
     ];
 
     return {
-      state: {
-        ...state,
-        phase: "turn",
-        movedThisRound: [...state.movedThisRound, ...skipped],
-        public: { ...state.public, activePlayerId: playerId },
-        pendingTurn: { turnId, playerId, mode, options: hexes },
-      },
+      state: withPhase(
+        {
+          ...state,
+          movedThisRound: [...state.movedThisRound, ...skipped],
+          public: { ...state.public, activePlayerId: playerId },
+          pendingTurn: { turnId, playerId, mode, options: hexes },
+        },
+        "turn",
+      ),
       events,
     };
   }
@@ -178,13 +181,11 @@ function applyChoice(
   const from = state.public.pawns.find((p) => p.playerId === playerId)!.hex;
 
   let status: PrivateStatus = player.status;
-  // Kekurangan Kekayaan dari Rencana/Realita yang melewati limit Hutang dihapus
-  // tanpa eliminasi; Bangkrut hanya dari Doom Spending (GDD 1.4, 2.5).
   const apply = (effects: Parameters<typeof applyEffects>[1]) => {
     status = applyEffects(status, effects).status;
   };
 
-  // Fase Berjalan: pion pindah, heksa terbuka, Rencana diterapkan.
+  // Fase Berjalan (GDD 4.2 v1.12): pion pindah, heksa terbuka, Rencana diterapkan.
   const board = {
     ...markHexUsed(state.board, hex),
     goldOrigin: option.isGold ? null : state.board.goldOrigin,
@@ -208,114 +209,50 @@ function applyChoice(
       autoPicked,
     },
   });
-
-  // Fase Realita. Petak Emas tidak punya Realita (GDD 4.7).
-  let outcome: OpenedHex["outcome"] = null;
-  if (!option.isGold) {
-    const reality = resolveReality(tileId, context, random);
-    outcome = reality.outcome;
-    apply(reality.effects);
-    events.push({
-      type: "tile:resolved",
-      target: room,
-      payload: {
-        version: 0,
-        turnId: pending.turnId,
-        playerId,
-        hex,
-        outcome: reality.outcome,
-        text: reality.text,
-        effects: reality.effects,
-        seasonal: reality.seasonal,
-      },
-    });
-  }
-
-  // Doom Spending (GDD 2.5).
-  const doom = applyDoomSpending(status, random);
-  if (doom.triggered) {
-    status = doom.status;
-    events.push({
-      type: "doom:triggered",
-      target,
-      payload: { amount: doom.amount, trigger: "tile", stressAfter: status.stress },
-    });
-  }
-
-  const eliminatedReason: EliminationReason | null =
-    isBankrupt(status) ? "bankrupt" : isBurnout(status) ? "burnout" : null;
-
-  const updatedPlayer: PlayerState = eliminatedReason
-    ? {
-        status,
-        eliminated: true,
-        eliminatedAtStep: step,
-        eliminatedReason,
-        frozenScore: calculateWelfareScore(status).score,
-        inviteCard: null,
-      }
-    : { ...player, status };
-  const players = { ...state.players, [playerId]: updatedPlayer };
-  if (eliminatedReason) {
-    events.push({
-      type: "player:eliminated",
-      target: room,
-      payload: {
-        version: 0,
-        playerId,
-        reason: eliminatedReason,
-        step,
-        frozenScore: calculateWelfareScore(status).score,
-      },
-    });
-  }
   events.push({ type: "player:status", target, payload: status });
 
-  const scores = toScoreRows(rankingEntries(players, state.baseTurnOrder));
-  events.push({
-    type: "game:patch",
-    target: room,
-    payload: { version: 0, ops: [{ type: "scores", scores }] },
-  });
-
-  const openedHexes = [
-    ...state.public.openedHexes,
-    {
+  // Realita diundi sekarang dengan konteks saat memilih, tetapi disimpan
+  // tersembunyi sampai Fase Pembalikan. Petak Emas tidak punya Realita (GDD 4.7).
+  const pendingRealities = [...state.pendingRealities];
+  if (!option.isGold) {
+    const reality = resolveReality(tileId, context, random);
+    pendingRealities.push({
+      playerId,
+      turnId: pending.turnId,
       hex,
-      category: option.category,
-      title: option.title,
-      outcome,
-      byPlayerId: playerId,
-      step,
-    },
-  ];
+      outcome: reality.outcome,
+      text: reality.text,
+      effects: reality.effects,
+      seasonal: reality.seasonal,
+    });
+  }
+
   const next: GameState = {
     ...state,
     board,
-    players,
+    players: { ...state.players, [playerId]: { ...player, status } },
     pendingTurn: null,
+    pendingRealities,
     movedThisRound: [...state.movedThisRound, playerId],
     public: {
       ...state.public,
       pawns: state.public.pawns.map((p) => (p.playerId === playerId ? { ...p, hex } : p)),
-      openedHexes,
-      scores,
+      openedHexes: [
+        ...state.public.openedHexes,
+        {
+          hex,
+          category: option.category,
+          title: option.title,
+          outcome: null,
+          plan: option.plan,
+          reality: null,
+          byPlayerId: playerId,
+          step,
+        },
+      ],
       gold: option.isGold ? null : state.public.gold,
-      eliminated: eliminatedReason
-        ? [...state.public.eliminated, playerId]
-        : state.public.eliminated,
     },
   };
-
-  const early = checkEarlyFinish(next);
-  if (early) {
-    return {
-      ok: true,
-      state: early.state,
-      events: [...events, ...early.events],
-      nextAction: "finished",
-    };
-  }
   const nextAction = remainingPlayers(next).length > 0 ? "nextTurn" : "endRound";
   return { ok: true, state: next, events, nextAction };
 }
@@ -363,24 +300,154 @@ export function timeoutTurn(state: GameState, turnId: string, random: RandomSour
   return applyChoice(state, pending.playerId, hex, random, true);
 }
 
-/** Langkah 24 selesai -> finishGame; selain itu lanjut ke langkah berikutnya. */
-export function endRound(state: GameState, _random: RandomSource): RoundResult {
+/**
+ * Fase Pembalikan (GDD 4.2 dan 4.4 v1.12), dijalankan setelah semua pemain melangkah:
+ * round:reveal, Realita dibuka sesuai urutan giliran, Doom Spending, eliminasi,
+ * skor. Selesai bila pemain hidup <= 1 atau Langkah 24; selain itu maju ke ronde berikutnya.
+ */
+export function endRound(state: GameState, random: RandomSource): RoundResult {
   const step = state.public.calendar.step;
-  if (step >= TOTAL_STEPS) return finishGame(state);
-  return {
-    state: {
-      ...state,
-      phase: "roundStart",
-      pendingTurn: null,
-      movedThisRound: [],
-      public: {
-        ...state.public,
-        calendar: getCalendarInfo(step + 1),
-        activePlayerId: null,
+  const room = { kind: "room" } as const;
+  const events: DomainEvent[] = [];
+  const players = { ...state.players };
+  let openedHexes = state.public.openedHexes;
+
+  // a. Pemain yang melangkah di ronde ini, sesuai urutan giliran.
+  const order = state.public.turnOrder.flatMap((playerId) => {
+    const opened = state.public.openedHexes.find(
+      (entry) => entry.step === step && entry.byPlayerId === playerId,
+    );
+    return opened ? [{ playerId, hex: opened.hex }] : [];
+  });
+  events.push({
+    type: "round:reveal",
+    target: room,
+    payload: { version: 0, round: step, step, order },
+  });
+
+  // b. Realita dibuka dan efeknya diterapkan.
+  for (const { playerId } of order) {
+    const reality = state.pendingRealities.find((entry) => entry.playerId === playerId);
+    const player = players[playerId]!;
+    if (!reality || player.eliminated) continue;
+    const status = applyEffects(player.status, reality.effects).status;
+    players[playerId] = { ...player, status };
+    const target = { kind: "player", playerId } as const;
+    events.push({
+      type: "tile:resolved",
+      target: room,
+      payload: {
+        version: 0,
+        turnId: reality.turnId,
+        round: step,
+        playerId,
+        hex: reality.hex,
+        outcome: reality.outcome,
+        text: reality.text,
+        effects: reality.effects,
+        seasonal: reality.seasonal,
       },
+    });
+    events.push({ type: "player:status", target, payload: status });
+    const hexId = hexKey(reality.hex);
+    openedHexes = openedHexes.map((entry) =>
+      entry.step === step && entry.byPlayerId === playerId && hexKey(entry.hex) === hexId
+        ? {
+            ...entry,
+            outcome: reality.outcome,
+            reality: {
+              outcome: reality.outcome,
+              text: reality.text,
+              effects: reality.effects,
+              seasonal: reality.seasonal,
+            },
+          }
+        : entry,
+    );
+  }
+
+  // c. Doom Spending: sekali per pemain hidup dengan Level Stress >= 9.
+  for (const playerId of state.baseTurnOrder) {
+    const player = players[playerId]!;
+    if (player.eliminated) continue;
+    const doom = applyDoomSpending(player.status, random);
+    if (!doom.triggered) continue;
+    const target = { kind: "player", playerId } as const;
+    players[playerId] = { ...player, status: doom.status };
+    events.push({
+      type: "doom:triggered",
+      target,
+      payload: { amount: doom.amount, trigger: "tile", round: step, stressAfter: doom.status.stress },
+    });
+    events.push({ type: "player:status", target, payload: doom.status });
+  }
+
+  // d. Eliminasi: Bangkrut dulu, lalu Burnout. Skor dibekukan saat itu.
+  const eliminatedNow: string[] = [];
+  for (const playerId of state.baseTurnOrder) {
+    const player = players[playerId]!;
+    if (player.eliminated) continue;
+    const reason: EliminationReason | null = isBankrupt(player.status)
+      ? "bankrupt"
+      : isBurnout(player.status)
+        ? "burnout"
+        : null;
+    if (!reason) continue;
+    const frozenScore = calculateWelfareScore(player.status).score;
+    players[playerId] = {
+      ...player,
+      eliminated: true,
+      eliminatedAtStep: step,
+      eliminatedReason: reason,
+      frozenScore,
+      inviteCard: null,
+    };
+    eliminatedNow.push(playerId);
+    events.push({
+      type: "player:eliminated",
+      target: room,
+      payload: { version: 0, playerId, reason, step, frozenScore },
+    });
+  }
+
+  // e. Skor Sementara hanya berubah di akhir ronde.
+  const scores = toScoreRows(rankingEntries(players, state.baseTurnOrder));
+  events.push({
+    type: "game:patch",
+    target: room,
+    payload: { version: 0, ops: [{ type: "scores", scores }] },
+  });
+
+  const resolved: GameState = {
+    ...state,
+    players,
+    pendingTurn: null,
+    pendingRealities: [],
+    public: {
+      ...state.public,
+      openedHexes,
+      scores,
+      eliminated: [...state.public.eliminated, ...eliminatedNow],
+      activePlayerId: null,
     },
-    events: [],
   };
+
+  // f. Selesai bila pemain hidup <= 1 atau Langkah 24.
+  const alive = Object.values(players).filter((player) => !player.eliminated).length;
+  if (alive <= 1 || step >= TOTAL_STEPS) {
+    const finished = finishGame(resolved);
+    return { state: finished.state, events: [...events, ...finished.events], nextAction: "finished" };
+  }
+  const next = withPhase(
+    {
+      ...resolved,
+      movedThisRound: [],
+      public: { ...resolved.public, calendar: getCalendarInfo(step + 1) },
+    },
+    "roundStart",
+  );
+  // Selama jeda animasi, klien masih berada di Fase Pembalikan.
+  return { state: { ...next, public: { ...next.public, phase: "reveal" } }, events };
 }
 
 /**
@@ -422,12 +489,14 @@ export function finishGame(
     };
   });
   return {
-    state: {
-      ...state,
-      phase: "finished",
-      pendingTurn: null,
-      public: { ...state.public, activePlayerId: null },
-    },
+    state: withPhase(
+      {
+        ...state,
+        pendingTurn: null,
+        public: { ...state.public, activePlayerId: null },
+      },
+      "finished",
+    ),
     events: [
       { type: "game:finished", target: { kind: "room" }, payload: { version: 0, ranking } },
     ],
