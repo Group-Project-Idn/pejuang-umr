@@ -926,7 +926,7 @@ Urutan proses mengikuti GDD 2.4 v1.12: gaji → biaya hidup → bunga → slider
 Ack<{ paid: number; debtCleared: boolean; stressDelta: 0 | -2 }>;
 ```
 
-Error: `PAYMENT_CLOSED` (waktu habis atau sudah dibayar), `INVALID_PAYLOAD` (`amount` di luar batas). Waktu habis atau pemain putus = bayar Rp0. Hanya satu pembayaran per bulan. Jika Hutang menjadi 0 dari lebih dari 0, Level Stress -2 (GDD 2.4 v1.12). Setelah ack, server mengirim `player:status`.
+Error: `PAYMENT_CLOSED` (waktu habis atau sudah dibayar), `INVALID_PAYLOAD` (`amount` di luar batas). Pembayaran pada `payDebt.deadline + 500 ms` masih diterima; mulai `deadline + 501 ms` ditolak dan popup ditutup. Waktu habis atau pemain putus = bayar Rp0. Hanya satu pembayaran per bulan. Jika Hutang menjadi 0 dari lebih dari 0, Level Stress -2 (GDD 2.4 v1.12). Setelah ack, server mengirim `player:status`.
 
 ---
 

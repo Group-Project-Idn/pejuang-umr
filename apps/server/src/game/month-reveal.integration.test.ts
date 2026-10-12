@@ -205,8 +205,8 @@ describe("Ganti Bulan: month:pay-debt", () => {
     const hostSummary = ctx.find(ctx.host, "month:summary")[0]!.payload;
     expect(hostSummary.month).toBe(2);
     expect(hostSummary.payDebt.max).toBe(4_000_000);
-    const paymentTimer = latestTimer(ctx, MONTH_PAY_SECONDS * 1000);
-    expect(hostSummary.payDebt.deadline).toBe(paymentTimer.at + paymentTimer.ms);
+    const paymentTimer = latestTimer(ctx, MONTH_PAY_SECONDS * 1000 + 501);
+    expect(hostSummary.payDebt.deadline).toBe(paymentTimer.at + MONTH_PAY_SECONDS * 1000);
     expect(ctx.session.state.public.phase).toBe("calendar");
 
     // Di luar batas: lebih dari max, desimal, negatif -> INVALID_PAYLOAD, popup tetap terbuka.
@@ -252,7 +252,7 @@ describe("Ganti Bulan: month:pay-debt", () => {
     await openMonthChange(ctx, [[ctx.host.playerId, { debt: 4_000_000 }]]);
     expect(ctx.find(ctx.guest, "month:summary")[0]!.payload.payDebt).toBeNull();
 
-    advanceToTimer(ctx, MONTH_PAY_SECONDS * 1000, 1);
+    advanceToTimer(ctx, MONTH_PAY_SECONDS * 1000 + 501, 502);
     expect(ctx.session.state.phase).toBe("monthChange");
 
     expect(await pay(ctx.host, 2, 0)).toMatchObject({ ok: true, paid: 0 });
@@ -265,12 +265,30 @@ describe("Ganti Bulan: month:pay-debt", () => {
     await openMonthChange(ctx, [[ctx.host.playerId, { debt: 4_000_000 }]]);
     const before = ctx.session.state.players[ctx.host.playerId]!.status;
 
-    advanceToTimer(ctx, MONTH_PAY_SECONDS * 1000, 1);
+    advanceToTimer(ctx, MONTH_PAY_SECONDS * 1000 + 501, 502);
     expect(ctx.session.state.phase).toBe("monthChange");
-    advanceToTimer(ctx, MONTH_PAY_SECONDS * 1000);
+    ctx.clock.advance(1);
+    expect(ctx.session.state.phase).toBe("monthChange");
+    ctx.clock.advance(501);
     expect(ctx.session.state.phase).toBe("turn");
     expect(ctx.session.state.players[ctx.host.playerId]!.status).toEqual(before);
     expect(await pay(ctx.host, 2, 1_000)).toMatchObject({ ok: false, error: "PAYMENT_CLOSED" });
+  });
+
+  it("pembayaran tepat deadline + 500 ms diterima, + 501 ms ditolak", async () => {
+    const accepted = await setup();
+    await openMonthChange(accepted, [[accepted.host.playerId, { debt: 4_000_000 }]]);
+    const deadline = accepted.find(accepted.host, "month:summary")[0]!.payload.payDebt.deadline as number;
+    accepted.clock.advance(deadline + 500 - accepted.clock.now());
+    expect(await pay(accepted.host, 2, 1_000_000)).toMatchObject({ ok: true, paid: 1_000_000 });
+    expect(accepted.session.state.phase).toBe("turn");
+
+    const expired = await setup();
+    await openMonthChange(expired, [[expired.host.playerId, { debt: 4_000_000 }]]);
+    const expiredDeadline = expired.find(expired.host, "month:summary")[0]!.payload.payDebt.deadline as number;
+    expired.clock.advance(expiredDeadline + 501 - expired.clock.now());
+    expect(await pay(expired.host, 2, 1_000_000)).toMatchObject({ ok: false, error: "PAYMENT_CLOSED" });
+    expect(expired.session.state.players[expired.host.playerId]!.status.debt).toBe(4_000_000);
   });
 
   it("tanpa debtor: lanjut setelah MONTH_SUMMARY_ONLY_MS", async () => {
