@@ -20,7 +20,6 @@ export function createSnapshot(
       pendingInvite: session ? session.pendingInviteFor(playerId) : null,
       pendingMonth: session ? session.pendingMonthFor(playerId) : null,
       reflection: session ? session.reflectionFor(playerId) : null,
-      isSpectator: false, // @deprecated v1.12: mode penonton dihapus
     },
     result: session ? session.result : null,
   };

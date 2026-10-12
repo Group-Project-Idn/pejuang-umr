@@ -78,8 +78,7 @@ describe("simulasi game penuh", () => {
         playerCount,
         seed,
         (current, produced) => {
-          // Heksa Mati dihapus (v1.12): tidak ada di state publik maupun papan.
-          if (current.public.deadHexes.length > 0) fail("public.deadHexes tidak kosong");
+          // Heksa Mati dihapus (v1.12): tidak ada di papan.
           if ("deadHexKeys" in current.board) fail("board memuat deadHexKeys");
           // Isi petak asli di bawah Petak Emas tidak pernah dikirim ke klien.
           const origin = current.board.goldOrigin;
@@ -131,7 +130,7 @@ describe("simulasi game penuh", () => {
                 opened.step === current.public.calendar.step &&
                 hexKey(opened.hex) === hexKey(hidden.hex),
             );
-            if (!entry || entry.reality !== null || entry.outcome !== null) {
+            if (!entry || entry.reality !== null) {
               fail(`openedHexes memuat Realita tersembunyi ${hidden.playerId}`);
             }
             if (produced.some((e) => JSON.stringify(e.payload).includes(hidden.text))) {

@@ -43,16 +43,12 @@ export const MonthSummaryPayloadSchema = z.strictObject({
   livingCost: z.literal(4_600_000),
   interest: z.number().int(),
   interestAddedToDebt: z.number().int(),
-  /** @deprecated v0.3: Doom Spending pindah ke Fase Pembalikan; selalu null. */
-  doomAmount: z.number().int().nullable(),
-  // v0.3: wajib setelah pembersihan G7
   payDebt: z
     .object({
       max: z.number().int().nonnegative(),
       deadline: z.number().int(),
     })
-    .nullable()
-    .optional(),
+    .nullable(),
   before: PrivateStatusSchema,
   after: PrivateStatusSchema,
 });

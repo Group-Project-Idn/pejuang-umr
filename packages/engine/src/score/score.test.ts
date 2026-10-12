@@ -81,10 +81,4 @@ describe("calculateWelfareScore - Skor Kesejahteraan Seimbang (GDD 6.2 v1.12)", 
       calculateWelfareScore(makeStatus(7_500_000, 0, 10, 0)).score,
     );
   });
-
-  it("tidak ada modifier lama pada hasil", () => {
-    const result = calculateWelfareScore(makeStatus(1_000_000, 2_000_000, 9, 2));
-    expect(result).not.toHaveProperty("modifier");
-    expect(result).not.toHaveProperty("modifierPct");
-  });
 });

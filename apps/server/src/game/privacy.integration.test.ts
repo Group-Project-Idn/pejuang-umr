@@ -316,8 +316,7 @@ describe("privasi: satu game penuh 4 bot, provider none (API_CONTRACT 1.8)", () 
           const reveal = revealIndex.get(h.step);
           if (reveal === undefined || i < reveal) {
             expect(h.reality ?? null).toBeNull();
-            expect(h.outcome ?? null).toBeNull();
-          }
+            }
         }
       });
     }
@@ -330,7 +329,6 @@ describe("privasi: satu game penuh 4 bot, provider none (API_CONTRACT 1.8)", () 
       for (const h of sample.snapshot.game?.openedHexes ?? []) {
         if (h.step === sample.step) {
           expect(h.reality ?? null).toBeNull();
-          expect(h.outcome ?? null).toBeNull();
         }
       }
     }
@@ -402,7 +400,6 @@ describe("privasi: satu game penuh 4 bot, provider none (API_CONTRACT 1.8)", () 
     for (const sample of samples) {
       const { me } = sample.snapshot;
       expect(me.playerId).toBe(sample.playerId);
-      expect(me.isSpectator).toBe(false);
       if (me.inviteCard) expect(me.inviteCard.cardId).toContain(sample.playerId);
       if (me.pendingTurn) expect(me.pendingTurn.turnId).toContain(sample.playerId);
       if (me.pendingInvite) {

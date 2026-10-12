@@ -1,22 +1,18 @@
 import type { z } from "zod";
 import {
-  AvatarIdSchema,
   CharacterIdSchema,
   EffectSchema,
-  PawnIdSchema,
   PrivateStatusSchema,
   StatSchema,
   TurnSecondsSchema,
 } from "../schemas/common";
 import { PublicPlayerSchema } from "../schemas/room";
 
-export type AvatarId = z.infer<typeof AvatarIdSchema>;
-
 export type CharacterId = z.infer<typeof CharacterIdSchema>;
 
-export type TurnSeconds = z.infer<typeof TurnSecondsSchema>;
+export type AvatarId = CharacterId;
 
-export type PawnId = z.infer<typeof PawnIdSchema>;
+export type TurnSeconds = z.infer<typeof TurnSecondsSchema>;
 
 export type Stat = z.infer<typeof StatSchema>;
 

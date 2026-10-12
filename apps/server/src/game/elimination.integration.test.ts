@@ -121,7 +121,6 @@ describe("snapshot popup kalender", () => {
     expect(resumed.ok).toBe(true);
     if (!resumed.ok) return;
     expect(resumed.snapshot.me.pendingCalendar).toEqual(event);
-    expect(resumed.snapshot.me.isSpectator).toBe(false);
 
     await socket.emitWithAck("calendar:answer", { requestId: rid(), eventId: event.eventId, choice: "skip" });
     const again = await socket.emitWithAck("session:resume", { requestId: rid(), roomCode: "UMR-1234" });
@@ -135,37 +134,6 @@ function runToFinish(ctx: Ctx) {
 }
 
 const leave = (p: TestPlayer) => p.socket.emitWithAck("room:leave", { requestId: rid() });
-
-describe("spectate:enter (deprecated, mode penonton dihapus)", () => {
-  it("selalu ditolak: pemain hidup, tereliminasi, dan payload tidak valid", async () => {
-    const ctx = await setup();
-    const rejected = {
-      ok: false,
-      error: "INVALID_PAYLOAD",
-      message: "Mode penonton sudah dihapus.",
-    };
-    expect(await ctx.third.socket.emitWithAck("spectate:enter", { requestId: rid() })).toEqual(rejected);
-    eliminate(ctx, ctx.third.playerId);
-    expect(await ctx.third.socket.emitWithAck("spectate:enter", { requestId: rid() })).toEqual(rejected);
-    expect(await ctx.third.socket.emitWithAck("spectate:enter", {} as never)).toEqual(rejected);
-    expect(ctx.session().publicState().spectators).toEqual([]);
-  });
-
-  it("spectators selalu [], isSpectator selalu false, dan calendar:event tetap diterima semua pemain", async () => {
-    const ctx = await setup();
-    eliminate(ctx, ctx.third.playerId);
-    const snapshotOf = async (p: TestPlayer) => {
-      const socket = await connect(ctx.baseUrl, p.token);
-      const resumed = await socket.emitWithAck("session:resume", { requestId: rid(), roomCode: "UMR-1234" });
-      if (!resumed.ok) throw new Error("resume gagal");
-      return resumed.snapshot;
-    };
-    const eliminated = await snapshotOf(ctx.third);
-    expect(eliminated.me.isSpectator).toBe(false);
-    expect(eliminated.game?.spectators).toEqual([]);
-    expect((await snapshotOf(ctx.host)).me.isSpectator).toBe(false);
-  });
-});
 
 describe("keluar setelah eliminasi (GDD 9.4 v1.12)", () => {
   it("pemain tereliminasi keluar: hilang dari room:state, game jalan sampai selesai, tetap di ranking", async () => {

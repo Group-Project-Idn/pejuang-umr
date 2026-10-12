@@ -5,7 +5,7 @@ import {
   MonthSummaryPayloadSchema,
   ReflectionSchema,
   TurnOptionsPayloadSchema,
-  type PawnId,
+  type CharacterId,
   type Reflection,
   type Snapshot,
   type TurnSeconds,
@@ -236,14 +236,13 @@ export class GameSession {
 
   /**
    * invite:send (GDD 4.8 v1.12). Mengisi fromName dan deadline 15 detik. Tiap Ajakan punya
-   * timer sendiri; beberapa Ajakan bisa terbuka sekaligus. `turnId` opsional (klien lama):
-   * bila kosong, dipakai giliran pemain aktif saat ini.
+   * timer sendiri; beberapa Ajakan bisa terbuka sekaligus. `turnId` wajib dan harus giliran aktif.
    */
   sendInvite(
     senderId: string,
     cardId: string,
     targetId: string,
-    turnId?: string,
+    turnId: string,
   ): Ack<{ inviteId: string; deadline: number }> {
     if (this.finished) return { ok: false, error: "GAME_FINISHED" };
     const result = sendInvite(this.state, senderId, cardId, targetId, turnId);
@@ -589,7 +588,6 @@ export class GameSession {
   publicState(): PublicGameState {
     return structuredClone({
       ...toPublicState(this.state),
-      spectators: [], // @deprecated v1.12: mode penonton dihapus
       version: this.version,
       turnDeadline: this.turnDeadline,
     });
@@ -669,18 +667,12 @@ export function identitiesFromRoom(
   players: ReadonlyArray<{
     playerId: string;
     name: string;
-    pawn: PawnId | null;
-    avatarId?: string;
+    avatarId: CharacterId;
   }>,
 ): Record<string, PlayerIdentity> {
   const identities: Record<string, PlayerIdentity> = {};
   for (const player of players) {
-    if (!player.pawn) continue;
-    identities[player.playerId] = {
-      name: player.name,
-      pawn: player.pawn,
-      ...(player.avatarId ? { avatarId: player.avatarId } : {}),
-    };
+    identities[player.playerId] = { name: player.name, avatarId: player.avatarId };
   }
   return identities;
 }

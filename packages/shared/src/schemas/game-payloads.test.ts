@@ -17,7 +17,6 @@ import {
   TileOptionSchema,
   TurnOptionsPayloadSchema,
   TurnStartPayloadSchema,
-  TurnTimerPayloadSchema,
 } from "./game";
 import {
   InviteCardSchema,
@@ -64,7 +63,7 @@ describe("bentuk payload S->C", () => {
     expect(PrivateStatusSchema.safeParse({ ...after, debt: 0.5 }).success).toBe(false);
     expect(MonthSummaryPayloadSchema.safeParse({
       month: 3, salary: 5_730_000, livingCost: 4_600_000,
-      interest: 750_000, interestAddedToDebt: 0, doomAmount: null,
+      interest: 750_000, interestAddedToDebt: 0, payDebt: null,
       before: PRIVATE_STATUS, after,
     }).success).toBe(true);
   });
@@ -131,7 +130,7 @@ describe("bentuk payload S->C", () => {
         livingCost: 4_600_000,
         interest: 0,
         interestAddedToDebt: 0,
-        doomAmount: null,
+        payDebt: null,
         before: PRIVATE_STATUS,
         after: PRIVATE_STATUS,
       }).success,
@@ -150,12 +149,12 @@ describe("bentuk payload S->C", () => {
     ).toBe(true);
   });
 
-  it("InviteCardSchema menolak motif Jebakan yang sudah dihapus", () => {
+  it("InviteCardSchema hanya menerima motif Tulus dan Komisi", () => {
     expect(InviteCardSchema.safeParse({
       cardId: "card-1",
       plan: "hangout",
       planEffects: [EFFECT],
-      motive: "trap",
+      motive: "unknown",
       expiresAtMonth: 3,
     }).success).toBe(false);
   });
@@ -196,7 +195,7 @@ describe("bentuk payload S->C", () => {
             rank: 1,
             playerId: "p1",
             name: "Nick",
-            pawn: "cream-circle",
+            avatarId: "michael",
             finalScore: 70,
             netWorth: 5_000_000,
             points: { finance: 60, health: 80, calm: 70 },
@@ -230,7 +229,7 @@ describe("bentuk payload S->C", () => {
     expect(
       TileResolvedPayloadSchema.safeParse({
         version: 2,
-        turnId: "turn-1",
+        round: 2,
         playerId: "p1",
         hex: { q: 1, r: -1 },
         outcome: "zonk",
@@ -284,11 +283,7 @@ describe("bentuk payload S->C", () => {
           },
           { type: "rankOneBurden", playerIds: ["p1"] },
           { type: "calendar", calendar: CALENDAR_INFO },
-          {
-            type: "inviteSincereDeclined",
-            fromPlayerId: "p2",
-            targetPlayerId: "p1",
-          },
+          { type: "phase", phase: "reveal" },
         ],
       }).success,
     ).toBe(true);
@@ -322,7 +317,8 @@ describe("bentuk payload S->C", () => {
         version: 5,
         season: "dry",
         vulnerableCategories: ["finance", "social"],
-        zonkFocus: "vehicleBreakdown",
+        zonkFocus: "heatPollution",
+        hint: "Kemarau: petak Keuangan dan Sosial lebih rawan",
       }).success,
     ).toBe(true);
   });
@@ -335,18 +331,6 @@ describe("bentuk payload S->C", () => {
         playerId: "p1",
         deadline: 1_000,
         turnSeconds: 30,
-      }).success,
-    ).toBe(true);
-  });
-
-  it("TurnTimerPayloadSchema menerima timer giliran yang valid", () => {
-    expect(
-      TurnTimerPayloadSchema.safeParse({
-        version: 3,
-        turnId: "turn-1",
-        paused: true,
-        deadline: null,
-        remainingMs: 12_500,
       }).success,
     ).toBe(true);
   });

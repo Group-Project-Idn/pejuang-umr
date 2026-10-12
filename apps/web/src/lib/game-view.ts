@@ -100,15 +100,13 @@ export function applyGameStarted(
     turnOrder: payload.turnOrder,
     activePlayerId: null,
     turnDeadline: null,
-    turnPaused: false,
     pawns: payload.startPositions.map(({ playerId, hex }) => ({ playerId, hex })),
     openedHexes: [],
-    deadHexes: [],
     gold: null,
     scores: [],
     rankOneBurden: [],
     eliminated: [],
-    spectators: [],
+    phase: "calendar",
   };
 }
 
@@ -153,7 +151,6 @@ export function applyTileOpened(
             hex: payload.to,
             category: payload.category,
             title: payload.title,
-            outcome: null,
             plan: payload.plan,
             reality: null,
             byPlayerId: payload.playerId,

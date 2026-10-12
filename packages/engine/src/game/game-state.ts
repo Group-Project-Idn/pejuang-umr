@@ -62,7 +62,6 @@ export interface RoundInvite {
  */
 export interface PendingReality {
   playerId: string;
-  turnId: string;
   hex: HexCoord;
   outcome: Outcome;
   text: string;

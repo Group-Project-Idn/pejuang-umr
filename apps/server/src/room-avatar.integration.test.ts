@@ -92,7 +92,7 @@ describe("karakter di room (GDD 9.3 v1.12)", () => {
     expect(playerIn(room, legacy.playerId).avatarId).toBe("sinta"); // tidak sah -> kosong pertama
     expect(playerIn(room, fourth.playerId).avatarId).toBe("icha"); // michael dipakai -> kosong pertama
     expect(new Set(room.players.map((p) => p.avatarId)).size).toBe(4);
-    expect(new Set(room.players.map((p) => p.pawn)).size).toBe(4);
+    expect(new Set(room.players.map((p) => p.avatarId)).size).toBe(4);
   });
 
   it("room:avatar berhasil, AVATAR_TAKEN, NOT_IN_ROOM, dan mengirim room:state", async () => {
@@ -120,8 +120,7 @@ describe("karakter di room (GDD 9.3 v1.12)", () => {
     expect(host.states.length).toBeGreaterThan(before);
     const changed = playerIn(host.states.at(-1)!, guest.playerId);
     expect(changed.avatarId).toBe("icha");
-    expect(changed.ready).toBe(false); // mengganti karakter membatalkan Siap, seperti room:pawn
-    expect(changed.pawn).toBe(playerIn(roomOf(server), guest.playerId).pawn);
+    expect(changed.ready).toBe(false); // mengganti karakter membatalkan Siap
 
     // Idempotent: requestId sama tidak menimbulkan room:state kedua.
     const count = host.states.length;
@@ -153,34 +152,30 @@ describe("karakter di room (GDD 9.3 v1.12)", () => {
     expect(roomOf(server).players.map((p) => p.avatarId).sort()).toEqual(["michael", "raka"]);
   });
 
-  it("room:pawn dan room:avatar tetap konsisten (karakter dan pion berganti bersama, tetap unik)", async () => {
+  it("room:avatar menjaga karakter tetap unik saat bertukar", async () => {
     const { baseUrl, server } = await startServer();
     const host = await connectGuest(baseUrl, "Host", "michael");
     const guest = await connectGuest(baseUrl, "Tamu", "raka");
     await host.socket.emitWithAck("room:create", { requestId: rid() });
     await guest.socket.emitWithAck("room:join", { requestId: rid(), roomCode: "UMR-1234" });
 
-    // Urutan karakter michael, raka, sinta, icha dipetakan ke cream-circle, iceblue-square, mint-triangle, salmon-diamond.
-    expect(playerIn(roomOf(server), host.playerId)).toMatchObject({ avatarId: "michael", pawn: "cream-circle" });
-    expect(playerIn(roomOf(server), guest.playerId)).toMatchObject({ avatarId: "raka", pawn: "iceblue-square" });
+    expect(playerIn(roomOf(server), host.playerId).avatarId).toBe("michael");
+    expect(playerIn(roomOf(server), guest.playerId).avatarId).toBe("raka");
 
-    // room:pawn mengganti karakter juga.
-    expect(await guest.socket.emitWithAck("room:pawn", { requestId: rid(), pawn: "salmon-diamond" })).toEqual({ ok: true });
-    expect(playerIn(roomOf(server), guest.playerId)).toMatchObject({ avatarId: "icha", pawn: "salmon-diamond" });
-    // Pion yang dipakai tetap PAWN_TAKEN.
-    expect(await guest.socket.emitWithAck("room:pawn", { requestId: rid(), pawn: "cream-circle" })).toEqual({
+    expect(await guest.socket.emitWithAck("room:avatar", { requestId: rid(), avatarId: "icha" })).toEqual({ ok: true });
+    expect(playerIn(roomOf(server), guest.playerId).avatarId).toBe("icha");
+    // Karakter yang dipakai pemain lain ditolak.
+    expect(await guest.socket.emitWithAck("room:avatar", { requestId: rid(), avatarId: "michael" })).toEqual({
       ok: false,
-      error: "PAWN_TAKEN",
+      error: "AVATAR_TAKEN",
     });
-    // room:avatar mengganti pion juga.
     expect(await host.socket.emitWithAck("room:avatar", { requestId: rid(), avatarId: "sinta" })).toEqual({ ok: true });
-    expect(playerIn(roomOf(server), host.playerId)).toMatchObject({ avatarId: "sinta", pawn: "mint-triangle" });
-    // Karakter yang baru dilepas bisa dipakai pemain lain lewat kedua jalur.
+    expect(playerIn(roomOf(server), host.playerId).avatarId).toBe("sinta");
+    // Karakter yang baru dilepas bisa dipakai pemain lain.
     expect(await guest.socket.emitWithAck("room:avatar", { requestId: rid(), avatarId: "michael" })).toEqual({ ok: true });
-    expect(playerIn(roomOf(server), guest.playerId)).toMatchObject({ avatarId: "michael", pawn: "cream-circle" });
+    expect(playerIn(roomOf(server), guest.playerId).avatarId).toBe("michael");
     const room = roomOf(server);
     expect(new Set(room.players.map((p) => p.avatarId)).size).toBe(2);
-    expect(new Set(room.players.map((p) => p.pawn)).size).toBe(2);
   });
 
   it("game:finished.ranking[].avatarId terisi dari karakter room (bukan profil tamu)", async () => {

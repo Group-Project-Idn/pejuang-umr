@@ -26,7 +26,6 @@ describe("processMonthChange (GDD 2.4 v1.12)", () => {
       livingCost: 4_600_000,
       interest: 0,
       interestAddedToDebt: 0,
-      doomAmount: null,
       before: makeStatus(7_500_000, 0),
       after: makeStatus(8_630_000, 0),
     });
@@ -57,9 +56,8 @@ describe("processMonthChange (GDD 2.4 v1.12)", () => {
     expect(result.summary.interest).toBe(37_037);
   });
 
-  it("tidak memproses Doom Spending: Stress 9 tidak berubah, doomAmount null", () => {
+  it("tidak memproses Doom Spending: Stress 9 tidak berubah", () => {
     const result = processMonthChange(makeStatus(5_000_000, 0, 10, 9), 6);
-    expect(result.summary.doomAmount).toBeNull();
     expect(result.status).toEqual(makeStatus(6_130_000, 0, 10, 9));
   });
 

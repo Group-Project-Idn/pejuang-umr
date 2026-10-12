@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { ERROR_CODES } from "../common/errors";
-import { ClientEventSchemas } from "../socket/client-event-schemas";
 import { MonthSummaryPayloadSchema } from "./calendar";
 import { CharacterIdSchema, PrivateStatusSchema, TurnSecondsSchema } from "./common";
 import {
@@ -57,49 +56,56 @@ describe("kontrak v0.3: skema dasar", () => {
     expect(ReflectionSchema.safeParse({ ...reflection, source: "llm" }).success).toBe(false);
   });
 
-  it("kode error baru terdaftar", () => {
-    for (const c of ["AVATAR_TAKEN", "INVITE_NOT_ALLOWED", "PAYMENT_CLOSED"]) {
-      expect(ERROR_CODES).toContain(c);
-    }
+  it("daftar kode error sama dengan API_CONTRACT Bagian 15", () => {
+    expect([...ERROR_CODES].sort()).toEqual(
+      [
+        "INVALID_PAYLOAD", "UNAUTHORIZED", "NAME_REJECTED", "RATE_LIMITED", "ROOM_NOT_FOUND",
+        "ROOM_FULL", "ROOM_LOCKED", "ALREADY_IN_ROOM", "NOT_IN_ROOM", "NOT_HOST", "AVATAR_TAKEN",
+        "NOT_ENOUGH_PLAYERS", "PLAYERS_NOT_READY", "NOT_YOUR_TURN", "TILE_NOT_LIT", "INVALID_TILE",
+        "STALE_VERSION", "EVENT_CLOSED", "PAYMENT_CLOSED", "NO_INVITE_CARD", "INVITE_NOT_ALLOWED",
+        "INVALID_TARGET", "INVITE_EXPIRED", "GAME_FINISHED", "INTERNAL",
+      ].sort(),
+    );
   });
 });
 
-describe("kontrak v0.3: field opsional baru", () => {
-  it("OpenedHex menerima plan dan reality (null atau isi), tetap menerima bentuk lama", () => {
+describe("kontrak v0.3: field wajib", () => {
+  it("OpenedHex mewajibkan plan dan reality (null atau isi) dan tidak punya outcome", () => {
     const base = {
       hex: { q: 0, r: 0 }, category: "social", title: "Jalan-jalan",
-      outcome: null, byPlayerId: "p1", step: 3,
+      plan: [EFFECT], reality: null, byPlayerId: "p1", step: 3,
     };
     expect(OpenedHexSchema.safeParse(base).success).toBe(true);
-    expect(OpenedHexSchema.safeParse({ ...base, plan: [EFFECT], reality: null }).success).toBe(true);
-    expect(OpenedHexSchema.safeParse({ ...base, plan: [EFFECT], reality: REALITY }).success).toBe(true);
+    expect(OpenedHexSchema.safeParse({ ...base, reality: REALITY }).success).toBe(true);
+    expect(OpenedHexSchema.safeParse({ ...base, plan: undefined }).success).toBe(false);
+    expect(OpenedHexSchema.safeParse({ ...base, reality: undefined }).success).toBe(false);
+    expect(OpenedHexSchema.shape).not.toHaveProperty("outcome");
   });
 
-  it("PublicGameState.phase opsional dan dibatasi enum", () => {
+  it("PublicGameState.phase wajib dan dibatasi enum; boardRadius selalu 6", () => {
     const state = {
       version: 1, gameId: "g1", boardRadius: 6, calendar: CALENDAR, turnOrder: ["p1"],
-      activePlayerId: "p1", turnDeadline: null, turnPaused: false, pawns: [],
-      openedHexes: [], deadHexes: [], gold: null, scores: [], rankOneBurden: [],
-      eliminated: [], spectators: [],
+      activePlayerId: "p1", turnDeadline: null, pawns: [],
+      openedHexes: [], gold: null, scores: [], rankOneBurden: [],
+      eliminated: [], phase: "reveal",
     };
     expect(PublicGameStateSchema.safeParse(state).success).toBe(true);
-    expect(PublicGameStateSchema.safeParse({ ...state, phase: "reveal" }).success).toBe(true);
+    expect(PublicGameStateSchema.safeParse({ ...state, phase: undefined }).success).toBe(false);
     expect(PublicGameStateSchema.safeParse({ ...state, phase: "lain" }).success).toBe(false);
+    expect(PublicGameStateSchema.safeParse({ ...state, boardRadius: 5 }).success).toBe(false);
   });
 
-  it("ranking game:finished mensyaratkan tiga poin dan menerima avatarId", () => {
+  it("ranking game:finished mensyaratkan tiga poin dan avatarId karakter", () => {
     const rank = {
-      rank: 1, playerId: "p1", name: "Budi", pawn: "cream-circle", finalScore: 80,
+      rank: 1, playerId: "p1", name: "Budi", avatarId: "michael", finalScore: 80,
       netWorth: 1_000_000, points: { finance: 65, health: 90, calm: 85 }, eliminated: false,
       eliminatedAtStep: null,
     };
     const payload = (r: object) => ({ version: 1, ranking: [r] });
     expect(GameFinishedPayloadSchema.safeParse(payload(rank)).success).toBe(true);
-    expect(
-      GameFinishedPayloadSchema.safeParse(
-        payload({ ...rank, avatarId: "michael" }),
-      ).success,
-    ).toBe(true);
+    expect(GameFinishedPayloadSchema.safeParse(payload({ ...rank, avatarId: undefined })).success).toBe(false);
+    expect(GameFinishedPayloadSchema.safeParse(payload({ ...rank, avatarId: "avatar-01" })).success).toBe(false);
+    expect(GameFinishedPayloadSchema.safeParse(payload({ ...rank, pawn: "cream-circle" })).success).toBe(false);
     expect(GameFinishedPayloadSchema.safeParse(payload({ ...rank, points: undefined })).success).toBe(false);
     expect(
       GameFinishedPayloadSchema.safeParse(payload({ ...rank, points: { finance: 30 } })).success,
@@ -109,27 +115,25 @@ describe("kontrak v0.3: field opsional baru", () => {
       { ...rank, finalScore: 100.01 },
       { ...rank, points: { ...rank.points, finance: 100.01 } },
       { ...rank, points: { ...rank.points, calm: -0.01 } },
-      { ...rank, modifier: "none" },
-      { ...rank, modifierPct: 0 },
     ]) {
       expect(GameFinishedPayloadSchema.safeParse(payload(invalid)).success).toBe(false);
     }
   });
 
-  it("MonthSummary menerima payDebt (objek atau null)", () => {
+  it("MonthSummary mewajibkan payDebt (objek atau null)", () => {
     const summary = {
       month: 2, salary: 5_730_000, livingCost: 4_600_000, interest: 30_000,
-      interestAddedToDebt: 0, doomAmount: null, before: STATUS, after: STATUS,
+      interestAddedToDebt: 0, payDebt: null, before: STATUS, after: STATUS,
     };
     expect(MonthSummaryPayloadSchema.safeParse(summary).success).toBe(true);
-    expect(MonthSummaryPayloadSchema.safeParse({ ...summary, payDebt: null }).success).toBe(true);
+    expect(MonthSummaryPayloadSchema.safeParse({ ...summary, payDebt: undefined }).success).toBe(false);
     expect(
       MonthSummaryPayloadSchema.safeParse({ ...summary, payDebt: { max: 500_000, deadline: 1_700_000_000_000 } }).success,
     ).toBe(true);
     expect(MonthSummaryPayloadSchema.safeParse({ ...summary, payDebt: { max: -1, deadline: 1 } }).success).toBe(false);
   });
 
-  it("Snapshot.me menerima pendingMonth dan reflection", () => {
+  it("Snapshot.me mewajibkan pendingMonth dan reflection", () => {
     const snapshot = (extra: object) => ({
       serverTime: 1,
       room: {
@@ -139,28 +143,31 @@ describe("kontrak v0.3: field opsional baru", () => {
       game: null,
       me: {
         playerId: "p1", status: null, inviteCard: null, pendingTurn: null,
-        pendingCalendar: null, pendingInvite: null, isSpectator: false, ...extra,
+        pendingCalendar: null, pendingInvite: null, pendingMonth: null, reflection: null, ...extra,
       },
       result: null,
     });
     const reflection = { source: "ai", summary: "s", insights: [] };
     const month = {
       month: 2, salary: 5_730_000, livingCost: 4_600_000, interest: 0,
-      interestAddedToDebt: 0, doomAmount: null, before: STATUS, after: STATUS,
+      interestAddedToDebt: 0, payDebt: null, before: STATUS, after: STATUS,
     };
-    // bentuk lama tetap lolos bila RoomState valid; uji bagian me secara terpisah
+    // uji bagian me tetap lolos bila RoomState valid; uji bagian me secara terpisah
     const me = SnapshotSchema.shape.me;
     expect(me.safeParse(snapshot({}).me).success).toBe(true);
+    expect(me.safeParse(snapshot({ pendingMonth: undefined }).me).success).toBe(false);
+    expect(me.safeParse(snapshot({ reflection: undefined }).me).success).toBe(false);
     expect(me.safeParse(snapshot({ pendingMonth: month, reflection }).me).success).toBe(true);
     expect(me.safeParse(snapshot({ pendingMonth: null, reflection: null }).me).success).toBe(true);
     expect(me.safeParse(snapshot({ reflection: { source: "x" } }).me).success).toBe(false);
   });
 
-  it("season:changed menerima nilai zonkFocus baru dan hint", () => {
-    const base = { version: 1, season: "transition", vulnerableCategories: ["health"] };
-    for (const zonkFocus of ["floodRain", "heatPollution", "sick", "vehicleWash", "vehicleBreakdown"]) {
+  it("season:changed mewajibkan hint dan hanya menerima zonkFocus v0.3", () => {
+    const base = { version: 1, season: "transition", vulnerableCategories: ["health"], hint: "Pancaroba" };
+    for (const zonkFocus of ["floodRain", "heatPollution", "sick"]) {
       expect(SeasonChangedPayloadSchema.safeParse({ ...base, zonkFocus }).success).toBe(true);
     }
+    expect(SeasonChangedPayloadSchema.safeParse({ ...base, hint: undefined, zonkFocus: "sick" }).success).toBe(false);
     expect(
       SeasonChangedPayloadSchema.safeParse({
         ...base, zonkFocus: "sick", hint: "Pancaroba: petak Kesehatan lebih rawan",
@@ -169,7 +176,7 @@ describe("kontrak v0.3: field opsional baru", () => {
     expect(SeasonChangedPayloadSchema.safeParse({ ...base, zonkFocus: "lain" }).success).toBe(false);
   });
 
-  it("player:eliminated, doom:triggered, tile:resolved menerima field baru", () => {
+  it("player:eliminated, doom:triggered, tile:resolved mewajibkan field v0.3", () => {
     expect(
       PlayerEliminatedPayloadSchema.safeParse({
         version: 1, playerId: "p1", reason: "bankrupt", step: 10, frozenScore: 42.5,
@@ -181,14 +188,22 @@ describe("kontrak v0.3: field opsional baru", () => {
       }).success,
     ).toBe(false);
     expect(
-      DoomTriggeredPayloadSchema.safeParse({ amount: 750_000, trigger: "tile", round: 3, stressAfter: 8 }).success,
-    ).toBe(true);
-    expect(
-      TileResolvedPayloadSchema.safeParse({
-        version: 1, turnId: "t1", round: 3, playerId: "p1", hex: { q: 0, r: 0 },
-        outcome: "zonk", text: "x", effects: [EFFECT], seasonal: false,
+      PlayerEliminatedPayloadSchema.safeParse({
+        version: 1, playerId: "p1", reason: "bankrupt", step: 10,
       }).success,
+    ).toBe(false);
+    expect(
+      DoomTriggeredPayloadSchema.safeParse({ amount: 750_000, round: 3, stressAfter: 8 }).success,
     ).toBe(true);
+    expect(DoomTriggeredPayloadSchema.safeParse({ amount: 750_000, stressAfter: 8 }).success).toBe(false);
+    expect(DoomTriggeredPayloadSchema.shape).not.toHaveProperty("trigger");
+    const resolved = {
+      version: 1, round: 3, playerId: "p1", hex: { q: 0, r: 0 },
+      outcome: "zonk", text: "x", effects: [EFFECT], seasonal: false,
+    };
+    expect(TileResolvedPayloadSchema.safeParse(resolved).success).toBe(true);
+    expect(TileResolvedPayloadSchema.safeParse({ ...resolved, round: undefined }).success).toBe(false);
+    expect(TileResolvedPayloadSchema.shape).not.toHaveProperty("turnId");
   });
 
   it("turnSeconds 15 diterima di turn:start, room:timer, dan RoomState", () => {
@@ -221,7 +236,7 @@ describe("kontrak v1.12: Hutang tanpa batas atas dan skor desimal", () => {
         version: 1,
         ranking: [
           {
-            rank: 1, playerId: "p1", name: "Budi", pawn: "cream-circle", finalScore: 56.3333,
+            rank: 1, playerId: "p1", name: "Budi", avatarId: "raka", finalScore: 56.3333,
             netWorth: 4_500_000, points: { finance: 59, health: 60, calm: 50 }, eliminated: false,
             eliminatedAtStep: null,
           },
@@ -246,9 +261,9 @@ describe("kontrak v0.3: event baru", () => {
     expect(MonthPayDebtRequestSchema.safeParse({ ...ok, extra: 1 }).success).toBe(false);
   });
 
-  it("invite:send menerima turnId", () => {
+  it("invite:send mewajibkan turnId", () => {
     const base = { requestId: REQUEST_ID, cardId: "c1", targetPlayerId: "p2" };
-    expect(InviteSendRequestSchema.safeParse(base).success).toBe(true);
+    expect(InviteSendRequestSchema.safeParse(base).success).toBe(false);
     expect(InviteSendRequestSchema.safeParse({ ...base, turnId: "t1" }).success).toBe(true);
   });
 
@@ -264,9 +279,4 @@ describe("kontrak v0.3: event baru", () => {
     expect(ReflectionReadyPayloadSchema.safeParse({ gameId: "g1", playerId: "p1" }).success).toBe(false);
   });
 
-  it("ClientEventSchemas memuat event C→S baru dan event lama", () => {
-    for (const e of ["room:avatar", "month:pay-debt", "spectate:enter", "room:pawn"]) {
-      expect(ClientEventSchemas).toHaveProperty([e]);
-    }
-  });
 });

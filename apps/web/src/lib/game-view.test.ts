@@ -39,7 +39,7 @@ function snapshot(version: number): Snapshot {
     game: {
       version,
       gameId: "game-1",
-      boardRadius: 4,
+      boardRadius: 6,
       calendar: {
         step: 1,
         totalSteps: 24,
@@ -52,15 +52,13 @@ function snapshot(version: number): Snapshot {
       turnOrder: [],
       activePlayerId: null,
       turnDeadline: null,
-      turnPaused: false,
       pawns: [],
       openedHexes: [],
-      deadHexes: [],
       gold: null,
       scores: [],
       rankOneBurden: [],
       eliminated: [],
-      spectators: [],
+      phase: "calendar",
     },
     me: {
       playerId: "p1",
@@ -69,7 +67,8 @@ function snapshot(version: number): Snapshot {
       pendingTurn: null,
       pendingCalendar: null,
       pendingInvite: null,
-      isSpectator: false,
+      pendingMonth: null,
+      reflection: null,
     },
     result: null,
   };
@@ -178,7 +177,6 @@ describe("reducer event publik (B01)", () => {
 
   const resolved: TileResolved = {
     version: 4,
-    turnId: "turn-1",
     round: 1,
     playerId: "p1",
     hex: { q: 1, r: 0 },
@@ -319,6 +317,7 @@ describe("reducer event publik (B01)", () => {
       playerId: "p1",
       reason: "bankrupt",
       step: 12,
+      frozenScore: 40,
     } satisfies PlayerEliminated)!;
     expect(game.eliminated).toEqual(["p1"]);
     expect(game.scores[0]?.eliminated).toBe(true);
@@ -330,6 +329,7 @@ describe("reducer event publik (B01)", () => {
         playerId: "p1",
         reason: "bankrupt",
         step: 13,
+        frozenScore: 40,
       }),
     ).toBe(game);
 
@@ -349,6 +349,7 @@ describe("reducer event publik (B01)", () => {
         season: "dry",
         vulnerableCategories: ["work"],
         zonkFocus: "sick",
+        hint: "Pancaroba: petak Kesehatan lebih rawan",
       },
     })!;
     expect(game.calendar.season).toBe("dry");
@@ -361,8 +362,7 @@ describe("reducer event publik (B01)", () => {
       {
         playerId: "p1",
         name: "Rina",
-        avatarId: "avatar-01",
-        pawn: null,
+        avatarId: "michael",
         connected: true,
         isHost: true,
         ready: false,
@@ -409,16 +409,5 @@ describe("reducer event publik (B01)", () => {
     expect(
       getTurnSecondsLeft({ localNow: 1_000, serverClockOffsetMs: 0, deadline: null }),
     ).toBe(0);
-  });
-
-  it("op game:patch tak dikenal diabaikan tanpa mengubah state", () => {
-    const game = snapshot(3).game!;
-    const patched = applyGamePatch(game, {
-      version: 4,
-      ops: [
-        { type: "inviteSincereDeclined", fromPlayerId: "p1", targetPlayerId: "p2" },
-      ],
-    });
-    expect(patched).toEqual({ ...game, version: 4 });
   });
 });

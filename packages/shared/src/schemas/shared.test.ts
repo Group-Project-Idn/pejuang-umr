@@ -4,7 +4,7 @@ import {
   GuestRequestSchema,
   HexCoordSchema,
   RoomJoinRequestSchema,
-  RoomPawnRequestSchema,
+  RoomAvatarRequestSchema,
   RequestIdSchema,
   RoomCodeSchema,
 } from "../index";
@@ -22,8 +22,11 @@ describe("shared schemas", () => {
 
   it("memvalidasi request guest", () => {
     expect(
-      GuestRequestSchema.parse({ name: "Raka", avatarId: "avatar-01" }),
-    ).toEqual({ name: "Raka", avatarId: "avatar-01" });
+      GuestRequestSchema.parse({ name: "Raka", avatarId: "raka" }),
+    ).toEqual({ name: "Raka", avatarId: "raka" });
+    expect(
+      GuestRequestSchema.safeParse({ name: "Raka", avatarId: "avatar-01" }).success,
+    ).toBe(false);
   });
 
   it("memvalidasi room code dan request id", () => {
@@ -43,7 +46,7 @@ describe("shared schemas", () => {
       RoomJoinRequestSchema.parse({ requestId, roomCode: "UMR-1234" }),
     ).toEqual({ requestId, roomCode: "UMR-1234" });
     expect(
-      RoomPawnRequestSchema.safeParse({ requestId, pawn: "invalid" }).success,
+      RoomAvatarRequestSchema.safeParse({ requestId, avatarId: "invalid" }).success,
     ).toBe(false);
   });
 });

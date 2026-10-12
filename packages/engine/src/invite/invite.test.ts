@@ -51,7 +51,8 @@ function begin(ids = ["a", "b", "c"]) {
 /** x (pemain aktif) mengajak y dengan kartu tertentu. */
 function invited(plan: InvitePlan, motive: InviteMotive) {
   const { state, x, y, z } = begin();
-  const sent = sendInvite(withCard(state, x, cardOf(plan, motive)), x, "c", y);
+  const carded = withCard(state, x, cardOf(plan, motive));
+  const sent = sendInvite(carded, x, "c", y, carded.pendingTurn!.turnId);
   if (!sent.ok) throw new Error(sent.message);
   return { ...sent, x, y, z };
 }
@@ -84,19 +85,19 @@ describe("sendInvite: kode error (GDD 4.8 v1.12)", () => {
   it("GAME_FINISHED bila game selesai", () => {
     const { state, x, y } = begin();
     const finished = { ...withCard(state, x, cardOf("hangout", "sincere")), phase: "finished" as const };
-    expect(code(sendInvite(finished, x, "c", y))).toBe("GAME_FINISHED");
+    expect(code(sendInvite(finished, x, "c", y, finished.pendingTurn!.turnId))).toBe("GAME_FINISHED");
   });
 
   it("INVITE_NOT_ALLOWED: phase bukan turn", () => {
     const { state, x, y } = begin();
     const s = { ...withCard(state, x, cardOf("hangout", "sincere")), phase: "roundStart" as const };
-    expect(code(sendInvite(s, x, "c", y))).toBe("INVITE_NOT_ALLOWED");
+    expect(code(sendInvite(s, x, "c", y, s.pendingTurn!.turnId))).toBe("INVITE_NOT_ALLOWED");
   });
 
   it("INVITE_NOT_ALLOWED: pengirim bukan pemain aktif", () => {
     const { state, y, z } = begin();
     const s = withCard(state, y, cardOf("hangout", "sincere"));
-    expect(code(sendInvite(s, y, "c", z))).toBe("INVITE_NOT_ALLOWED");
+    expect(code(sendInvite(s, y, "c", z, s.pendingTurn!.turnId))).toBe("INVITE_NOT_ALLOWED");
   });
 
   it("INVITE_NOT_ALLOWED: pengirim sudah memilih heksa", () => {
@@ -104,7 +105,7 @@ describe("sendInvite: kode error (GDD 4.8 v1.12)", () => {
     const s = withCard(state, x, cardOf("hangout", "sincere"));
     const moved = chooseHex(s, x, s.pendingTurn!.turnId, s.pendingTurn!.options[0]!, seeded());
     if (!moved.ok) throw new Error(moved.message);
-    expect(code(sendInvite(moved.state, x, "c", y))).toBe("INVITE_NOT_ALLOWED");
+    expect(code(sendInvite(moved.state, x, "c", y, s.pendingTurn!.turnId))).toBe("INVITE_NOT_ALLOWED");
   });
 
   it("turnId harus sama dengan giliran aktif", () => {
@@ -116,21 +117,21 @@ describe("sendInvite: kode error (GDD 4.8 v1.12)", () => {
 
   it("NO_INVITE_CARD: tanpa kartu atau cardId tidak cocok", () => {
     const { state, x, y } = begin();
-    expect(code(sendInvite(state, x, "c", y))).toBe("NO_INVITE_CARD");
+    expect(code(sendInvite(state, x, "c", y, state.pendingTurn!.turnId))).toBe("NO_INVITE_CARD");
     const s = withCard(state, x, cardOf("hangout", "sincere"));
-    expect(code(sendInvite(s, x, "lain", y))).toBe("NO_INVITE_CARD");
+    expect(code(sendInvite(s, x, "lain", y, s.pendingTurn!.turnId))).toBe("NO_INVITE_CARD");
   });
 
   it("INVALID_TARGET: diri sendiri, target tereliminasi, target tak dikenal", () => {
     const { state, x, y } = begin();
     const s = withCard(state, x, cardOf("hangout", "sincere"));
-    expect(code(sendInvite(s, x, "c", x))).toBe("INVALID_TARGET");
-    expect(code(sendInvite(s, x, "c", "zzz"))).toBe("INVALID_TARGET");
+    expect(code(sendInvite(s, x, "c", x, s.pendingTurn!.turnId))).toBe("INVALID_TARGET");
+    expect(code(sendInvite(s, x, "c", "zzz", s.pendingTurn!.turnId))).toBe("INVALID_TARGET");
     const dead = {
       ...s,
       players: { ...s.players, [y]: { ...s.players[y]!, eliminated: true, eliminatedAtStep: 1 } },
     };
-    expect(code(sendInvite(dead, x, "c", y))).toBe("INVALID_TARGET");
+    expect(code(sendInvite(dead, x, "c", y, dead.pendingTurn!.turnId))).toBe("INVALID_TARGET");
   });
 
   it("INVALID_TARGET: pengirim tereliminasi", () => {
@@ -140,38 +141,38 @@ describe("sendInvite: kode error (GDD 4.8 v1.12)", () => {
       ...s,
       players: { ...s.players, [x]: { ...s.players[x]!, eliminated: true, eliminatedAtStep: 1 } },
     };
-    expect(code(sendInvite(dead, x, "c", y))).toBe("INVALID_TARGET");
+    expect(code(sendInvite(dead, x, "c", y, dead.pendingTurn!.turnId))).toBe("INVALID_TARGET");
   });
 
   it("INVALID_TARGET: target masih punya Ajakan yang belum dijawab; bebas setelah dijawab", () => {
     const { state, x, y, z } = begin();
     let s = withCard(state, x, cardOf("hangout", "sincere", "c1"));
     s = withCard(s, y, cardOf("morningRun", "sincere", "c2"));
-    const first = sendInvite(s, x, "c1", z);
+    const first = sendInvite(s, x, "c1", z, s.pendingTurn!.turnId);
     if (!first.ok) throw new Error(first.message);
     // y menjadi pemain aktif lalu mengajak z yang sedang sibuk.
     const moved = chooseHex(first.state, x, first.state.pendingTurn!.turnId, first.state.pendingTurn!.options[0]!, seeded());
     if (!moved.ok) throw new Error(moved.message);
     const second = startTurn(moved.state, seeded()).state;
     expect(second.public.activePlayerId).toBe(y);
-    expect(code(sendInvite(second, y, "c2", z))).toBe("INVALID_TARGET");
+    expect(code(sendInvite(second, y, "c2", z, second.pendingTurn!.turnId))).toBe("INVALID_TARGET");
 
     const answered = respondInvite(second, z, first.state.roundInvites[0]!.inviteId, "join");
     if (!answered.ok) throw new Error(answered.message);
-    expect(code(sendInvite(answered.state, y, "c2", z))).toBe("ok");
+    expect(code(sendInvite(answered.state, y, "c2", z, answered.state.pendingTurn!.turnId))).toBe("ok");
   });
 
   it("dua pemain berbeda bisa mengirim Ajakan di ronde yang sama (tanpa batas per ronde)", () => {
     const { state, x, y, z } = begin();
     let s = withCard(state, x, cardOf("hangout", "sincere", "c1"));
     s = withCard(s, y, cardOf("morningRun", "commission", "c2"));
-    const first = sendInvite(s, x, "c1", z);
+    const first = sendInvite(s, x, "c1", z, s.pendingTurn!.turnId);
     if (!first.ok) throw new Error(first.message);
     const moved = chooseHex(first.state, x, first.state.pendingTurn!.turnId, first.state.pendingTurn!.options[0]!, seeded());
     if (!moved.ok) throw new Error(moved.message);
     const second = startTurn(moved.state, seeded()).state;
     const target = x; // x tidak sibuk
-    const sent = sendInvite(second, y, "c2", target);
+    const sent = sendInvite(second, y, "c2", target, second.pendingTurn!.turnId);
     expect(sent.ok).toBe(true);
     if (sent.ok) expect(sent.state.roundInvites).toHaveLength(2);
   });

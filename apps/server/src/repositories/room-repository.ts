@@ -3,7 +3,6 @@ import {
   CharacterIdSchema,
   type CharacterId,
   type ErrorCode,
-  type PawnId,
   type RoomPlayer,
   type RoomState,
   type SocketData,
@@ -24,24 +23,8 @@ function cloneRoom(room: RoomState): RoomState {
   return { ...room, players: room.players.map((player) => ({ ...player })) };
 }
 
-const PAWN_ORDER: readonly PawnId[] = [
-  "cream-circle",
-  "iceblue-square",
-  "mint-triangle",
-  "salmon-diamond",
-];
-
-/** Urutan karakter sah (GDD 9.1 v1.12); urutannya juga dipetakan ke {@link PAWN_ORDER}. */
+/** Urutan karakter sah (GDD 9.1 v1.12). */
 const CHARACTER_ORDER: readonly CharacterId[] = CharacterIdSchema.options;
-
-/** Pion lama mengikuti karakter (dipertahankan untuk web lama, `room:pawn` deprecated). */
-function pawnOf(avatarId: CharacterId): PawnId {
-  return PAWN_ORDER[CHARACTER_ORDER.indexOf(avatarId)] ?? PAWN_ORDER[0]!;
-}
-
-function characterOfPawn(pawn: PawnId): CharacterId {
-  return CHARACTER_ORDER[PAWN_ORDER.indexOf(pawn)] ?? CHARACTER_ORDER[0]!;
-}
 
 /**
  * Karakter untuk pemain baru di room: profil tamu bila sah dan belum dipakai,
@@ -203,27 +186,7 @@ export class RoomRepository {
     return this.updatePlayer(playerId, (player) => ({ ...player, ready }));
   }
 
-  /** @deprecated v1.12: pakai {@link setAvatar}. Mengganti pion juga mengganti karakter. */
-  setPawn(playerId: string, pawn: PawnId): RoomMutationResult {
-    const room = this.getByPlayerMutable(playerId);
-    if (!room) return { ok: false, error: "NOT_IN_ROOM" };
-    if (room.status !== "waiting") return { ok: false, error: "ROOM_LOCKED" };
-    if (
-      room.players.some(
-        (player) => player.playerId !== playerId && player.pawn === pawn,
-      )
-    ) {
-      return { ok: false, error: "PAWN_TAKEN" };
-    }
-    return this.updatePlayer(playerId, (player) => ({
-      ...player,
-      avatarId: characterOfPawn(pawn),
-      pawn,
-      ready: false,
-    }));
-  }
-
-  /** room:avatar (GDD 9.3 v1.12): ganti karakter di room ini; unik per room, pion ikut berganti. */
+  /** room:avatar (GDD 9.3 v1.12): ganti karakter di room ini; unik per room. */
   setAvatar(playerId: string, avatarId: CharacterId): RoomMutationResult {
     const room = this.getByPlayerMutable(playerId);
     if (!room) return { ok: false, error: "NOT_IN_ROOM" };
@@ -238,7 +201,6 @@ export class RoomRepository {
     return this.updatePlayer(playerId, (player) => ({
       ...player,
       avatarId,
-      pawn: pawnOf(avatarId),
       ready: false,
     }));
   }
@@ -414,7 +376,6 @@ export class RoomRepository {
     return {
       ...identity,
       avatarId,
-      pawn: pawnOf(avatarId),
       connected: true,
       isHost,
       ready: false,

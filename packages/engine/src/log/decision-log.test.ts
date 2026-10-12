@@ -65,7 +65,7 @@ describe("pencatatan di alur game", () => {
         },
       },
     };
-    const sent = sendInvite(withCard, x, "c", y);
+    const sent = sendInvite(withCard, x, "c", y, withCard.pendingTurn!.turnId);
     if (!sent.ok) throw new Error(sent.message);
     expect(sent.state.decisionLog[x]!.at(-1)).toMatchObject({ kind: "inviteSent", targetId: y });
     // Motif belum tercatat di sisi target sebelum Fase Pembalikan.

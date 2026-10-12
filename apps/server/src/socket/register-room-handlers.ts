@@ -5,7 +5,6 @@ import {
   RoomAvatarRequestSchema,
   RoomKickRequestSchema,
   RoomLeaveRequestSchema,
-  RoomPawnRequestSchema,
   RoomRematchRequestSchema,
   RoomReadyRequestSchema,
   RoomTimerRequestSchema,
@@ -215,26 +214,6 @@ export function registerRoomHandlers(
       parsed.data.requestId,
       () => {
         const mutation = rooms.setReady(socket.data.playerId, parsed.data.ready);
-        return mutation.ok ? { ok: true } : mutation;
-      },
-    );
-    if (result.response.ok && !result.replayed) {
-      const room = rooms.getByPlayer(socket.data.playerId);
-      if (room) emitRoomState(io, room);
-    }
-    ack(result.response);
-  }));
-
-  socket.on("room:pawn", (payload, unsafeAck) => executeWithAck<EmptyResult>(unsafeAck, (ack) => {
-    const parsed = RoomPawnRequestSchema.safeParse(payload);
-    if (!parsed.success) return ack(invalidPayload());
-    const result = runIdempotent<EmptyResult>(
-      idempotency,
-      socket.data.playerId,
-      "room:pawn",
-      parsed.data.requestId,
-      () => {
-        const mutation = rooms.setPawn(socket.data.playerId, parsed.data.pawn);
         return mutation.ok ? { ok: true } : mutation;
       },
     );

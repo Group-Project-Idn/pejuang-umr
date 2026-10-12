@@ -8,18 +8,11 @@ export const HexCoordSchema = z.object({
   r: z.number().int(),
 });
 
-export const AvatarIdSchema = z.string().trim().min(1).max(64);
 export const CharacterIdSchema = z.enum(["michael", "raka", "sinta", "icha"]);
 export const TurnSecondsSchema = z.union([
   z.literal(15),
   z.literal(30),
   z.literal(60),
-]);
-export const PawnIdSchema = z.enum([
-  "cream-circle",
-  "iceblue-square",
-  "mint-triangle",
-  "salmon-diamond",
 ]);
 
 export const StatSchema = z.enum(["wealth", "debt", "health", "stress"]);
