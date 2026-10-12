@@ -9,9 +9,10 @@ describe("tampilan lobby layar lebar", () => {
     expect(screen).toContain('className="lobby-desk lobby-page');
     expect(screen).toContain('className="lobby-viewport');
     expect(screen).toContain('className="lobby-folder lobby-main-folder');
-    expect(styles).toMatch(/\.lobby-page\s*\{[^}]*min-height:\s*100dvh;/);
+    expect(styles).toMatch(/\.lobby-page\s*\{[^}]*height:\s*100dvh;/);
+    expect(styles).toMatch(/\.lobby-stage\s*\{[^}]*overflow-y:\s*auto;/);
     expect(styles).toMatch(/\.lobby-window\s*\{[^}]*flex:\s*1;/);
-    expect(styles).toMatch(/\.lobby-main-folder\s*\{[^}]*flex:\s*1;/);
+    expect(styles).toMatch(/\.lobby-main-folder\s*\{[^}]*flex:\s*1 0 auto;/);
   });
 
   it("memperbesar judul dan area sentuh dengan fallback layar kecil", () => {
@@ -20,6 +21,7 @@ describe("tampilan lobby layar lebar", () => {
     expect(styles).toMatch(/\.lobby-main-title\s*\{[^}]*font-size:\s*clamp\(/);
     expect(styles).toMatch(/\.lobby-main-folder \.lobby-primary-action\s*\{[^}]*min-height:\s*64px;/);
     expect(styles).toContain("@media (max-width: 899px), (max-height: 700px)");
+    expect(styles).toMatch(/\.lobby-page\s*\{\s*min-height:\s*100dvh;\s*height:\s*auto;/);
     expect(styles).toContain(".lobby-main-folder .lobby-code-actions { flex-wrap: wrap; }");
   });
 });

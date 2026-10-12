@@ -73,17 +73,18 @@
 
 /* The lobby fills a widescreen viewport; narrower screens scroll instead of clipping actions. */
 .lobby-page {
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
   display: flex;
   padding: 0;
   background: #202a38;
 }
-.lobby-viewport { display: flex; flex: 1; min-width: 0; }
-.lobby-window { display: flex; flex: 1; min-width: 0; flex-direction: column; border: 0; border-radius: 0; box-shadow: none; }
-.lobby-stage { display: flex; flex: 1; min-height: 0; flex-direction: column; }
+.lobby-viewport { display: flex; flex: 1; min-width: 0; min-height: 0; }
+.lobby-window { display: flex; flex: 1; min-width: 0; min-height: 0; flex-direction: column; border: 0; border-radius: 0; box-shadow: none; }
+.lobby-stage { display: flex; flex: 1; min-height: 0; flex-direction: column; overflow-y: auto; }
 .lobby-main-folder {
-  flex: 1;
+  flex: 1 0 auto;
   min-width: 0;
   align-content: center;
   gap: clamp(20px, 3vw, 64px);
@@ -111,7 +112,7 @@
 }
 @media (max-width: 899px), (max-height: 700px) {
   .lobby-page { min-height: 100dvh; height: auto; }
-  .lobby-viewport, .lobby-window, .lobby-stage { min-height: 0; }
+  .lobby-stage { overflow-y: visible; }
   .lobby-main-folder { align-content: start; }
 }
 @media (max-width: 640px) {
