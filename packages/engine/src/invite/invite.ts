@@ -122,9 +122,7 @@ function resolveInvite(
   const targetEffects: Effect[] =
     answer === "join"
       ? [...(rule.planAppliesToTarget ? pending.planEffects : []), ...rule.targetExtra]
-      : rule.declineWealthPenalty !== 0
-        ? [{ stat: "wealth", delta: rule.declineWealthPenalty }]
-        : [];
+      : [...rule.declineTarget];
   const senderEffects: Effect[] = [...rule.senderExtra];
 
   const events: DomainEvent[] = [];

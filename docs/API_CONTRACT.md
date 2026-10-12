@@ -78,6 +78,8 @@ Semua batas waktu dikirim sebagai `deadline: number` (epoch ms waktu server), bu
 
 Server menjadi acuan batas waktu (GDD 9.4 v1.12). Aksi yang tiba lebih dari **500 ms** setelah `deadline` ditolak, lalu aturan waktu habis berlaku. **Tidak ada timer yang dijeda** dalam keadaan apa pun.
 
+Secara inklusif, aksi pada `deadline + 500 ms` masih diterima; mulai `deadline + 501 ms` server menjalankan aturan waktu habis. `deadline` yang dikirim ke klien tetap batas nominal dan tidak ditambah 500 ms.
+
 ### 1.6 Angka
 
 - Uang dalam **Rupiah bulat** (`number`), misalnya `5000000`. Format "Rp5,7jt" atau "Rp5.730.000" dibuat di klien (util di `shared`).
@@ -263,7 +265,7 @@ type PublicGameState = {
 
 type PrivateStatus = {
   wealth: number;
-  debt: number;
+  debt: number; // Rupiah bulat >= 0, tanpa cap di tengah ronde
   debtLimit: 25000000; // batas Bangkrut: lebih dari angka ini saat Fase Pembalikan = tereliminasi
   health: number;
   stress: number;
@@ -297,6 +299,10 @@ type Reflection = {
   insights: Array<{ title: string; body: string; reference?: string }>; // reference: judul buku dan penulis
 };
 ```
+
+`debtLimit` adalah ambang pemeriksaan Bangkrut di Fase Pembalikan, **bukan** batas pinjaman/transaksi. Pinjaman cair penuh; kekurangan Kekayaan otomatis menambah Hutang tanpa menghapus sisa. Bunga 3% dibulatkan ke Rupiah terdekat dan kekurangannya menambah Hutang. Setiap kenaikan yang melewati (bukan tepat mencapai) kelipatan Rp5.000.000 menaikkan Level Stress +1 per kelipatan; kelipatan yang sama dapat terpicu lagi setelah Hutang turun lalu naik. Pemeriksaan Bangkrut tidak dilakukan di tengah giliran atau saat ganti bulan (GDD 1.4, 2.3–2.4 v1.12).
+
+Nilai Rencana petak, Realita, Zonk Musim, Event Tanggal, Ajakan, Petak Emas, dan Doom Spending berlaku 1× di Solo dan Multiplayer, tanpa batas ±3 per efek (GDD 1.3 v1.12). Katalog GDD 5.1–5.2 mengganti Bayar Hutang dengan Jalan-jalan; Kondangan kini -Rp250.000 dan Zonk Musim Hujan/Kemarau mengikuti GDD 3.4. Motif Ajakan hanya Tulus dan Komisi (masing-masing 50%); `InviteMotiveSchema` tidak lagi menerima `trap`. Bentuk event tidak berubah, tetapi `planEffects`, `effectsForYou`, dan hasil status memakai nilai baru (GDD 4.8 v1.12).
 
 **Level risiko (GDD 4.3 v1.10):** `low` jika Peluang Zonk ≤ 15%, `medium` 16-34%, `high` ≥ 35%. Peluang Zonk sudah memperhitungkan Beban Peringkat 1, Musim, dan imunitas pemain yang melihat (GDD 4.3, 4.5). Persentase asli **tidak** dikirim, hanya level dan tag.
 
@@ -750,10 +756,11 @@ type GameFinishedPayload = {
     rank: number;
     playerId: string;
     name: string;
-    avatarId: AvatarId;
-    finalScore: number; // Skor Kesejahteraan 0-100
+    pawn: PawnId; // kompatibilitas pion lama sampai migrasi avatar (tahap 7)
+    avatarId?: AvatarId; // wajib setelah migrasi avatar (tahap 7)
+    finalScore: number; // Skor Kesejahteraan desimal 0-100
     netWorth: number; // Harta Bersih (Rupiah)
-    points: { finance: number; health: number; calm: number }; // Poin Keuangan, Kesehatan, Ketenangan
+    points: { finance: number; health: number; calm: number }; // wajib, masing-masing 0-100
     eliminated: boolean;
     eliminatedAtStep: number | null;
   }>;
@@ -764,7 +771,7 @@ Catatan:
 
 - Dikirim di akhir Fase Pembalikan saat Langkah 24 selesai, atau saat tinggal 1 pemain (atau tidak ada) yang belum tereliminasi (GDD 1.2 v1.12). Pemain yang tersisa otomatis peringkat 1.
 - Peringkat: yang bertahan di atas yang tereliminasi. Antar yang tereliminasi, yang bertahan lebih lama lebih tinggi. Yang tereliminasi di Fase Pembalikan yang sama diurutkan menurut skor beku, lalu tie-breaker (Hutang lebih kecil, lalu Level Stress lebih rendah). Semua dihitung server.
-- Rincian berisi Harta Bersih dan tiga poin skor (GDD 9.5 v1.12). Karena Poin Kesehatan dan Poin Ketenangan diturunkan langsung dari Kesehatan dan Level Stress, keduanya ikut terbuka setelah game selesai. Kekayaan dan Hutang lawan **tidak** dikirim terpisah.
+- Rincian berisi Harta Bersih dan tiga poin skor (GDD 6.2, 9.5 v1.12); modifier lama tidak dikirim. Karena Poin Kesehatan dan Poin Ketenangan diturunkan langsung dari Kesehatan dan Level Stress, keduanya ikut terbuka setelah game selesai. Kekayaan dan Hutang lawan **tidak** dikirim terpisah.
 - Refleksi AI menyusul lewat `reflection:ready` (privat).
 
 ---
@@ -920,7 +927,7 @@ Urutan proses mengikuti GDD 2.4 v1.12: gaji → biaya hidup → bunga → slider
 Ack<{ paid: number; debtCleared: boolean; stressDelta: 0 | -2 }>;
 ```
 
-Error: `PAYMENT_CLOSED` (waktu habis atau sudah dibayar), `INVALID_PAYLOAD` (`amount` di luar batas). Waktu habis atau pemain putus = bayar Rp0. Hanya satu pembayaran per bulan. Jika Hutang menjadi 0 dari lebih dari 0, Level Stress -2 (GDD 2.4 v1.12). Setelah ack, server mengirim `player:status`.
+Error: `PAYMENT_CLOSED` (waktu habis atau sudah dibayar), `INVALID_PAYLOAD` (`amount` di luar batas). Pembayaran pada `payDebt.deadline + 500 ms` masih diterima; mulai `deadline + 501 ms` ditolak dan popup ditutup. Waktu habis atau pemain putus = bayar Rp0. Hanya satu pembayaran per bulan. Jika Hutang menjadi 0 dari lebih dari 0, Level Stress -2 (GDD 2.4 v1.12). Setelah ack, server mengirim `player:status`.
 
 ---
 
@@ -1128,7 +1135,7 @@ Sisa ronde dihitung klien: `gold.expiresAtStep - calendar.step`. Posisi dipilih 
 }
 ```
 
-Heksa kembali ke petak aslinya dan bisa menyala lagi (GDD 4.7 v1.12). Isi petak asli tidak dikirim. Jika diambil, tidak ada `gold:expired`. Pengambilan terlihat dari `tile:opened` dengan `isGold: true`.
+Heksa kembali ke petak aslinya dan bisa menyala lagi (GDD 4.7 v1.12); **bukan Heksa Mati**. Isi petak asli tidak dikirim. Saat game berakhir dengan Petak Emas yang belum diambil, `gold:expired` dikirim sebelum `game:finished`. Jika diambil, tidak ada `gold:expired`. Pengambilan terlihat dari `tile:opened` dengan `isGold: true`.
 
 ---
 
@@ -1231,6 +1238,8 @@ Ack<{ inviteId: string; deadline: number }>;
 Error: `GAME_FINISHED`, `NO_INVITE_CARD`, `INVITE_NOT_ALLOWED` (bukan Fase Pilihan pengirim, atau heksa sudah dipilih), `INVALID_TARGET` (diri sendiri, target tereliminasi, pengirim tereliminasi, atau target sedang punya popup Ajakan aktif).
 
 Aturan (GDD 4.8 v1.12): hanya di Fase Pilihan giliran pengirim, sebelum `turn:choose`. Jika Timer Giliran habis sebelum ack, Ajakan batal dan kartu tidak terpakai. Ajakan yang sudah terkirim tetap berjalan meski giliran pengirim berakhir. Target yang sedang putus tetap boleh diajak; popup tidak ditahan dan dihitung Tolak setelah 15 detik. Tidak ada batas jumlah Ajakan per ronde selain 1 kartu per pemain.
+
+Jika pemain terakhir sudah selesai bergerak sementara Ajakan masih menunggu jawaban, server menahan perpindahan ke ronde berikutnya/Fase Pembalikan sampai Ajakan dijawab atau melewati deadline. Countdown Ajakan tetap berjalan dan tidak ada timer yang dijeda.
 
 ### `invite:incoming` · S→C (P, target)
 

@@ -28,14 +28,13 @@ describe("isInviteCardStep", () => {
 });
 
 describe("pickInviteMotive", () => {
-  it("10.000 undian mendekati 50/25/25 (toleransi 3%)", () => {
+  it("10.000 undian mendekati 50/50 (toleransi 3%)", () => {
     const random = seededRandom(42);
-    const counts = { sincere: 0, commission: 0, trap: 0 };
+    const counts = { sincere: 0, commission: 0 };
     const total = 10_000;
     for (let i = 0; i < total; i += 1) counts[pickInviteMotive(random)] += 1;
     expect(Math.abs(counts.sincere / total - 0.5)).toBeLessThanOrEqual(0.03);
-    expect(Math.abs(counts.commission / total - 0.25)).toBeLessThanOrEqual(0.03);
-    expect(Math.abs(counts.trap / total - 0.25)).toBeLessThanOrEqual(0.03);
+    expect(Math.abs(counts.commission / total - 0.5)).toBeLessThanOrEqual(0.03);
   });
 });
 

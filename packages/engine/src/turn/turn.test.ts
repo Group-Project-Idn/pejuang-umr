@@ -3,6 +3,7 @@ import {
   getHexDistance,
   getNeighbors,
   hexKey,
+  GameFinishedPayloadSchema,
   type HexCoord,
   type PrivateStatus,
 } from "@pejuang/shared";
@@ -421,14 +422,14 @@ describe("chooseHex", () => {
   });
 
   it("kekurangan dari Realita saat Hutang 25jt menjadi Hutang lalu Bangkrut di Fase Pembalikan", () => {
-    // hanging-out: Rencana -500.000; Realita zonk -750.000, kekurangan 250.000 menjadi Hutang.
+    // Rencana berlaku saat melangkah; kekurangan Realita baru menjadi Hutang saat Fase Pembalikan.
     const first = makeGame().public.turnOrder[0]!;
     const game = withStatus(forceTile(makeGame(), "hanging-out"), first, {
-      wealth: 1_000_000,
+      wealth: 500_000,
       debt: 25_000_000,
     });
     const chosen = choose(game, new SequenceRandomSource([0, 0.1]));
-    expect(chosen.state.players[first]!.status.wealth).toBe(500_000);
+    expect(chosen.state.players[first]!.status.wealth).toBe(0);
     expect(chosen.state.players[first]!.status.debt).toBe(25_000_000);
     expect(chosen.state.players[first]!.eliminated).toBe(false);
 
@@ -440,7 +441,7 @@ describe("chooseHex", () => {
     expect(resolved.turnId).toBe(chosen.state.pendingRealities[0]!.turnId);
     const player = revealed.state.players[first]!;
     expect(player.status.wealth).toBe(0);
-    expect(player.status.debt).toBe(25_250_000);
+    expect(player.status.debt).toBe(25_750_000);
     expect(player.eliminated).toBe(true);
     expect(player.eliminatedReason).toBe("bankrupt");
     expect(ofType(revealed.events, "player:eliminated")[0]!.payload.reason).toBe("bankrupt");
@@ -459,7 +460,7 @@ describe("chooseHex", () => {
     expect(player.eliminated).toBe(false);
   });
 
-  it("Bangkrut: Doom saat Hutang 25jt dan Kekayaan 0", () => {
+  it("Doom saat Hutang 25jt dan Kekayaan 0 menambah Hutang; Bangkrut menunggu Pembalikan", () => {
     const first = makeGame().public.turnOrder[0]!;
     const game = withStatus(forceTile(makeGame(), "buying-vitamins"), first, {
       wealth: 0,
@@ -550,6 +551,34 @@ describe("chooseHex", () => {
     expect(pawnOf(result.state, playerId)).toEqual(goldHex);
     // Tak ada gold:expired untuk Petak Emas yang diambil.
     expect(ofType(result.events, "gold:expired")).toHaveLength(0);
+  });
+
+  it("timeout dengan hanya Petak Emas menyala tetap mengambil emas", () => {
+    const base = makeGame(5);
+    const first = base.public.turnOrder[0]!;
+    const { state, goldHex } = placeGoldNear(base, first);
+    const { state: begun, turnId } = begin(state);
+    const timedOut = { ...begun, pendingTurn: { ...begun.pendingTurn!, options: [goldHex] } };
+    const result = timeoutTurn(timedOut, turnId, seeded());
+    if (!result.ok) throw new Error(result.message);
+    expect(ofType(result.events, "tile:opened")[0]?.payload).toMatchObject({ to: goldHex, isGold: true, autoPicked: true });
+    expect(result.state.public.gold).toBeNull();
+    expect(result.state.board.goldOrigin).toBeNull();
+  });
+
+  it("akhir game menghanguskan Petak Emas yang belum diambil dan memulihkan isi rahasia", () => {
+    const { state } = startRound({ ...makeGame(21), phase: "roundStart" }, seeded());
+    const gold = state.public.gold!;
+    const original = state.board.goldOrigin!.tileId;
+    const finished = finishGame(state);
+    expect(finished.events.map((event) => event.type)).toEqual(["gold:expired", "game:finished"]);
+    expect(finished.state.public.gold).toBeNull();
+    expect(finished.state.public.deadHexes).toEqual([]);
+    expect(finished.state.board.tiles[hexKey(gold.hex)]).toBe(original);
+    expect(finished.state.board.goldOrigin).toBeNull();
+    expect(finished.state.board.usedHexKeys).not.toContain(hexKey(gold.hex));
+    expect(JSON.stringify(finished.events)).not.toContain(`"${original}"`);
+    expect(finishGame(finished.state).events.map((event) => event.type)).toEqual(["game:finished"]);
   });
 });
 
@@ -669,16 +698,17 @@ describe("endRound (Fase Pembalikan)", () => {
     expect(state.phase).toBe("finished");
     const finished = ofType(events, "game:finished")[0]!;
     expect(finished.target).toEqual({ kind: "room" });
+    expect(GameFinishedPayloadSchema.safeParse(finished.payload).success).toBe(true);
     expect(finished.payload.ranking).toHaveLength(3);
     expect(finished.payload.ranking.map((r) => r.rank)).toContain(1);
     for (const row of finished.payload.ranking) {
       expect(row.netWorth).toBe(7_500_000);
-      expect(row.modifier).toBe("none");
-      expect(row.modifierPct).toBe(0);
+      expect(row).not.toHaveProperty("modifier");
+      expect(row).not.toHaveProperty("modifierPct");
       expect(row.finalScore).toBeCloseTo(88.3333333, 5);
-      expect(row.points?.finance).toBeCloseTo(65, 9);
-      expect(row.points?.health).toBe(100);
-      expect(row.points?.calm).toBe(100);
+      expect(row.points.finance).toBeCloseTo(65, 9);
+      expect(row.points.health).toBe(100);
+      expect(row.points.calm).toBe(100);
       expect(row).not.toHaveProperty("avatarId");
     }
   });

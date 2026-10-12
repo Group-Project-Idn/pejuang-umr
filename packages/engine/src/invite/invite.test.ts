@@ -51,10 +51,10 @@ function respond(plan: InvitePlan, motive: InviteMotive, answer: "join" | "decli
 
 describe("sendInvite", () => {
   it("sukses: kartu terpakai, pendingInvite terisi, incoming tanpa motive", () => {
-    const sent = invited("hangout", "trap");
+    const sent = invited("hangout", "commission");
     expect(sent.state.players.a!.inviteCard).toBeNull();
     expect(sent.state.inviteUsedThisRound).toBe(true);
-    expect(sent.state.pendingInvite).toMatchObject({ senderId: "a", targetId: "b", plan: "hangout", motive: "trap" });
+    expect(sent.state.pendingInvite).toMatchObject({ senderId: "a", targetId: "b", plan: "hangout", motive: "commission" });
     const incoming = ofType(sent.events, "invite:incoming");
     expect(incoming).toHaveLength(1);
     expect(incoming[0]!.target).toEqual({ kind: "player", playerId: "b" });
@@ -70,7 +70,7 @@ describe("sendInvite", () => {
 
   it("Ajakan kedua di ronde yang sama -> INVITE_LIMIT, kartu kedua tetap ada", () => {
     const first = invited("hangout", "sincere");
-    const state = withCard(first.state, "c", cardOf("morningRun", "trap", "c2"));
+    const state = withCard(first.state, "c", cardOf("morningRun", "commission", "c2"));
     const second = sendInvite(state, "c", "c2", "b");
     expect(second).toMatchObject({ ok: false, code: "INVITE_LIMIT" });
     expect(state.players.c!.inviteCard?.cardId).toBe("c2");
@@ -112,15 +112,15 @@ describe("respondInvite", () => {
     const b = base.players.b!.status;
     const a = base.players.a!.status;
     expect(statusEvent(result.events, "b")).toMatchObject({
-      wealth: b.wealth + 5_000_000,
-      health: b.health - 2,
-      stress: b.stress + 2,
+      wealth: b.wealth + 1_000_000,
+      health: b.health - 1,
+      stress: b.stress,
     });
-    expect(statusEvent(result.events, "a")).toMatchObject({ wealth: a.wealth + 3_000_000 });
+    expect(statusEvent(result.events, "a")).toMatchObject({ wealth: a.wealth + 500_000 });
     expect(resolved("b").payload.motive).toBe("commission");
     expect(resolved("a").payload.motive).toBe("commission");
     expect(result.state.pendingInvite).toBeNull();
-    expect(result.state.players.b!.status.wealth).toBe(b.wealth + 5_000_000);
+    expect(result.state.players.b!.status.wealth).toBe(b.wealth + 1_000_000);
   });
 
   it("Nongkrong + sincere + join", () => {
@@ -128,48 +128,47 @@ describe("respondInvite", () => {
     const b = base.players.b!.status;
     const a = base.players.a!.status;
     expect(statusEvent(result.events, "b")).toMatchObject({
-      wealth: b.wealth - 1_000_000,
-      stress: Math.max(0, b.stress - 4),
+      wealth: b.wealth - 500_000,
+      stress: Math.max(0, b.stress - 3),
     });
     expect(statusEvent(result.events, "a")).toMatchObject({ stress: Math.max(0, a.stress - 1) });
     expect(resolved("b").payload.effectsForYou).toEqual([
-      { stat: "wealth", delta: -1_000_000 },
-      { stat: "stress", delta: -3 },
+      { stat: "wealth", delta: -500_000 },
+      { stat: "stress", delta: -2 },
       { stat: "stress", delta: -1 },
     ]);
     expect(resolved("a").payload.effectsForYou).toEqual([{ stat: "stress", delta: -1 }]);
   });
 
-  it("trap + join: plan tidak berlaku", () => {
-    const { result, base, statusEvent, resolved } = respond("staycation", "trap", "join");
+  it("commission + join: plan dan biaya tersembunyi berlaku", () => {
+    const { result, base, statusEvent, resolved } = respond("staycation", "commission", "join");
     const b = base.players.b!.status;
     expect(statusEvent(result.events, "b")).toMatchObject({
-      wealth: b.wealth - 2_000_000,
-      health: b.health,
-      stress: b.stress + 2,
+      wealth: b.wealth - 1_500_000,
+      health: Math.min(10, b.health + 1),
+      stress: Math.max(0, b.stress - 2),
     });
-    expect(statusEvent(result.events, "a")).toBeUndefined();
-    expect(resolved("b").payload.motive).toBe("trap");
+    expect(statusEvent(result.events, "a")?.wealth).toBe(base.players.a!.status.wealth + 500_000);
+    expect(resolved("b").payload.motive).toBe("commission");
   });
 
-  it("sincere + decline: -3.000.000, game:patch, motive terbuka", () => {
+  it("sincere + decline: stress +1, game:patch, motive terbuka", () => {
     const { result, base, statusEvent, resolved } = respond("hangout", "sincere", "decline");
     expect(statusEvent(result.events, "b")).toMatchObject({
-      wealth: base.players.b!.status.wealth - 3_000_000,
+      stress: base.players.b!.status.stress + 1,
     });
     expect(resolved("b").payload.motive).toBe("sincere");
     const ops = ofType(result.events, "game:patch").flatMap((e) => e.payload.ops);
     expect(ops).toContainEqual({ type: "inviteSincereDeclined", fromPlayerId: "a", targetPlayerId: "b" });
   });
 
-  it("commission + decline: tanpa efek, motive null untuk target, tanpa game:patch", () => {
+  it("commission + decline: stress -1, motif dibuka untuk target", () => {
     const { result, statusEvent, resolved } = respond("hangout", "commission", "decline");
-    expect(ofType(result.events, "player:status")).toHaveLength(0);
-    expect(statusEvent(result.events, "b")).toBeUndefined();
-    expect(resolved("b").payload.motive).toBeNull();
-    expect(resolved("b").payload.effectsForYou).toEqual([]);
+    expect(statusEvent(result.events, "b")).toBeDefined();
+    expect(resolved("b").payload.motive).toBe("commission");
+    expect(resolved("b").payload.effectsForYou).toEqual([{ stat: "stress", delta: -1 }]);
     expect(resolved("a").payload.motive).toBe("commission");
-    expect(ofType(result.events, "game:patch")).toHaveLength(0);
+    expect(ofType(result.events, "game:patch").flatMap((event) => event.payload.ops).some((op) => op.type === "inviteSincereDeclined")).toBe(false);
   });
 
   it("INVITE_EXPIRED: tanpa pending, inviteId beda, bukan target", () => {
@@ -180,16 +179,16 @@ describe("respondInvite", () => {
     expect(respondInvite(sent.state, "c", id, "join")).toMatchObject({ ok: false, code: "INVITE_EXPIRED" });
   });
 
-  it("Jebakan membuat target Burnout -> eliminated; tinggal 1 pemain -> game selesai", () => {
+  it("Komisi Proyek Bareng membuat target Burnout -> eliminated; tinggal 1 pemain -> game selesai", () => {
     const base = makeGame(["a", "b"]);
-    const state = withCard(base, "a", cardOf("hangout", "trap"));
-    state.players.b = { ...state.players.b!, status: { ...state.players.b!.status, health: 3, stress: 9 } };
+    const state = withCard(base, "a", cardOf("jointProject", "commission"));
+    state.players.b = { ...state.players.b!, status: { ...state.players.b!.status, health: 1, stress: 9 } };
     const sent = sendInvite(state, "a", "c", "b");
     if (!sent.ok) throw new Error(sent.message);
     const result = respondInvite(sent.state, "b", sent.state.pendingInvite!.inviteId, "join");
     if (!result.ok) throw new Error(result.message);
     expect(result.state.players.b).toMatchObject({ eliminated: true, eliminatedReason: "burnout" });
-    expect(result.state.players.b!.status).toMatchObject({ stress: 10, health: 3 });
+    expect(result.state.players.b!.status).toMatchObject({ stress: 9, health: 0 });
     expect(result.state.public.eliminated).toContain("b");
     expect(ofType(result.events, "player:eliminated")[0]!.payload.playerId).toBe("b");
     expect(result.nextAction).toBe("finished");
@@ -199,8 +198,8 @@ describe("respondInvite", () => {
 
   it("Burnout dengan 3 pemain: game lanjut", () => {
     const base = makeGame();
-    const state = withCard(base, "a", cardOf("hangout", "trap"));
-    state.players.b = { ...state.players.b!, status: { ...state.players.b!.status, health: 3, stress: 9 } };
+    const state = withCard(base, "a", cardOf("jointProject", "commission"));
+    state.players.b = { ...state.players.b!, status: { ...state.players.b!.status, health: 1, stress: 9 } };
     const sent = sendInvite(state, "a", "c", "b");
     if (!sent.ok) throw new Error(sent.message);
     const result = respondInvite(sent.state, "b", sent.state.pendingInvite!.inviteId, "join");
@@ -221,7 +220,7 @@ describe("expireInvite", () => {
     for (const e of resolved) {
       expect(e.payload).toMatchObject({ answer: "decline", autoDeclined: true });
     }
-    expect(result.state.players.b!.status.wealth).toBe(makeGame().players.b!.status.wealth - 3_000_000);
+    expect(result.state.players.b!.status.stress).toBe(makeGame().players.b!.status.stress + 1);
     expect(result.state.pendingInvite).toBeNull();
   });
 

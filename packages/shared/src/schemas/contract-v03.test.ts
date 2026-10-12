@@ -87,22 +87,33 @@ describe("kontrak v0.3: field opsional baru", () => {
     expect(PublicGameStateSchema.safeParse({ ...state, phase: "lain" }).success).toBe(false);
   });
 
-  it("ranking game:finished menerima avatarId dan points", () => {
+  it("ranking game:finished mensyaratkan tiga poin dan menerima avatarId", () => {
     const rank = {
       rank: 1, playerId: "p1", name: "Budi", pawn: "cream-circle", finalScore: 80,
-      netWorth: 1_000_000, modifier: "none", modifierPct: 0, eliminated: false,
+      netWorth: 1_000_000, points: { finance: 65, health: 90, calm: 85 }, eliminated: false,
       eliminatedAtStep: null,
     };
     const payload = (r: object) => ({ version: 1, ranking: [r] });
     expect(GameFinishedPayloadSchema.safeParse(payload(rank)).success).toBe(true);
     expect(
       GameFinishedPayloadSchema.safeParse(
-        payload({ ...rank, avatarId: "michael", points: { finance: 30, health: 25, calm: 25 } }),
+        payload({ ...rank, avatarId: "michael" }),
       ).success,
     ).toBe(true);
+    expect(GameFinishedPayloadSchema.safeParse(payload({ ...rank, points: undefined })).success).toBe(false);
     expect(
       GameFinishedPayloadSchema.safeParse(payload({ ...rank, points: { finance: 30 } })).success,
     ).toBe(false);
+    for (const invalid of [
+      { ...rank, finalScore: -0.01 },
+      { ...rank, finalScore: 100.01 },
+      { ...rank, points: { ...rank.points, finance: 100.01 } },
+      { ...rank, points: { ...rank.points, calm: -0.01 } },
+      { ...rank, modifier: "none" },
+      { ...rank, modifierPct: 0 },
+    ]) {
+      expect(GameFinishedPayloadSchema.safeParse(payload(invalid)).success).toBe(false);
+    }
   });
 
   it("MonthSummary menerima payDebt (objek atau null)", () => {
@@ -202,13 +213,16 @@ describe("kontrak v1.12: Hutang tanpa batas atas dan skor desimal", () => {
       ScoreRowSchema.safeParse({ playerId: "p1", provisionalScore: 88.3333, rank: 1, eliminated: false })
         .success,
     ).toBe(true);
+    for (const provisionalScore of [-0.01, 100.01]) {
+      expect(ScoreRowSchema.safeParse({ playerId: "p1", provisionalScore, rank: 1, eliminated: false }).success).toBe(false);
+    }
     expect(
       GameFinishedPayloadSchema.safeParse({
         version: 1,
         ranking: [
           {
             rank: 1, playerId: "p1", name: "Budi", pawn: "cream-circle", finalScore: 56.3333,
-            netWorth: 4_500_000, modifier: "none", modifierPct: 0, eliminated: false,
+            netWorth: 4_500_000, points: { finance: 59, health: 60, calm: 50 }, eliminated: false,
             eliminatedAtStep: null,
           },
         ],

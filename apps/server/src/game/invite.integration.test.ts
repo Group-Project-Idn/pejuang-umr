@@ -83,17 +83,17 @@ type Ctx = Awaited<ReturnType<typeof setup>>;
 type Plan = "hangout";
 
 const HANGOUT = [
-  { stat: "wealth", delta: -1_000_000 },
-  { stat: "stress", delta: -3 },
+  { stat: "wealth", delta: -500_000 },
+  { stat: "stress", delta: -2 },
 ] as const;
 
-function giveCard(ctx: Ctx, playerId: string, motive: "sincere" | "commission" | "trap") {
+function giveCard(ctx: Ctx, playerId: string, motive: "sincere" | "commission", plan: "hangout" | "jointProject" = "hangout") {
   const session = ctx.session();
   const player = session.state.players[playerId]!;
   const card = {
     cardId: `card-${playerId}`,
-    plan: "hangout" as Plan,
-    planEffects: [...HANGOUT],
+    plan,
+    planEffects: plan === "hangout" ? [...HANGOUT] : [{ stat: "wealth" as const, delta: 1_500_000 }, { stat: "health" as const, delta: -1 }],
     motive,
     expiresAtMonth: 3,
   };
@@ -167,7 +167,7 @@ describe("invite lewat socket", () => {
     const ack = await send(sender, cardId, others[1]);
     expect(ack.ok).toBe(true);
     void active;
-    ctx.clock.advance(15_000);
+    ctx.clock.advance(15_501);
     await until(() => ctx.find(sender, "invite:resolved").length > 0, "resolved");
     expect(ctx.find(sender, "invite:resolved")[0]!.payload).toMatchObject({ answer: "decline", autoDeclined: true });
   });
@@ -183,7 +183,7 @@ describe("invite lewat socket", () => {
     const deadline = ctx.session().publicState().turnDeadline;
     expect(deadline).toBe(ctx.clock.now() + 20_000);
     expect(ctx.find(sender, "turn:timer")).toHaveLength(0);
-    ctx.clock.advance(15_000);
+    ctx.clock.advance(15_501);
     await until(() => ctx.find(sender, "invite:resolved").length > 0, "invite:resolved");
     expect(ctx.find(sender, "invite:resolved").at(-1)!.payload).toMatchObject({
       answer: "decline",
@@ -195,6 +195,66 @@ describe("invite lewat socket", () => {
     ctx.clock.advance(5_000);
     await until(() => ctx.find(sender, "tile:opened").length > 0, "tile:opened");
     expect(ctx.find(sender, "tile:opened")[0]!.payload.autoPicked).toBe(true);
+  });
+
+  it("menerima jawaban tepat pada grace 500 ms dan menolak sesudahnya", async () => {
+    const accepted = await setup();
+    const acceptedTurn = await startTurns(accepted);
+    const acceptedSender = acceptedTurn.others[0];
+    const acceptedCard = giveCard(accepted, acceptedSender.playerId, "commission");
+    const acceptedAck = await send(acceptedSender, acceptedCard, acceptedTurn.active);
+    if (!acceptedAck.ok) throw new Error("send gagal");
+    accepted.clock.advance(15_500);
+    expect(await respond(acceptedTurn.active, acceptedAck.inviteId, "join")).toEqual({ ok: true });
+
+    const expired = await setup();
+    const expiredTurn = await startTurns(expired);
+    const expiredSender = expiredTurn.others[0];
+    const expiredCard = giveCard(expired, expiredSender.playerId, "commission");
+    const expiredAck = await send(expiredSender, expiredCard, expiredTurn.active);
+    if (!expiredAck.ok) throw new Error("send gagal");
+    expired.clock.advance(15_501);
+    expect(await respond(expiredTurn.active, expiredAck.inviteId, "join")).toMatchObject({
+      ok: false,
+      error: "INVITE_EXPIRED",
+    });
+  });
+
+  it("akhir ronde menunggu Ajakan aktif sampai dijawab tanpa memperpanjang deadline", async () => {
+    const ctx = await setup();
+    const { active, others } = await startTurns(ctx);
+    const sender = others[0];
+    const target = others[1];
+    const cardId = giveCard(ctx, sender.playerId, "commission");
+    const invite = await send(sender, cardId, target);
+    if (!invite.ok) throw new Error("send gagal");
+
+    for (;;) {
+      const pending = ctx.session().state.pendingTurn;
+      if (!pending) break;
+      const player = [ctx.host, ctx.second, ctx.third].find((entry) => entry.playerId === pending.playerId)!;
+      await until(
+        () => ctx.find(player, "turn:options").some((entry) => entry.payload.turnId === pending.turnId),
+        `turn:options ${pending.turnId}`,
+      );
+      const options = ctx.find(player, "turn:options").find((entry) => entry.payload.turnId === pending.turnId)?.payload;
+      if (!options) throw new Error("opsi giliran tidak ditemukan");
+      await player.socket.emitWithAck("turn:choose", {
+        requestId: rid(),
+        turnId: pending.turnId,
+        hex: options.options[0].hex,
+      });
+    }
+
+    const step = ctx.session().state.public.calendar.step;
+    expect(ctx.session().state.pendingInvite?.inviteId).toBe(invite.inviteId);
+    expect(ctx.session().state.public.calendar.step).toBe(step);
+    expect(ctx.session().state.pendingTurn).toBeNull();
+    expect(invite.deadline).toBe(ctx.clock.now() + 15_000);
+
+    expect(await respond(target, invite.inviteId, "decline")).toEqual({ ok: true });
+    expect(ctx.session().state.public.calendar.step).toBe(step + 1);
+    void active;
   });
 
   it("pemain aktif tetap bisa memilih heksa saat Ajakan menunggu", async () => {
@@ -217,8 +277,8 @@ describe("invite lewat socket", () => {
     const ctx = await setup();
     const { others } = await startTurns(ctx);
     const [a, b] = others;
-    const cardA = giveCard(ctx, a.playerId, "trap");
-    const cardB = giveCard(ctx, b.playerId, "trap");
+    const cardA = giveCard(ctx, a.playerId, "commission");
+    const cardB = giveCard(ctx, b.playerId, "commission");
     expect((await send(a, cardA, b)).ok).toBe(true);
     expect(await send(b, cardB, a)).toMatchObject({ ok: false, error: "INVITE_LIMIT" });
   });
@@ -252,8 +312,8 @@ describe("invite lewat socket", () => {
     const { active, others } = await startTurns(ctx);
     const sender = others[0];
     const withTurnTimer = ctx.clock.pending; // timer janitor + timer giliran
-    setStatus(ctx, active.playerId, { health: 3, stress: 9 });
-    const cardId = giveCard(ctx, sender.playerId, "trap");
+    setStatus(ctx, active.playerId, { health: 1, stress: 9 });
+    const cardId = giveCard(ctx, sender.playerId, "commission", "jointProject");
     const ack = await send(sender, cardId, active);
     if (!ack.ok) throw new Error("send gagal");
     const turnsBefore = ctx.find(sender, "turn:start").length;
@@ -273,8 +333,8 @@ describe("invite lewat socket", () => {
     const [sender, third] = others;
     const janitorOnly = ctx.clock.pending - 1;
     eliminateNow(ctx, third.playerId);
-    setStatus(ctx, active.playerId, { health: 3, stress: 9 });
-    const cardId = giveCard(ctx, sender.playerId, "trap");
+    setStatus(ctx, active.playerId, { health: 1, stress: 9 });
+    const cardId = giveCard(ctx, sender.playerId, "commission", "jointProject");
     const ack = await send(sender, cardId, active);
     if (!ack.ok) throw new Error("send gagal");
     await respond(active, ack.inviteId, "join");

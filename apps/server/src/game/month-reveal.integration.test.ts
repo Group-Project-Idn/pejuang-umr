@@ -32,6 +32,17 @@ function lastIndexWhere<T>(items: readonly T[], match: (item: T) => boolean): nu
   return -1;
 }
 
+function latestTimer(ctx: { clock: RecordingClock }, ms: number) {
+  const timer = [...ctx.clock.scheduled].reverse().find((entry) => entry.ms === ms);
+  if (!timer) throw new Error(`Timer ${ms}ms tidak ditemukan`);
+  return timer;
+}
+
+function advanceToTimer(ctx: { clock: RecordingClock }, ms: number, before = 0) {
+  const timer = latestTimer(ctx, ms);
+  ctx.clock.advance(Math.max(0, timer.at + timer.ms - ctx.clock.now() - before));
+}
+
 const openServers: Array<ReturnType<typeof createPejuangServer>> = [];
 const openSockets: TestSocket[] = [];
 
@@ -194,7 +205,8 @@ describe("Ganti Bulan: month:pay-debt", () => {
     const hostSummary = ctx.find(ctx.host, "month:summary")[0]!.payload;
     expect(hostSummary.month).toBe(2);
     expect(hostSummary.payDebt.max).toBe(4_000_000);
-    expect(hostSummary.payDebt.deadline).toBe(ctx.clock.now() + MONTH_PAY_SECONDS * 1000);
+    const paymentTimer = latestTimer(ctx, MONTH_PAY_SECONDS * 1000 + 501);
+    expect(hostSummary.payDebt.deadline).toBe(paymentTimer.at + MONTH_PAY_SECONDS * 1000);
     expect(ctx.session.state.public.phase).toBe("calendar");
 
     // Di luar batas: lebih dari max, desimal, negatif -> INVALID_PAYLOAD, popup tetap terbuka.
@@ -240,7 +252,7 @@ describe("Ganti Bulan: month:pay-debt", () => {
     await openMonthChange(ctx, [[ctx.host.playerId, { debt: 4_000_000 }]]);
     expect(ctx.find(ctx.guest, "month:summary")[0]!.payload.payDebt).toBeNull();
 
-    ctx.clock.advance(MONTH_PAY_SECONDS * 1000 - 1);
+    advanceToTimer(ctx, MONTH_PAY_SECONDS * 1000 + 501, 502);
     expect(ctx.session.state.phase).toBe("monthChange");
 
     expect(await pay(ctx.host, 2, 0)).toMatchObject({ ok: true, paid: 0 });
@@ -253,12 +265,30 @@ describe("Ganti Bulan: month:pay-debt", () => {
     await openMonthChange(ctx, [[ctx.host.playerId, { debt: 4_000_000 }]]);
     const before = ctx.session.state.players[ctx.host.playerId]!.status;
 
-    ctx.clock.advance(MONTH_PAY_SECONDS * 1000 - 1);
+    advanceToTimer(ctx, MONTH_PAY_SECONDS * 1000 + 501, 502);
     expect(ctx.session.state.phase).toBe("monthChange");
     ctx.clock.advance(1);
+    expect(ctx.session.state.phase).toBe("monthChange");
+    ctx.clock.advance(501);
     expect(ctx.session.state.phase).toBe("turn");
     expect(ctx.session.state.players[ctx.host.playerId]!.status).toEqual(before);
     expect(await pay(ctx.host, 2, 1_000)).toMatchObject({ ok: false, error: "PAYMENT_CLOSED" });
+  });
+
+  it("pembayaran tepat deadline + 500 ms diterima, + 501 ms ditolak", async () => {
+    const accepted = await setup();
+    await openMonthChange(accepted, [[accepted.host.playerId, { debt: 4_000_000 }]]);
+    const deadline = accepted.find(accepted.host, "month:summary")[0]!.payload.payDebt.deadline as number;
+    accepted.clock.advance(deadline + 500 - accepted.clock.now());
+    expect(await pay(accepted.host, 2, 1_000_000)).toMatchObject({ ok: true, paid: 1_000_000 });
+    expect(accepted.session.state.phase).toBe("turn");
+
+    const expired = await setup();
+    await openMonthChange(expired, [[expired.host.playerId, { debt: 4_000_000 }]]);
+    const expiredDeadline = expired.find(expired.host, "month:summary")[0]!.payload.payDebt.deadline as number;
+    expired.clock.advance(expiredDeadline + 501 - expired.clock.now());
+    expect(await pay(expired.host, 2, 1_000_000)).toMatchObject({ ok: false, error: "PAYMENT_CLOSED" });
+    expect(expired.session.state.players[expired.host.playerId]!.status.debt).toBe(4_000_000);
   });
 
   it("tanpa debtor: lanjut setelah MONTH_SUMMARY_ONLY_MS", async () => {
@@ -267,9 +297,9 @@ describe("Ganti Bulan: month:pay-debt", () => {
     expect(ctx.find(ctx.host, "month:summary")[0]!.payload.payDebt).toBeNull();
     expect(ctx.find(ctx.guest, "month:summary")[0]!.payload.payDebt).toBeNull();
 
-    ctx.clock.advance(MONTH_SUMMARY_ONLY_MS - 1);
+    advanceToTimer(ctx, MONTH_SUMMARY_ONLY_MS, 1);
     expect(ctx.session.state.phase).toBe("monthChange");
-    ctx.clock.advance(1);
+    advanceToTimer(ctx, MONTH_SUMMARY_ONLY_MS);
     expect(ctx.session.state.phase).toBe("turn");
     await until(() => ctx.find(ctx.host, "turn:start").length > 0, "turn:start");
   });
@@ -319,13 +349,14 @@ describe("Ganti Bulan: month:pay-debt", () => {
     const labour = () => ctx.host.log.findIndex((e) => e.type === "calendar:event" && e.payload.eventId === "labour-day");
     expect(labour()).toBe(-1);
 
-    ctx.clock.advance(MONTH_SUMMARY_ONLY_MS);
+    advanceToTimer(ctx, MONTH_SUMMARY_ONLY_MS);
     await until(() => labour() !== -1, "calendar:event labour-day");
     const summaryIndex = lastIndexWhere(ctx.host.log, (e) => e.type === "month:summary");
     expect(summaryIndex).toBeGreaterThan(-1);
     expect(summaryIndex).toBeLessThan(labour());
     expect(ctx.session.state.phase).toBe("calendarEvent");
-    expect(ctx.find(ctx.host, "calendar:event").at(-1)!.payload.deadline).toBe(ctx.clock.now() + 15_000);
+    const calendarTimer = latestTimer(ctx, 15_000 + 501);
+    expect(ctx.find(ctx.host, "calendar:event").at(-1)!.payload.deadline).toBe(calendarTimer.at + 15_000);
   }, 20_000);
 });
 
