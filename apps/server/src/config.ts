@@ -18,6 +18,8 @@ export type ServerConfig = {
   reflectionProvider?: ReflectionProviderName;
   /** Batas waktu provider Refleksi (ms) sebelum memakai cadangan aturan. */
   reflectionTimeoutMs?: number;
+  /** Alat uji (room UMR-0099 dan event dev:*). Default false; ditolak saat production. */
+  devTools?: boolean;
 };
 
 export type ReflectionProviderName = "none" | "fake";
@@ -48,6 +50,15 @@ function readReflectionProvider(
     return "fake";
   }
   throw new Error('REFLECTION_PROVIDER harus "none" atau "fake".');
+}
+
+function readDevTools(value: string | undefined, production: boolean): boolean {
+  if (value === undefined || value === "" || value === "false") return false;
+  if (value === "true") {
+    if (production) throw new Error("DEV_TOOLS=true tidak boleh dipakai saat production.");
+    return true;
+  }
+  throw new Error('DEV_TOOLS harus "true" atau "false".');
 }
 
 const PLACEHOLDER_SECRET = "change-me";
@@ -102,5 +113,6 @@ export function readServerConfig(
       DEFAULT_REFLECTION_TIMEOUT_MS,
       "REFLECTION_TIMEOUT_MS",
     ),
+    devTools: readDevTools(env.DEV_TOOLS, env.NODE_ENV === "production"),
   };
 }

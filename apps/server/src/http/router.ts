@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import {
+  DEV_ROOM_CODE,
   GuestRequestSchema,
   RoomCodeSchema,
   type RoomLookupResponse,
@@ -108,6 +109,19 @@ function handleRoomLookup(
   }
 
   const room = rooms.get(normalized);
+  if (!room && rooms.isDevRoomEnabled() && normalized === DEV_ROOM_CODE) {
+    // Room uji dibuat saat pemain pertama masuk, jadi selalu bisa dimasuki saat kosong.
+    sendJson(response, 200, {
+      ok: true,
+      code: DEV_ROOM_CODE,
+      status: "waiting",
+      playerCount: 0,
+      maxPlayers: 4,
+      joinable: true,
+      reason: null,
+    } satisfies RoomLookupResponse);
+    return;
+  }
   if (!room) {
     sendError(response, 404, "ROOM_NOT_FOUND", "Kode room tidak ketemu.");
     return;

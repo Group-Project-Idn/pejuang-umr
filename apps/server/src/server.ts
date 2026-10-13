@@ -24,7 +24,9 @@ import {
 import { broadcastConnection } from "./services/connection";
 import { FixedWindowRateLimiter } from "./services/rate-limit";
 import { verifyGuestToken } from "./services/guest-token";
-import { ClientEventSchemas } from "@pejuang/shared";
+import { ClientEventSchemas, DEV_ROOM_CODE } from "@pejuang/shared";
+import { resetAbandonedDevRoom } from "./services/dev-room";
+import { registerDevHandlers } from "./socket/register-dev-handlers";
 import { registerEmoteHandlers, EMOTE_WINDOW_MS } from "./socket/register-emote-handlers";
 import { registerGameHandlers } from "./socket/register-game-handlers";
 import { registerRoomHandlers } from "./socket/register-room-handlers";
@@ -46,6 +48,9 @@ export function createPejuangServer(
 ) {
   const rooms = dependencies.rooms ?? new RoomRepository();
   const games = dependencies.games ?? new GameRepository();
+  // DEV_TOOLS (sudah ditolak config saat production): room uji UMR-0099 dan event dev:*.
+  const devTools = config.devTools === true && process.env.NODE_ENV !== "production";
+  if (devTools) rooms.enableDevRoom();
   const idempotency =
     dependencies.idempotency ?? new IdempotencyRepository();
   // Jendela 60 detik untuk aksi game (API_CONTRACT 1.3).
@@ -77,6 +82,7 @@ export function createPejuangServer(
     dependencies.clock ?? systemClock,
     config.roomIdleMs ?? DEFAULT_ROOM_IDLE_MS,
     config.roomEmptyMs ?? DEFAULT_ROOM_EMPTY_MS,
+    devTools ? new Set([DEV_ROOM_CODE]) : undefined,
   );
   httpServer.on("close", () => janitor.dispose());
 
@@ -168,6 +174,7 @@ export function createPejuangServer(
       },
     });
     registerGameHandlers(io, socket, rooms, games, gameIdempotency);
+    if (devTools) registerDevHandlers(io, socket, rooms, games);
     registerEmoteHandlers(
       io,
       socket,
@@ -190,6 +197,7 @@ export function createPejuangServer(
           if (wasConnected && room.status === "playing") {
             broadcastConnection(io, games, room.code, socket.data.playerId, false);
           }
+          resetAbandonedDevRoom(rooms, games);
         }
       }
     });
