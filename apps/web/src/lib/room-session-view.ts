@@ -1,6 +1,7 @@
 import type {
   CalendarEventPayload,
   DeadEndPayload,
+  MonthSummaryPayload,
   PrivateStatus,
   PublicGameState,
   RoomState,
@@ -83,7 +84,11 @@ export function applySessionSnapshot(
     room: incoming.room,
     gameView: { game: incoming.game, timerRemainingMs: null },
     me: preserveNewerStatus
-      ? { ...incoming.me, status: current.me?.status ?? incoming.me.status }
+      ? {
+          ...incoming.me,
+          status: current.me?.status ?? incoming.me.status,
+          pendingMonth: current.me?.pendingMonth ?? null,
+        }
       : incoming.me,
     result: incoming.result,
     serverClockOffsetMs: incoming.serverTime - receivedAt,
@@ -129,7 +134,7 @@ export function applySessionTurnOptions(
 /** Menutup prompt privat setelah server menerima aksi yang sesuai. */
 export function clearAcceptedPrivateAction(
   current: RoomSessionView,
-  action: { kind: "turn"; turnId: string } | { kind: "calendar"; eventId: string },
+  action: { kind: "turn"; turnId: string } | { kind: "calendar"; eventId: string } | { kind: "month"; month: number },
 ): RoomSessionView {
   if (!current.me) return current;
   if (
@@ -139,6 +144,16 @@ export function clearAcceptedPrivateAction(
     return {
       ...current,
       me: { ...current.me, pendingTurn: null },
+      privateRevision: current.privateRevision + 1,
+    };
+  }
+  if (
+    action.kind === "month" &&
+    current.me.pendingMonth?.month === action.month
+  ) {
+    return {
+      ...current,
+      me: { ...current.me, pendingMonth: null },
       privateRevision: current.privateRevision + 1,
     };
   }
@@ -182,6 +197,7 @@ function clearPrivatePending(
         inviteCard: null,
         pendingTurn: null,
         pendingCalendar: null,
+        pendingMonth: null,
         pendingInvite: null,
       }
     : null;
@@ -216,16 +232,18 @@ export function applySessionPublicEvent(
     const nextGame = applyPublicGameEvent(state.gameView.game, event);
     const finished = event.type === "game:finished";
     const clearCalendar = event.type === "turn:start";
+    const clearMonth = event.type === "turn:start";
     const clearTurn =
       event.type === "tile:opened" &&
       state.me?.pendingTurn?.turnId === event.payload.turnId;
     const nextMe = finished
       ? clearPrivatePending(state.me)
-      : state.me && (clearCalendar || clearTurn)
+      : state.me && (clearCalendar || clearTurn || clearMonth)
         ? {
             ...state.me,
             pendingCalendar: clearCalendar ? null : state.me.pendingCalendar,
             pendingTurn: clearTurn ? null : state.me.pendingTurn,
+            pendingMonth: clearMonth ? null : state.me.pendingMonth,
           }
         : state.me;
     return {
@@ -239,7 +257,7 @@ export function applySessionPublicEvent(
       },
       me: nextMe,
       result: finished ? event.payload : state.result,
-      privateRevision: finished || clearCalendar || clearTurn
+      privateRevision: finished || clearCalendar || clearTurn || clearMonth
         ? state.privateRevision + 1
         : state.privateRevision,
     };
@@ -290,10 +308,24 @@ export function applySessionCalendarEvent(
         game: { ...game, version: payload.version },
       },
       me: state.me
-        ? { ...state.me, pendingCalendar: canAnswer ? payload : null }
+        ? { ...state.me, pendingCalendar: canAnswer ? payload : null, pendingMonth: null }
         : null,
     };
   });
+}
+
+/** Ringkasan privat Ganti Bulan; tanpa versi, tidak boleh menimpa fase berikutnya. */
+export function applySessionMonthSummary(
+  current: RoomSessionView,
+  payload: MonthSummaryPayload,
+): RoomSessionView {
+  const game = current.gameView.game;
+  if (!current.me || !game || game.calendar.month !== payload.month || game.phase !== "calendar" || current.me.isSpectator || current.me.pendingCalendar) return current;
+  return {
+    ...current,
+    me: { ...current.me, pendingMonth: payload, pendingCalendar: null },
+    privateRevision: current.privateRevision + 1,
+  };
 }
 
 export function applySessionPlayerConnection(

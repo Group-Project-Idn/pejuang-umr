@@ -14,6 +14,7 @@ import CalendarEventView from "../game-v2/CalendarEventView";
 import HexDetailSheet from "../game-v2/HexDetailSheet";
 import GameBoard from "./GameBoard";
 import Scoreboard from "./Scoreboard";
+import MonthChangeView from "./MonthChangeView";
 import StatusPanel from "./StatusPanel";
 
 const SEASON_LABEL = {
@@ -38,6 +39,7 @@ export default function GameInterface({
   actionMessage,
   actionPending,
   onAnswerCalendar,
+  onPayDebt,
   onChooseHex,
 }: {
   room: RoomState;
@@ -52,6 +54,7 @@ export default function GameInterface({
     eventId: string,
     choice: CalendarEventPayload["choices"][number]["id"],
   ) => void;
+  onPayDebt: (month: number, amount: number) => void;
   onChooseHex: (
     turnId: string,
     hex: HexCoord,
@@ -195,6 +198,12 @@ export default function GameInterface({
         event={me?.pendingCalendar ?? null}
         pending={actionPending}
         onAnswer={onAnswerCalendar}
+      />
+      <MonthChangeView
+        summary={me?.pendingMonth ?? null}
+        pending={actionPending}
+        serverClockOffsetMs={serverClockOffsetMs}
+        onPayDebt={onPayDebt}
       />
     </main>
   );

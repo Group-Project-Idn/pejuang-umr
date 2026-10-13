@@ -1,5 +1,6 @@
 import type {
   CalendarEventPayload,
+  MonthSummaryPayload,
   PrivateStatus,
   Snapshot,
   TurnOptionsPayload,
@@ -9,6 +10,7 @@ import {
   applyPrivateStatus,
   applySessionCalendarEvent,
   applySessionGamePatch,
+  applySessionMonthSummary,
   applySessionPlayerConnection,
   applySessionPublicEvent,
   applySessionSnapshot,
@@ -91,6 +93,42 @@ const newerStatus: PrivateStatus = {
 };
 
 describe("room session recovery", () => {
+  it("menyimpan ringkasan bulan privat, mengabaikan bulan lama, dan membersihkan pembayaran setelah ack", () => {
+    const initial = applySessionSnapshot(createRoomSessionView(), snapshot(3), 10_000);
+    const ready = applySessionGamePatch({ ...initial, gameView: { ...initial.gameView, game: { ...initial.gameView.game!, phase: "calendar" } } }, {
+      version: 4,
+      ops: [{ type: "calendar", calendar: { ...initial.gameView.game!.calendar, month: 2, step: 3 } }],
+    }).state;
+    const summary: MonthSummaryPayload = {
+      month: 2, salary: 5_730_000, livingCost: 4_600_000,
+      interest: 30_000, interestAddedToDebt: 0, doomAmount: null,
+      before: { ...newerStatus, debt: 1_000_000 },
+      after: { ...newerStatus, debt: 1_000_000, wealth: 8_100_000 },
+      payDebt: { max: 1_000_000, deadline: 25_000 },
+    };
+    expect(applySessionMonthSummary(initial, summary)).toBe(initial);
+    const shown = applySessionMonthSummary(ready, summary);
+    expect(shown.me?.pendingMonth).toEqual(summary);
+    expect(shown.privateRevision).toBe(ready.privateRevision + 1);
+    const cleared = clearAcceptedPrivateAction(shown, { kind: "month", month: 2 });
+    expect(cleared.me?.pendingMonth).toBeNull();
+    expect(clearAcceptedPrivateAction(shown, { kind: "month", month: 3 })).toBe(shown);
+    const noDebt = applySessionMonthSummary(ready, { ...summary, payDebt: null });
+    expect(noDebt.me?.pendingMonth?.payDebt).toBeNull();
+    const resumed = applySessionSnapshot(createRoomSessionView(), {
+      ...snapshot(4),
+      game: ready.gameView.game,
+      me: { ...snapshot(4).me, pendingMonth: summary },
+    }, 10_000);
+    expect(resumed.me?.pendingMonth).toEqual(summary);
+    const turn = applySessionPublicEvent(shown, {
+      type: "turn:start",
+      payload: { version: 5, turnId: "t2", playerId: "p1", deadline: 26_000, turnSeconds: 30 },
+    });
+    expect(turn.state.me?.pendingMonth).toBeNull();
+    expect(applySessionMonthSummary(turn.state, summary)).toBe(turn.state);
+  });
+
   it("menerima round:reveal di antara tile:opened dan tile:resolved tanpa meminta resume", () => {
     const initial = applySessionSnapshot(createRoomSessionView(), snapshot(3), 10_000);
     const reveal = applySessionPublicEvent(initial, {

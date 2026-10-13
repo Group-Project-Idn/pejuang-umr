@@ -5,6 +5,7 @@ import type {
   CalendarEventPayload,
   DeadEndPayload,
   HexCoord,
+  MonthSummaryPayload,
   PrivateStatus,
   RoomState,
   Snapshot,
@@ -37,6 +38,7 @@ import {
   applyPrivateStatus,
   applyRoomState,
   applySessionCalendarEvent,
+  applySessionMonthSummary,
   applySessionGamePatch,
   applySessionPlayerConnection,
   applySessionPublicEvent,
@@ -192,6 +194,9 @@ export function LobbyClient({ code }: { code: string }) {
     const onCalendarEvent = (payload: CalendarEventPayload) => {
       commitTransition((current) => applySessionCalendarEvent(current, payload));
     };
+    const onMonthSummary = (payload: MonthSummaryPayload) => {
+      commitSession((current) => applySessionMonthSummary(current, payload));
+    };
     const onTurnOptions = (payload: TurnOptionsPayload) => {
       commitSession((current) => applySessionTurnOptions(current, payload));
     };
@@ -223,6 +228,7 @@ export function LobbyClient({ code }: { code: string }) {
       ["game:patch", onGamePatch],
       ["player:status", onPlayerStatus],
       ["calendar:event", onCalendarEvent],
+      ["month:summary", onMonthSummary],
       ["turn:options", onTurnOptions],
       ["turn:dead-end", onDeadEnd],
       ["turn:timer", onTurnTimer],
@@ -300,6 +306,24 @@ export function LobbyClient({ code }: { code: string }) {
     );
   }
 
+  function payDebt(month: number, amount: number) {
+    if (!socket || pending) return;
+    setPending("month");
+    socket.timeout(3_000).emit(
+      "month:pay-debt",
+      { requestId: createRequestId(), month, amount },
+      (error, response) => {
+        const result: Ack = error ? { ok: false, error: "INTERNAL" } : response;
+        if (result.ok) {
+          const next = clearAcceptedPrivateAction(sessionViewRef.current, { kind: "month", month });
+          sessionViewRef.current = next;
+          setSessionView(next);
+        }
+        handleResponse("Pembayaran hutang", result);
+      },
+    );
+  }
+
   function chooseHex(turnId: string, hex: HexCoord, mode: "normal" | "deadEnd") {
     if (!socket || pending) return;
     setPending("turn");
@@ -344,7 +368,8 @@ export function LobbyClient({ code }: { code: string }) {
         serverClockOffsetMs={sessionView.serverClockOffsetMs}
         timerRemainingMs={sessionView.gameView.timerRemainingMs}
         actionMessage={message}
-        actionPending={pending === "calendar" || pending === "turn"}
+        actionPending={pending === "calendar" || pending === "turn" || pending === "month"}
+        onPayDebt={payDebt}
         onAnswerCalendar={answerCalendar}
         onChooseHex={chooseHex}
       />
