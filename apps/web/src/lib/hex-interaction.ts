@@ -42,7 +42,7 @@ export function selectHexFromClick(
  */
 export const HEX_PANEL_MOBILE_MAX_HEIGHT = "70vh";
 export const HEX_PANEL_WRAPPER_CLASS =
-  "pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center p-3 md:absolute md:inset-x-auto md:bottom-4 md:right-5 md:top-[105px] md:justify-end md:p-0";
+  "pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center p-3 md:absolute md:inset-x-auto md:bottom-4 md:right-5 md:top-[105px] md:justify-end md:p-0";
 export const HEX_PANEL_CLASS =
   "paper-panel hex-card pointer-events-auto flex w-full max-w-md max-h-[70vh] flex-col md:max-h-full md:w-[300px] md:max-w-none";
 

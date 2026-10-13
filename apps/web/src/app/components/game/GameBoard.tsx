@@ -252,6 +252,7 @@ function HexTiles({
             center
             transform
             distanceFactor={10}
+            zIndexRange={[0, 0]}
             pointerEvents="none"
             style={{ pointerEvents: "none" }}
           >
@@ -270,6 +271,7 @@ function HexTiles({
             center
             transform
             distanceFactor={10}
+            zIndexRange={[0, 0]}
             pointerEvents="none"
             style={{ pointerEvents: "none" }}
           >

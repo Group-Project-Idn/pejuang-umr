@@ -52,7 +52,11 @@ function DoomOverlay({ id, payload, onDismiss }: {
   useAutoDismiss(id, onDismiss);
   const [headline, ...rest] = getDoomLines(payload);
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/80 p-4" role="alertdialog" aria-label="Doom Spending">
+    <div
+      className="fixed inset-0 z-[60] grid place-items-center bg-black/80 p-4"
+      role="alertdialog"
+      aria-label="Doom Spending"
+    >
       <section className="grid w-full max-w-md gap-3 rounded-lg border border-garis bg-kartu p-4 text-center text-teks-utama">
         <h2 className="text-title">{headline}</h2>
         {rest.map((line) => <p key={line} className="text-body-sm">{line}</p>)}
@@ -87,7 +91,7 @@ export default function NoticeViews({ notices, onDismiss }: {
     <>
       {doom[0] ? <DoomOverlay key={doom[0].id} id={doom[0].id} payload={doom[0].payload} onDismiss={onDismiss} /> : null}
       {results.length > 0 ? (
-        <div className="fixed inset-x-0 top-4 z-50 mx-auto grid w-full max-w-md gap-2 px-4">
+        <div className="fixed inset-x-0 top-4 z-[70] mx-auto grid w-full max-w-md gap-2 px-4">
           {results.map((notice) => (
             <CalendarResultToast key={notice.id} id={notice.id} payload={notice.payload} onDismiss={onDismiss} />
           ))}
