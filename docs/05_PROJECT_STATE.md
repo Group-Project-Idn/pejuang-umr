@@ -84,7 +84,7 @@ Di repo, semua dokumen ada di `docs/`: `GDD.md` (salinan GDD terbaru), `02_DESIG
 
 - Lokal di macOS (zsh, Conda `base` aktif): `~/Downloads/imron-hacktiv8-excercise/pejuang-umr`. GitHub: `Group-Project-Idn/pejuang-umr` (sudah **public**).
 - Branch kerja harian: `development`. Fitur dikerjakan di branch `feat/...`, lalu di-merge lewat PR.
-- Versi: Node 24.18.0, npm 11.16.0, Next.js 16.4.0, React 19.3.0, TypeScript 5.9.3, Tailwind 4.3.3, socket.io 4.8.4, zod 4.6.5, vitest 5.0.3. Di web juga ada three 0.186.1, @react-three/fiber 9.8.1, @react-three/drei 10.7.9, dan zustand 5.0.15 (belum dipakai).
+- Versi: Node 24.18.0, npm 11.16.0, Next.js 16.4.0, React 19.3.0, TypeScript 5.9.3, Tailwind 4.3.3, socket.io 4.8.4, zod 4.6.5, vitest 5.0.3. Di web juga ada three 0.186.1, @react-three/fiber 9.8.1, dan @react-three/drei 10.7.9. zustand sudah dihapus (store UI-nya kode mati, tidak dipakai komponen mana pun).
 - Port: web 3000, server **3002** (`.env.example` dan CI). Dokumen lama yang menulis 3001 sedang diselaraskan.
 - Rahasia: `GUEST_TOKEN_SECRET` di `apps/server/.env` (tidak di-commit). Server menolak nilai kosong atau placeholder `change-me` di production.
 - Setelah G7 (13 Oktober 2026): typecheck dan lint web lulus; tes shared 76, engine 332, server 152, web 78. Tes privasi menyeluruh (satu game penuh 4 bot) terbukti mendeteksi kebocoran yang disisipkan sengaja.
@@ -132,7 +132,6 @@ Catatan npm: `workspace:*` tidak dikenal, pakai `"*"`. Hanya satu `package-lock.
 - Op `phase` di `game:patch`: dikirim server atau dihapus dari kontrak (API Contract Keputusan Terbuka #12).
 - `npm install` melaporkan 5 kerentanan high. Cek dengan `npm audit --omit=dev` setelah fitur web selesai; jangan `npm audit fix --force` di tengah pekerjaan.
 - Pembagian W2-W6 dengan Nickzad (usulan di panduan web: Imron W2 dan W5, Nickzad W3 dan W4, W6 siapa pun).
-- Nasib zustand (dipakai atau dihapus).
 - Hutang di HUD: bar atau angka dengan badge.
 - Aset gambar: perlu aset terpisah (latar meja, sprite heksa, ikon, karakter), disesuaikan dengan papan 3D.
 - Semua angka (Zonk dasar, nominal 1×, bunga 3%, Ajakan, Petak Emas, rumus skor, modal awal) adalah usulan awal untuk playtest. Simulasi bot di engine wajib dipakai untuk menilainya sebelum angka dikunci.
