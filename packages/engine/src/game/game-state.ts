@@ -69,10 +69,13 @@ export interface PendingReality {
   seasonal: boolean;
 }
 
+/**
+ * GamePhase "batch": popup serentak awal ronde (GDD 4.2 v1.14). Ganti Bulan (`pendingMonth`)
+ * dan Event Tanggal (`pendingCalendarEvent`) terbuka bersamaan, berbagi satu `batchId`.
+ */
 export type GamePhase =
   | "roundStart"
-  | "monthChange"
-  | "calendarEvent"
+  | "batch"
   | "turn"
   | "reveal"
   | "finished";
@@ -86,6 +89,8 @@ export interface GameState {
   pendingTurn: PendingTurn | null;
   pendingCalendarEvent: PendingCalendarEvent | null;
   pendingMonth: PendingMonth | null;
+  /** Id batch popup serentak yang sedang terbuka (phase "batch"); null di luar itu. */
+  batchId?: string | null;
   /** Pemain yang sudah melangkah di ronde ini; dikosongkan di awal ronde baru. */
   movedThisRound: string[];
   phase: GamePhase;

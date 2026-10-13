@@ -1,6 +1,14 @@
 # API Contract - Pejuang UMR: Jakarta Survival (MVP)
 
-Versi 0.7 · 14 Oktober 2026 · Sumber aturan: GDD v1.14 · Sumber stack: 03_REKOMENDASI
+Versi 0.8 · 14 Oktober 2026 · Sumber aturan: GDD v1.14 · Sumber stack: 03_REKOMENDASI
+
+**Perubahan v0.8 (popup serentak awal ronde, diimplementasikan di engine, server, dan shared; `apps/web` pindah di Prompt 10):**
+
+1. **Batch awal ronde (GDD 4.2 v1.14):** `month:summary` dan `calendar:event` (bila ada) dikirim bersamaan di awal ronde dan berbagi satu `batchId` (format `<gameId>-step<langkah>`) serta satu `deadline` (epoch ms). `season:changed`, `gold:spawned`, `invite:card`, dan game:patch `rankOneBurden` ikut dikirim di awal ronde, jadi masuk jendela batch yang sama. Kalender tidak maju selama batch.
+2. **Durasi batch:** hanya informasi = `POPUP_INFO_MS` (default 8000 ms); ada keputusan (debtor atau `calendar:event`) = `MONTH_PAY_SECONDS` (default 15 detik). Batch selesai lebih cepat jika semua keputusan terjawab. Waktu habis: Bayar Hutang Rp0, Event Tanggal `skip` (`calendar:result.autoChosen = true`). Ronde tanpa Ganti Bulan dan tanpa Event Tanggal tidak punya batch: giliran pertama langsung mulai. `MONTH_SUMMARY_ONLY_MS` dihapus.
+3. **Expand-contract (D3):** field baru `batchId` (`month:summary`, `calendar:event`) dan `deadline` (`month:summary`) bersifat opsional di skema Zod selama web belum pindah; server selalu mengisinya. `month:summary.payDebt.deadline` ditandai `@deprecated` (nilainya sama dengan `deadline`). Keduanya dijadikan wajib/dihapus di Prompt 10.
+4. **Reconnect:** `snapshot.me.pendingMonth` dan `snapshot.me.pendingCalendar` memuat payload batch yang sama (`batchId` dan `deadline` asli) selama batch terbuka. Pemain yang sudah menjawab tidak menerima popup keputusan itu lagi.
+5. **Jeda akhir ronde:** bila ada kartu hasil pribadi (`invite:resolved`, `doom:triggered`, atau `player:eliminated`) untuk siapa pun, jeda setelah Fase Pembalikan = `revealStepMs × jumlah pemain + RESULT_POPUP_MS` (default 8000 ms); selain itu tetap `revealStepMs × jumlah pemain`. `revealEndsAt` tetap akhir animasi papan. `round:reveal.resultsDeadline` = `revealEndsAt + RESULT_POPUP_MS` selalu dikirim, juga bila tidak ada kartu hasil; klien menampilkan hitung mundur kartu hanya bila punya kartu. Server hanya memperpanjang jeda ronde berikutnya bila ada kartu hasil.
 
 **Perubahan v0.7 (GDD v1.14, hanya dicatat; skema di `packages/shared` dan kode diubah di prompt berikutnya):**
 
@@ -876,10 +884,11 @@ Efek Rencana langsung mengubah status saat Fase Berjalan, jadi `player:status` d
 ```ts
 type CalendarEventPayload = {
   version: number;
+  batchId?: string; // v0.8: sama dengan month:summary.batchId di ronde yang sama (opsional selama fase expand)
   eventId: string; // "new-year", "lebaran-thr", "labour-day", "wedding", "independence-day", "harbolnas" (sama dengan id di packages/engine/src/data/calendar-events.ts)
   name: string; // "Kondangan Teman"
   dateLabel: string;
-  deadline: number; // 15 detik
+  deadline: number; // v0.8: deadline bersama batch (8 atau 15 detik), sama dengan month:summary.deadline
   choices: Array<{
     id: "join" | "joinPaylater" | "skip";
     label: string;
@@ -946,19 +955,21 @@ Hujan: rawan `work`. Kemarau: `finance`, `social`. Pancaroba: `health` (pemain d
 ```ts
 type MonthSummaryPayload = {
   month: number;
+  batchId?: string; // v0.8: sama dengan calendar:event.batchId di ronde yang sama (opsional selama fase expand)
+  deadline?: number; // v0.8: deadline bersama batch, selalu terisi server (juga saat payDebt null)
   salary: 5730000;
   livingCost: 4600000;
   interest: number; // 3% dari Hutang (GDD 2.3 v1.12)
   interestAddedToDebt: number; // bagian bunga yang menjadi Hutang karena Kekayaan kurang
   before: PrivateStatus;
   after: PrivateStatus; // setelah gaji, biaya hidup, dan bunga
-  payDebt: { max: number; deadline: number } | null; // null jika Hutang 0; max = min(Kekayaan, Hutang); deadline 15 detik
+  payDebt: { max: number; /** @deprecated pakai deadline di atas */ deadline: number } | null; // null jika Hutang 0; max = min(Kekayaan, Hutang)
 };
 ```
 
-Urutan proses mengikuti GDD 2.4 v1.12: gaji → biaya hidup → bunga → slider Bayar Hutang. Doom Spending, Bangkrut, dan Burnout **tidak** dicek di sini, tetapi di Fase Pembalikan. Jika `payDebt` `null`, popup tetap tampil sebagai ringkasan dan ditutup otomatis saat popup pemain lain selesai (atau setelah sekitar 3 detik bila tidak ada debitur). Saat reconnect selama popup terbuka, `snapshot.me.pendingMonth` memuat ringkasan untuk semua pemain hidup; pemain tanpa Hutang atau yang sudah menjawab menerima `payDebt: null` sehingga tidak bisa membayar ulang. Setelah popup selesai, Event Tanggal (jika ada) dimulai, lalu kartu Ajakan dibagikan dan Petak Emas muncul sebelum giliran pertama.
+Urutan proses mengikuti GDD 2.4 v1.12: gaji → biaya hidup → bunga → slider Bayar Hutang. Doom Spending, Bangkrut, dan Burnout **tidak** dicek di sini, tetapi di Fase Pembalikan. Jika `payDebt` `null`, popup tetap tampil sebagai ringkasan dan ditutup otomatis saat batch selesai (hitung mundur bersama). Saat reconnect selama popup terbuka, `snapshot.me.pendingMonth` memuat ringkasan untuk semua pemain hidup; pemain tanpa Hutang atau yang sudah menjawab menerima `payDebt: null` sehingga tidak bisa membayar ulang. Event Tanggal (jika ada), kartu Ajakan, dan Petak Emas dikirim bersamaan di awal ronde (v0.8); giliran pertama dimulai setelah batch selesai.
 
-**Lama popup (D5, diperbarui v0.7):** semua popup awal ronde berbagi satu hitung mundur (GDD 4.2 v1.14). Jika ada debtor atau Event Tanggal, server menunggu sampai semua keputusan terjawab atau `MONTH_PAY_SECONDS` (15 detik) habis. Debtor dengan Kekayaan 0 (`payDebt.max` = 0) tetap ditunggu; ia bisa menutup lebih cepat dengan membayar Rp0. Jika tidak ada keputusan sama sekali, hitung mundur 8 detik (menggantikan `MONTH_SUMMARY_ONLY_MS` 3 detik, keputusan D2 lama).
+**Lama popup (D5, diperbarui v0.7):** semua popup awal ronde berbagi satu hitung mundur (GDD 4.2 v1.14). Jika ada debtor atau Event Tanggal, server menunggu sampai semua keputusan terjawab atau `MONTH_PAY_SECONDS` (15 detik) habis. Debtor dengan Kekayaan 0 (`payDebt.max` = 0) tetap ditunggu; ia bisa menutup lebih cepat dengan membayar Rp0. Jika tidak ada keputusan sama sekali, hitung mundur `POPUP_INFO_MS` (8 detik), menggantikan `MONTH_SUMMARY_ONLY_MS` 3 detik (keputusan D2 lama, dihapus di v0.8). Satu timer server untuk seluruh batch.
 
 ### `month:pay-debt` · C→S **(v1.12)**
 
@@ -1118,6 +1129,7 @@ Efek Rencana langsung berlaku (GDD 4.2 v1.12). Setelah ini server mengirim `play
   order: Array<{ playerId: string; hex: HexCoord }>; // urutan giliran ronde ini
   revealEndsAt: number; // v0.5: waktu server saat kirim + revealStepMs × order.length
   revealStepMs: number; // v0.6: durasi pembalikan per heksa (ms), dari konfigurasi server
+  resultsDeadline?: number; // v0.8: revealEndsAt + RESULT_POPUP_MS; akhir hitung mundur kartu hasil. Selalu dikirim (tidak membocorkan ada tidaknya kartu hasil); opsional di skema selama fase expand
 }
 ```
 
@@ -1446,10 +1458,10 @@ S→R  game:patch          { ops: [calendar, rankOneBurden, phase] }
 S→C  invite:card         (Bulan 5 = bulan ganjil)
 S→R  gold:expired        (Petak Emas Langkah 5 hilang jika belum diambil)
 S→R  gold:spawned        (Petak Emas baru, klien menampilkan notifikasi)
-S→C  month:summary       (tiap pemain, privat, payDebt.deadline 15 dtk)
+S→C  month:summary       (tiap pemain, privat, batchId + deadline bersama batch; v0.8)
 C→S  month:pay-debt      (tiap pemain yang punya Hutang)
 S→C  player:status
-S→R  calendar:event      (bersamaan dengan month:summary, deadline bersama 15 dtk; v0.7)
+S→R  calendar:event      (bersamaan dengan month:summary, batchId dan deadline sama; v0.8)
 C→S  calendar:answer     (tiap pemain)
 S→C  calendar:result + player:status
 

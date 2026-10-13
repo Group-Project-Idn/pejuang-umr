@@ -239,6 +239,8 @@ export const RoundRevealPayloadSchema = z.object({
   revealEndsAt: z.number().int(),
   /** Durasi pembalikan per heksa (ms). */
   revealStepMs: z.number().int().positive(),
+  /** revealEndsAt + RESULT_POPUP_MS; selalu dikirim server. Opsional selama fase expand, wajib di Prompt 10. */
+  resultsDeadline: z.number().int().optional(),
 });
 
 export const ReflectionReadyPayloadSchema = z.object({

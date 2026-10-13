@@ -7,8 +7,7 @@ import type { RandomSource } from "../random";
 import {
   answerCalendarEvent,
   answerMonthPayment,
-  closeCalendarEvent,
-  closeMonthChange,
+  closeBatch,
   startRound,
 } from "./round";
 import { chooseHex, endRound, startTurn, timeoutTurn } from "./turn";
@@ -212,39 +211,35 @@ export function playRandomFrom(initial: GameState, options: RandomPlayOptions): 
       continue;
     }
 
-    if (state.phase === "monthChange") {
-      const pending = state.pendingMonth!;
-      for (const playerId of pending.debtorIds) {
-        if (playerId in pending.answers) continue;
+    if (state.phase === "batch") {
+      const pendingMonth = state.pendingMonth;
+      for (const playerId of pendingMonth?.debtorIds ?? []) {
+        if (playerId in pendingMonth!.answers) continue;
         const status = state.players[playerId]!.status;
         const max = Math.min(status.wealth, status.debt);
         const amount =
           options.payment === "random"
             ? playerRandom.integer(0, Math.floor(max / BOT_PAYMENT_ROUNDING)) * BOT_PAYMENT_ROUNDING
             : Math.floor(max / 2 / BOT_PAYMENT_ROUNDING) * BOT_PAYMENT_ROUNDING;
-        const answered = answerMonthPayment(state, playerId, pending.month, amount);
+        const answered = answerMonthPayment(state, playerId, pendingMonth!.month, amount);
         if (!answered.ok) throw new Error(`${answered.code}: ${answered.message}`);
         record(answered.state, answered.events);
       }
-      const closed = closeMonthChange(state, engineRandom);
-      record(closed.state, closed.events);
-      continue;
-    }
-
-    if (state.phase === "calendarEvent") {
-      const def = getCalendarEventAtStep(state.public.calendar.step)!;
-      const choices = (["join", "joinPaylater", "skip"] as const).filter(
-        (id) => def.choices[id],
-      );
-      for (const playerId of state.public.turnOrder) {
-        if (playerId in state.pendingCalendarEvent!.answers) continue;
-        if (playerRandom.chance(SKIP_ANSWER_PCT)) continue; // waktu habis -> skip otomatis
-        const choice: CalendarChoiceId = playerRandom.pick(choices);
-        const answered = answerCalendarEvent(state, playerId, def.id, choice);
-        if (!answered.ok) throw new Error(`${answered.code}: ${answered.message}`);
-        state = answered.state;
+      if (state.pendingCalendarEvent) {
+        const def = getCalendarEventAtStep(state.public.calendar.step)!;
+        const choices = (["join", "joinPaylater", "skip"] as const).filter(
+          (id) => def.choices[id],
+        );
+        for (const playerId of state.public.turnOrder) {
+          if (playerId in state.pendingCalendarEvent!.answers) continue;
+          if (playerRandom.chance(SKIP_ANSWER_PCT)) continue; // waktu habis -> skip otomatis
+          const choice: CalendarChoiceId = playerRandom.pick(choices);
+          const answered = answerCalendarEvent(state, playerId, def.id, choice);
+          if (!answered.ok) throw new Error(`${answered.code}: ${answered.message}`);
+          state = answered.state;
+        }
       }
-      const closed = closeCalendarEvent(state, engineRandom);
+      const closed = closeBatch(state, engineRandom);
       record(closed.state, closed.events);
       continue;
     }

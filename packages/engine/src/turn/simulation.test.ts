@@ -151,12 +151,18 @@ describe("simulasi game penuh", () => {
               fail(`event ${e.type} memuat motive`);
             }
           }
-          if (
-            current.phase === "monthChange" &&
-            produced.some((e) => e.type === "calendar:event" || e.type === "turn:start")
-          ) {
-            fail("Event Tanggal atau giliran dimulai saat popup Ganti Bulan masih terbuka");
+          // Batch awal ronde (GDD 4.2 v1.14): month:summary dan calendar:event keluar bersamaan di
+          // startRound dan berbagi satu batchId; giliran baru belum boleh mulai selama batch terbuka.
+          if (current.phase === "batch" && produced.some((e) => e.type === "turn:start")) {
+            fail("giliran dimulai saat batch awal ronde masih terbuka");
           }
+          const batchIds = new Set(
+            produced.flatMap((e) =>
+              e.type === "calendar:event" || e.type === "month:summary" ? [e.payload.batchId] : [],
+            ),
+          );
+          if (batchIds.size > 1) fail(`popup awal ronde memakai ${batchIds.size} batchId`);
+          if (batchIds.size === 1 && current.phase !== "batch") fail("popup batch terkirim tanpa phase batch");
           for (const event of produced) {
             // tile:resolved ronde N selalu setelah round:reveal ronde N.
             if (event.type === "round:reveal") revealedRounds.add(event.payload.round);

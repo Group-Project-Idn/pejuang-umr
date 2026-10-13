@@ -7,6 +7,8 @@ import { ManualClock } from "./test-clock";
 
 const REVEAL_STEP_MS = 400;
 const MONTH_PAY_SECONDS = 15;
+const POPUP_INFO_MS = 900;
+const RESULT_POPUP_MS = 250;
 const IDS = ["a", "b", "c"];
 const SKIP = "skip" as CalendarChoiceId;
 
@@ -18,7 +20,12 @@ function setup() {
   const { state } = createGame(IDS, "g1", random);
   const session: GameSession = new GameSession("UMR-1234", state, random, 30, {}, {
     clock,
-    timing: { revealStepMs: REVEAL_STEP_MS, monthPaySeconds: MONTH_PAY_SECONDS },
+    timing: {
+      revealStepMs: REVEAL_STEP_MS,
+      monthPaySeconds: MONTH_PAY_SECONDS,
+      popupInfoMs: POPUP_INFO_MS,
+      resultPopupMs: RESULT_POPUP_MS,
+    },
     send: (events) => {
       for (const event of events) {
         sent.push(event);
@@ -148,7 +155,7 @@ describe("deadline + grace: month:pay-debt", () => {
     // Calendar timer ronde 1 dibersihkan dengan menjawab Event Tanggal lebih dulu tidak perlu:
     // runRound dipanggil langsung, seperti saat jeda Fase Pembalikan selesai.
     (session as unknown as { runRound(): void }).runRound();
-    expect(session.state.phase).toBe("monthChange");
+    expect(session.state.phase).toBe("batch");
     const summary = ctx
       .ofType("month:summary")
       .find((e) => e.target.kind === "player" && e.target.playerId === "a")!;
@@ -165,7 +172,7 @@ describe("deadline + grace: month:pay-debt", () => {
   it("sesudah deadline + 500 ms popup ditutup sekali dan pembayaran terlambat ditolak", () => {
     const { ctx, deadline } = openMonth();
     ctx.clock.advance(deadline + DEADLINE_GRACE_MS + 1 - ctx.clock.now());
-    expect(ctx.session.state.phase).not.toBe("monthChange");
+    expect(ctx.session.state.phase).not.toBe("batch");
     const before = ctx.session.state;
     expect(ctx.session.payMonthDebt("a", 2, 1_000_000)).toMatchObject({ ok: false, error: "PAYMENT_CLOSED" });
     expect(ctx.session.state).toBe(before);
@@ -299,10 +306,63 @@ describe("kontrak v0.5: revealEndsAt, op phase, inviteBusy, inviteResults", () =
     expect(ctx.session.inviteResultsFor(sender)).toHaveLength(1);
     expect(ctx.session.inviteResultsFor(bystander)).toEqual([]);
 
+    // Ada kartu hasil pribadi (invite:resolved): jeda = animasi + RESULT_POPUP_MS (GDD 4.2 v1.14).
     ctx.clock.advance(REVEAL_STEP_MS * IDS.length);
+    expect(ctx.session.state.public.phase).toBe("reveal");
+    expect(ctx.session.state.public.calendar.step).toBe(1);
+    ctx.clock.advance(RESULT_POPUP_MS);
     expect(ctx.session.state.public.calendar.step).toBe(2);
     expect(ctx.session.inviteResultsFor(target)).toEqual([]);
     expect(ctx.session.inviteResultsFor(sender)).toEqual([]);
+  });
+});
+
+describe("jeda Fase Pembalikan (GDD 4.2 v1.14)", () => {
+  function playRound(ctx: Ctx) {
+    skipCalendar(ctx);
+    while (ctx.session.state.phase === "turn") expect(move(ctx)).toEqual({ ok: true });
+  }
+
+  it("round:reveal.resultsDeadline = revealEndsAt + RESULT_POPUP_MS, selalu dikirim (dengan dan tanpa kartu)", () => {
+    const plain = setup();
+    playRound(plain);
+    const a = plain.ofType("round:reveal").at(-1)!.payload;
+    expect(a.resultsDeadline).toBe(a.revealEndsAt! + RESULT_POPUP_MS);
+    expect(a.revealEndsAt).toBe(plain.clock.now() + REVEAL_STEP_MS * IDS.length);
+
+    const doom = setup();
+    skipCalendar(doom);
+    const players = { ...doom.session.state.players };
+    for (const id of IDS) players[id] = { ...players[id]!, status: { ...players[id]!.status, stress: 10 } };
+    doom.session.state = { ...doom.session.state, players };
+    while (doom.session.state.phase === "turn") expect(move(doom)).toEqual({ ok: true });
+    expect(doom.sent.some((e) => e.type === "doom:triggered")).toBe(true);
+    const b = doom.ofType("round:reveal").at(-1)!.payload;
+    expect(b.resultsDeadline).toBe(b.revealEndsAt! + RESULT_POPUP_MS);
+    expect(b.revealEndsAt).toBe(doom.clock.now() + REVEAL_STEP_MS * IDS.length);
+  });
+
+  it("tanpa kartu hasil pribadi: jeda tetap revealStepMs x jumlah pemain", () => {
+    const ctx = setup();
+    playRound(ctx);
+    const cards = ctx.sent.filter((e) => ["invite:resolved", "doom:triggered", "player:eliminated"].includes(e.type));
+    expect(cards).toEqual([]);
+    ctx.clock.advance(REVEAL_STEP_MS * IDS.length);
+    expect(ctx.session.state.public.calendar.step).toBe(2);
+  });
+
+  it("ada Doom Spending: jeda ditambah RESULT_POPUP_MS", () => {
+    const ctx = setup();
+    skipCalendar(ctx);
+    const players = { ...ctx.session.state.players };
+    for (const id of IDS) players[id] = { ...players[id]!, status: { ...players[id]!.status, stress: 10 } };
+    ctx.session.state = { ...ctx.session.state, players };
+    while (ctx.session.state.phase === "turn") expect(move(ctx)).toEqual({ ok: true });
+    expect(ctx.sent.some((e) => e.type === "doom:triggered")).toBe(true);
+    ctx.clock.advance(REVEAL_STEP_MS * IDS.length);
+    expect(ctx.session.state.public.calendar.step).toBe(1);
+    ctx.clock.advance(RESULT_POPUP_MS);
+    expect(ctx.session.state.public.calendar.step).toBe(2);
   });
 });
 

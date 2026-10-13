@@ -12,14 +12,13 @@ import {
   type TurnSeconds,
 } from "@pejuang/shared";
 import {
-  allMonthPaymentsAnswered,
+  allBatchDecisionsAnswered,
   answerCalendarEvent,
   answerMonthPayment,
   chooseHex,
-  closeCalendarEvent,
-  closeMonthChange,
+  closeBatch,
   endRound,
-  hasMonthDebtors,
+  batchNeedsDecision,
   expireInvite,
   finishGame,
   hasOpenInvites,
@@ -49,14 +48,14 @@ import type {
 } from "@pejuang/shared";
 import {
   DEFAULT_MONTH_PAY_SECONDS,
-  DEFAULT_MONTH_SUMMARY_ONLY_MS,
+  DEFAULT_POPUP_INFO_MS,
+  DEFAULT_RESULT_POPUP_MS,
   DEFAULT_REVEAL_STEP_MS,
 } from "../config";
 import { buildReflectionInput, type ReflectionService } from "../services/reflection";
 import { systemClock, type Clock, type TimerHandle } from "./clock";
 import type { ServerEvent } from "./event-dispatcher";
 
-export const CALENDAR_SECONDS = 15;
 export const INVITE_SECONDS = 15;
 /** Toleransi transport; deadline yang dikirim ke klien tetap tidak berubah. */
 export const DEADLINE_GRACE_MS = 500;
@@ -65,16 +64,19 @@ export const DEADLINE_GRACE_MS = 500;
 export interface SessionTiming {
   /** Jeda animasi per pemain di Fase Pembalikan (ms). */
   revealStepMs: number;
-  /** Lama popup Ganti Bulan menunggu slider Bayar Hutang (detik). */
+  /** Lama batch popup awal ronde bila ada keputusan: Bayar Hutang atau Event Tanggal (detik). */
   monthPaySeconds: number;
-  /** Lama popup Ganti Bulan bila tidak ada debtor (ms). */
-  monthSummaryOnlyMs: number;
+  /** Lama batch popup awal ronde bila semua popup hanya informasi (ms). */
+  popupInfoMs: number;
+  /** Lama kartu hasil pribadi di akhir ronde, ditambahkan ke jeda Fase Pembalikan (ms). */
+  resultPopupMs: number;
 }
 
 const DEFAULT_TIMING: SessionTiming = {
   revealStepMs: DEFAULT_REVEAL_STEP_MS,
   monthPaySeconds: DEFAULT_MONTH_PAY_SECONDS,
-  monthSummaryOnlyMs: DEFAULT_MONTH_SUMMARY_ONLY_MS,
+  popupInfoMs: DEFAULT_POPUP_INFO_MS,
+  resultPopupMs: DEFAULT_RESULT_POPUP_MS,
 };
 
 export interface SessionRuntime {
@@ -127,11 +129,10 @@ export class GameSession {
     this.timing = { ...DEFAULT_TIMING, ...given };
   }
 
-  private calendarTimer: TimerHandle | null = null;
-  private calendarDeadline: number | null = null;
   private turnTimer: TimerHandle | null = null;
-  private monthTimer: TimerHandle | null = null;
-  private monthDeadline: number | null = null;
+  /** Satu timer dan satu deadline untuk seluruh batch popup awal ronde (GDD 4.2 v1.14). */
+  private batchTimer: TimerHandle | null = null;
+  private batchDeadline: number | null = null;
   private revealTimer: TimerHandle | null = null;
   finished = false;
   /** Payload game:finished persis seperti yang dikirim (dengan version), untuk snapshot. */
@@ -198,8 +199,7 @@ export class GameSession {
   }
 
   private clearTimers(): void {
-    this.clearCalendarTimer();
-    this.clearMonthTimer();
+    this.clearBatchTimer();
     this.clearRevealTimer();
     this.clearTurnTimer();
     this.clearInviteTimers();
@@ -212,15 +212,15 @@ export class GameSession {
     amount: number,
   ): Ack<{ paid: number; debtCleared: boolean; stressDelta: 0 | -2 }> {
     if (this.finished) return { ok: false, error: "GAME_FINISHED" };
-    if (this.state.phase === "monthChange" && this.isPastDeadline(this.monthDeadline)) {
-      this.closeMonth();
+    if (this.state.phase === "batch" && this.isPastDeadline(this.batchDeadline)) {
+      this.closeBatch();
       return { ok: false, error: "PAYMENT_CLOSED" };
     }
     const result = answerMonthPayment(this.state, playerId, month, amount);
     if (!result.ok) return { ok: false, error: result.code, message: result.message };
     this.state = result.state;
     this.emit(result.events);
-    if (allMonthPaymentsAnswered(this.state)) this.closeMonth();
+    this.closeBatchIfAnswered();
     return {
       ok: true,
       paid: result.paid,
@@ -235,18 +235,14 @@ export class GameSession {
     choice: CalendarChoiceId,
   ): Ack {
     if (this.finished) return { ok: false, error: "GAME_FINISHED" };
-    if (this.isPastDeadline(this.calendarDeadline)) {
-      this.closeCalendar();
+    if (this.state.phase === "batch" && this.isPastDeadline(this.batchDeadline)) {
+      this.closeBatch();
       return { ok: false, error: "EVENT_CLOSED" };
     }
     const result = answerCalendarEvent(this.state, playerId, eventId, choice);
     if (!result.ok) return { ok: false, error: result.code, message: result.message };
     this.state = result.state;
-    const answers = this.state.pendingCalendarEvent?.answers ?? {};
-    const everyoneAnswered = Object.entries(this.state.players).every(
-      ([id, player]) => player.eliminated || id in answers,
-    );
-    if (everyoneAnswered) this.closeCalendar();
+    this.closeBatchIfAnswered();
     return { ok: true };
   }
 
@@ -391,49 +387,40 @@ export class GameSession {
     if (this.finished) return;
     this.inviteResults.clear();
     const result = startRound(this.state, this.random);
-    this.applyRoundResult(result);
+    const now = this.runtime.clock.now();
+    // Satu deadline bersama untuk seluruh popup batch; harus terisi sebelum event dikirim.
+    if (result.state.phase === "batch") this.batchDeadline = now + this.batchDurationMs(result.state);
+    this.applyRoundResult(result, now);
     if (result.nextAction === "finished") return this.finish();
-    if (this.state.phase === "monthChange") {
-      // Debtor ditunggu sampai MONTH_PAY_SECONDS; tanpa debtor popup hanya tampil sebentar.
-      const hasDebtors = hasMonthDebtors(this.state);
-      const waitMs = hasDebtors ? this.timing.monthPaySeconds * 1000 : this.timing.monthSummaryOnlyMs;
-      this.monthDeadline = hasDebtors ? this.runtime.clock.now() + waitMs : null;
-      this.monthTimer = this.runtime.clock.setTimeout(
-        () => this.closeMonth(),
-        waitMs + (hasDebtors ? DEADLINE_GRACE_MS + 1 : 0),
-      );
-      return;
-    }
-    this.afterCalendarPhase();
+    this.afterBatchPhase();
   }
 
-  /** Setelah Fase Kalender: timer Event Tanggal bila ada, selain itu giliran. */
-  private afterCalendarPhase(): void {
-    if (this.state.phase === "calendarEvent") {
-      this.calendarDeadline = this.runtime.clock.now() + CALENDAR_SECONDS * 1000;
-      this.calendarTimer = this.runtime.clock.setTimeout(
-        () => this.closeCalendar(),
-        CALENDAR_SECONDS * 1000 + DEADLINE_GRACE_MS + 1,
-      );
-      return;
-    }
-    this.runTurn();
+  /** Batch popup awal ronde: satu timer; tanpa batch langsung ke giliran. */
+  private afterBatchPhase(): void {
+    if (this.state.phase !== "batch" || this.batchDeadline === null) return this.runTurn();
+    // Toleransi transport hanya perlu bila ada jawaban yang masih bisa masuk di detik terakhir.
+    const grace = batchNeedsDecision(this.state) ? DEADLINE_GRACE_MS + 1 : 0;
+    const waitMs = this.batchDeadline - this.runtime.clock.now() + grace;
+    this.batchTimer = this.runtime.clock.setTimeout(() => this.closeBatch(), waitMs);
   }
 
-  private closeMonth(): void {
-    if (this.finished || this.state.phase !== "monthChange") return;
-    this.clearMonthTimer();
-    const result = closeMonthChange(this.state, this.random);
+  /** Durasi batch: 15 detik bila ada keputusan, selain itu popup informasi (8 detik). */
+  private batchDurationMs(state: GameState): number {
+    return batchNeedsDecision(state) ? this.timing.monthPaySeconds * 1000 : this.timing.popupInfoMs;
+  }
+
+  /** Batch selesai lebih cepat bila ada keputusan dan semuanya sudah dijawab. */
+  private closeBatchIfAnswered(): void {
+    if (batchNeedsDecision(this.state) && allBatchDecisionsAnswered(this.state)) this.closeBatch();
+  }
+
+  private closeBatch(): void {
+    if (this.finished || this.state.phase !== "batch") return;
+    this.clearBatchTimer();
+    const result = closeBatch(this.state, this.random);
     this.applyRoundResult(result);
     this.lastMonth.clear();
-    this.afterCalendarPhase();
-  }
-
-  private closeCalendar(): void {
-    if (this.finished || this.state.phase !== "calendarEvent") return;
-    this.clearCalendarTimer();
-    const result = closeCalendarEvent(this.state, this.random);
-    this.applyRoundResult(result);
+    this.lastCalendar = null;
     if (result.nextAction === "finished") return this.finish();
     this.runTurn();
   }
@@ -486,7 +473,14 @@ export class GameSession {
     if (result.nextAction === "finished") return this.finish();
     const reveal = result.events.find((event) => event.type === "round:reveal");
     const players = reveal?.type === "round:reveal" ? reveal.payload.order.length : 0;
-    const delay = this.timing.revealStepMs * players;
+    // Kartu hasil pribadi (Ajakan, Doom Spending, Eliminasi) menambah jeda RESULT_POPUP_MS (GDD 4.2 v1.14).
+    const hasResultCards = result.events.some(
+      (event) =>
+        event.type === "invite:resolved" ||
+        event.type === "doom:triggered" ||
+        event.type === "player:eliminated",
+    );
+    const delay = this.timing.revealStepMs * players + (hasResultCards ? this.timing.resultPopupMs : 0);
     if (delay <= 0) return this.runRound();
     this.revealTimer = this.runtime.clock.setTimeout(() => {
       this.revealTimer = null;
@@ -569,21 +563,17 @@ export class GameSession {
     const filled = events
       .filter((event) => event.type !== "game:finished")
       .map((event): DomainEvent => {
-        if (event.type === "calendar:event") {
-          return {
-            ...event,
-            payload: { ...event.payload, deadline: now + CALENDAR_SECONDS * 1000 },
-          };
+        if (event.type === "calendar:event" && this.batchDeadline !== null) {
+          return { ...event, payload: { ...event.payload, deadline: this.batchDeadline } };
         }
-        if (event.type === "month:summary" && event.payload.payDebt) {
+        if (event.type === "month:summary" && this.batchDeadline !== null) {
+          const deadline = this.batchDeadline;
           return {
             ...event,
             payload: {
               ...event.payload,
-              payDebt: {
-                ...event.payload.payDebt,
-                deadline: now + this.timing.monthPaySeconds * 1000,
-              },
+              deadline,
+              payDebt: event.payload.payDebt ? { ...event.payload.payDebt, deadline } : null,
             },
           };
         }
@@ -592,7 +582,13 @@ export class GameSession {
           this.revealEndsAt = revealEndsAt;
           return {
             ...event,
-            payload: { ...event.payload, revealEndsAt, revealStepMs: this.timing.revealStepMs },
+            payload: {
+              ...event.payload,
+              revealEndsAt,
+              revealStepMs: this.timing.revealStepMs,
+              // Selalu dikirim, juga tanpa kartu hasil, supaya keberadaan kartu tidak bocor.
+              resultsDeadline: revealEndsAt + this.timing.resultPopupMs,
+            },
           };
         }
         if (event.type === "turn:start") {
@@ -658,16 +654,10 @@ export class GameSession {
     ]);
   }
 
-  private clearCalendarTimer(): void {
-    if (this.calendarTimer !== null) this.runtime.clock.clearTimeout(this.calendarTimer);
-    this.calendarTimer = null;
-    this.calendarDeadline = null;
-  }
-
-  private clearMonthTimer(): void {
-    if (this.monthTimer !== null) this.runtime.clock.clearTimeout(this.monthTimer);
-    this.monthTimer = null;
-    this.monthDeadline = null;
+  private clearBatchTimer(): void {
+    if (this.batchTimer !== null) this.runtime.clock.clearTimeout(this.batchTimer);
+    this.batchTimer = null;
+    this.batchDeadline = null;
   }
 
   private clearRevealTimer(): void {
@@ -754,7 +744,7 @@ export class GameSession {
   /** Ringkasan untuk semua pemain selama popup terbuka; debtor yang sudah menjawab tidak dapat membayar ulang. */
   pendingMonthFor(playerId: string): PendingMonthPayload | null {
     const pending = this.state.pendingMonth;
-    if (this.state.phase !== "monthChange" || !pending) return null;
+    if (this.state.phase !== "batch" || !pending) return null;
     const stored = this.lastMonth.get(playerId);
     if (!stored) return null;
     const summary = pending.debtorIds.includes(playerId) && !(playerId in pending.answers)

@@ -3,12 +3,11 @@ import type { GamePhase, GameState } from "./game-state";
 
 type PublicPhase = NonNullable<PublicGameState["phase"]>;
 
-/** Fase publik untuk klien: ganti bulan dan Event Tanggal sama-sama "calendar". */
+/** Fase publik untuk klien: popup serentak awal ronde (batch) juga "calendar". */
 export function publicPhaseOf(phase: GamePhase): PublicPhase {
   switch (phase) {
     case "roundStart":
-    case "monthChange":
-    case "calendarEvent":
+    case "batch":
       return "calendar";
     case "turn":
       return "turn";

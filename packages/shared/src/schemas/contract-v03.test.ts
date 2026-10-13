@@ -129,13 +129,16 @@ describe("kontrak v0.3: field wajib", () => {
   it("MonthSummary mewajibkan payDebt (objek atau null)", () => {
     const summary = {
       month: 2, salary: 5_730_000, livingCost: 4_600_000, interest: 30_000,
-      interestAddedToDebt: 0, payDebt: null, before: STATUS, after: STATUS,
+      interestAddedToDebt: 0, batchId: "g-b2", deadline: 8_000, payDebt: null, before: STATUS, after: STATUS,
     };
     expect(MonthSummaryPayloadSchema.safeParse(summary).success).toBe(true);
     expect(MonthSummaryPayloadSchema.safeParse({ ...summary, payDebt: undefined }).success).toBe(false);
     expect(
       MonthSummaryPayloadSchema.safeParse({ ...summary, payDebt: { max: 500_000, deadline: 1_700_000_000_000 } }).success,
     ).toBe(true);
+    // Fase expand (D3): batchId dan deadline opsional di skema sampai web pindah.
+    expect(MonthSummaryPayloadSchema.safeParse({ ...summary, batchId: undefined, deadline: undefined }).success).toBe(true);
+    expect(MonthSummaryPayloadSchema.safeParse({ ...summary, batchId: "" }).success).toBe(false);
     expect(MonthSummaryPayloadSchema.safeParse({ ...summary, payDebt: { max: -1, deadline: 1 } }).success).toBe(false);
   });
 
@@ -156,7 +159,7 @@ describe("kontrak v0.3: field wajib", () => {
     const reflection = { source: "ai", summary: "s", insights: [] };
     const month = {
       month: 2, salary: 5_730_000, livingCost: 4_600_000, interest: 0,
-      interestAddedToDebt: 0, payDebt: null, before: STATUS, after: STATUS,
+      interestAddedToDebt: 0, batchId: "g-b2", deadline: 8_000, payDebt: null, before: STATUS, after: STATUS,
     };
     // uji bagian me tetap lolos bila RoomState valid; uji bagian me secara terpisah
     const me = SnapshotSchema.shape.me;
@@ -281,6 +284,9 @@ describe("kontrak v0.3: event baru", () => {
     expect(RoundRevealPayloadSchema.safeParse({ ...ok, revealEndsAt: undefined }).success).toBe(false);
     expect(RoundRevealPayloadSchema.safeParse({ ...ok, revealStepMs: undefined }).success).toBe(false);
     expect(RoundRevealPayloadSchema.safeParse({ ...ok, order: [{ playerId: "p1" }] }).success).toBe(false);
+    // Fase expand: resultsDeadline opsional, bila ada harus integer.
+    expect(RoundRevealPayloadSchema.safeParse({ ...ok, resultsDeadline: 20_500 }).success).toBe(true);
+    expect(RoundRevealPayloadSchema.safeParse({ ...ok, resultsDeadline: 1.5 }).success).toBe(false);
   });
 
   it("reflection:ready", () => {
