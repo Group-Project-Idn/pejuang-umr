@@ -170,7 +170,8 @@ export function createPejuangServer(
       timing: {
         revealStepMs: config.revealStepMs,
         monthPaySeconds: config.monthPaySeconds,
-        monthSummaryOnlyMs: config.monthSummaryOnlyMs,
+        popupInfoMs: config.popupInfoMs,
+        resultPopupMs: config.resultPopupMs,
       },
     });
     registerGameHandlers(io, socket, rooms, games, gameIdempotency);

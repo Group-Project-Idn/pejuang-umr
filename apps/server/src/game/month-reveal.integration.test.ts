@@ -15,7 +15,8 @@ type Received = { type: string; payload: any };
 /** Nilai kecil supaya tes cepat; default produksi diuji di config.test.ts. */
 const REVEAL_STEP_MS = 400;
 const MONTH_PAY_SECONDS = 5;
-const MONTH_SUMMARY_ONLY_MS = 700;
+const POPUP_INFO_MS = 700;
+const RESULT_POPUP_MS = 300;
 const TICK_MS = 100;
 
 /** ManualClock yang mencatat setiap timer yang dipasang (jeda dan waktu pemasangannya). */
@@ -75,7 +76,8 @@ async function setup() {
       trustProxy: false,
       revealStepMs: REVEAL_STEP_MS,
       monthPaySeconds: MONTH_PAY_SECONDS,
-      monthSummaryOnlyMs: MONTH_SUMMARY_ONLY_MS,
+      popupInfoMs: POPUP_INFO_MS,
+      resultPopupMs: RESULT_POPUP_MS,
     },
     {
       rooms: new RoomRepository(() => "UMR-1234"),
@@ -161,11 +163,11 @@ function driveToBeforeRound(ctx: Ctx, step: number) {
   );
 }
 
-function driveToMonthChange(ctx: Ctx, step: number) {
+function driveToBatch(ctx: Ctx, step: number) {
   drive(
     ctx,
-    () => ctx.session.state.public.calendar.step === step && ctx.session.state.phase === "monthChange",
-    `monthChange langkah ${step}`,
+    () => ctx.session.state.public.calendar.step === step && ctx.session.state.phase === "batch",
+    `batch langkah ${step}`,
   );
 }
 
@@ -178,16 +180,18 @@ function setStatus(ctx: Ctx, playerId: string, patch: Record<string, number>) {
 }
 
 /** Langkah 3 (ganti bulan pertama) dengan debtor yang ditentukan; mengembalikan popup yang sedang terbuka. */
-async function openMonthChange(ctx: Ctx, debtors: Array<[string, Record<string, number>]>) {
-  driveToBeforeRound(ctx, 3);
+async function openMonthChange(ctx: Ctx, debtors: Array<[string, Record<string, number>]>, step = 3) {
+  driveToBeforeRound(ctx, step);
   // Efek Realita ronde sebelumnya bisa menimbulkan Hutang: mulai dari bersih.
   for (const playerId of [ctx.host.playerId, ctx.guest.playerId]) setStatus(ctx, playerId, { debt: 0 });
   for (const [playerId, patch] of debtors) setStatus(ctx, playerId, patch);
-  const remaining = REVEAL_STEP_MS * 2;
-  ctx.clock.advance(remaining);
-  expect(ctx.session.state.phase).toBe("monthChange");
+  // Jeda Fase Pembalikan bisa memuat kartu hasil pribadi, jadi majukan jam sampai batch terbuka.
+  for (let i = 0; i < 100 && ctx.session.state.phase !== "batch"; i += 1) ctx.clock.advance(TICK_MS);
+  expect(ctx.session.state.phase).toBe("batch");
+  const batchId = ctx.session.state.batchId;
   await until(
-    () => ctx.find(ctx.host, "month:summary").length > 0 && ctx.find(ctx.guest, "month:summary").length > 0,
+    () =>
+      [ctx.host, ctx.guest].every((p) => ctx.find(p, "month:summary").some((e) => e.payload.batchId === batchId)),
     "month:summary",
   );
 }
@@ -208,6 +212,8 @@ describe("Ganti Bulan: month:pay-debt", () => {
     expect(hostSummary.payDebt.max).toBe(4_000_000);
     const paymentTimer = latestTimer(ctx, MONTH_PAY_SECONDS * 1000 + 501);
     expect(hostSummary.payDebt.deadline).toBe(paymentTimer.at + MONTH_PAY_SECONDS * 1000);
+    expect(hostSummary.deadline).toBe(hostSummary.payDebt.deadline);
+    expect(hostSummary.batchId).toBe(ctx.session.state.batchId);
     expect(ctx.session.state.public.phase).toBe("calendar");
 
     // Di luar batas: lebih dari max, desimal, negatif -> INVALID_PAYLOAD, popup tetap terbuka.
@@ -228,7 +234,7 @@ describe("Ganti Bulan: month:pay-debt", () => {
       () => ctx.find(ctx.host, "player:status").some((e) => e.payload.debt === 2_500_000),
       "player:status setelah bayar",
     );
-    expect(ctx.session.state.phase).toBe("monthChange");
+    expect(ctx.session.state.phase).toBe("batch");
 
     // Sudah menjawab -> tidak bisa lagi.
     expect(await pay(ctx.host, 2, 1_000)).toMatchObject({ ok: false, error: "PAYMENT_CLOSED" });
@@ -254,10 +260,10 @@ describe("Ganti Bulan: month:pay-debt", () => {
     expect(ctx.find(ctx.guest, "month:summary")[0]!.payload.payDebt).toBeNull();
 
     advanceToTimer(ctx, MONTH_PAY_SECONDS * 1000 + 501, 502);
-    expect(ctx.session.state.phase).toBe("monthChange");
+    expect(ctx.session.state.phase).toBe("batch");
 
     expect(await pay(ctx.host, 2, 0)).toMatchObject({ ok: true, paid: 0 });
-    expect(ctx.session.state.phase).not.toBe("monthChange");
+    expect(ctx.session.state.phase).not.toBe("batch");
     expect(ctx.session.state.phase).toBe("turn");
   });
 
@@ -267,9 +273,9 @@ describe("Ganti Bulan: month:pay-debt", () => {
     const before = ctx.session.state.players[ctx.host.playerId]!.status;
 
     advanceToTimer(ctx, MONTH_PAY_SECONDS * 1000 + 501, 502);
-    expect(ctx.session.state.phase).toBe("monthChange");
+    expect(ctx.session.state.phase).toBe("batch");
     ctx.clock.advance(1);
-    expect(ctx.session.state.phase).toBe("monthChange");
+    expect(ctx.session.state.phase).toBe("batch");
     ctx.clock.advance(501);
     expect(ctx.session.state.phase).toBe("turn");
     expect(ctx.session.state.players[ctx.host.playerId]!.status).toEqual(before);
@@ -292,15 +298,18 @@ describe("Ganti Bulan: month:pay-debt", () => {
     expect(expired.session.state.players[expired.host.playerId]!.status.debt).toBe(4_000_000);
   });
 
-  it("tanpa debtor: lanjut setelah MONTH_SUMMARY_ONLY_MS", async () => {
+  it("tanpa debtor: hanya informasi, lanjut setelah POPUP_INFO_MS", async () => {
     const ctx = await setup();
     await openMonthChange(ctx, []);
-    expect(ctx.find(ctx.host, "month:summary")[0]!.payload.payDebt).toBeNull();
-    expect(ctx.find(ctx.guest, "month:summary")[0]!.payload.payDebt).toBeNull();
+    for (const p of [ctx.host, ctx.guest]) {
+      const summary = ctx.find(p, "month:summary")[0]!.payload;
+      expect(summary.payDebt).toBeNull();
+      expect(summary.deadline).toBe(latestTimer(ctx, POPUP_INFO_MS).at + POPUP_INFO_MS);
+    }
 
-    advanceToTimer(ctx, MONTH_SUMMARY_ONLY_MS, 1);
-    expect(ctx.session.state.phase).toBe("monthChange");
-    advanceToTimer(ctx, MONTH_SUMMARY_ONLY_MS);
+    advanceToTimer(ctx, POPUP_INFO_MS, 1);
+    expect(ctx.session.state.phase).toBe("batch");
+    advanceToTimer(ctx, POPUP_INFO_MS);
     expect(ctx.session.state.phase).toBe("turn");
     await until(() => ctx.find(ctx.host, "turn:start").length > 0, "turn:start");
   });
@@ -324,6 +333,8 @@ describe("Ganti Bulan: month:pay-debt", () => {
     if (!resumed.ok) return;
     expect(resumed.snapshot.me.pendingMonth).toEqual(summary);
     expect(resumed.snapshot.me.pendingMonth?.payDebt?.deadline).toBe(summary.payDebt.deadline);
+    expect(resumed.snapshot.me.pendingMonth?.deadline).toBe(summary.deadline);
+    expect(resumed.snapshot.me.pendingMonth?.batchId).toBe(summary.batchId);
     expect(resumed.snapshot.game?.phase).toBe("calendar");
 
     // Pemain tanpa Hutang tetap melihat ringkasan, tanpa aksi pembayaran.
@@ -335,7 +346,7 @@ describe("Ganti Bulan: month:pay-debt", () => {
 
     // Popup tertutup setelah deadline; snapshot tak lagi memuat ringkasan.
     advanceToTimer(ctx, MONTH_PAY_SECONDS * 1000 + 501);
-    await until(() => ctx.session.state.phase !== "monthChange", "popup tertutup");
+    await until(() => ctx.session.state.phase !== "batch", "popup tertutup");
     const after = await socket.emitWithAck("session:resume", { requestId: rid(), roomCode: "UMR-1234" });
     expect(after.ok && after.snapshot.me.pendingMonth).toBeNull();
   });
@@ -354,35 +365,121 @@ describe("Ganti Bulan: month:pay-debt", () => {
     expect(guest.ok && guest.snapshot.me.pendingMonth?.payDebt).toMatchObject({ max: 2_000_000 });
   });
 
-  it("Langkah 9: month:summary lebih dulu, baru calendar:event", async () => {
+  it("Langkah 9: month:summary dan calendar:event terkirim bersamaan, satu batchId dan satu deadline", async () => {
     const ctx = await setup();
-    driveToMonthChange(ctx, 9);
-    await until(() => ctx.find(ctx.host, "month:summary").length === 4, "month:summary langkah 9");
-    // Popup Ganti Bulan masih terbuka: Event Tanggal belum dikirim.
-    const labour = () => ctx.host.log.findIndex((e) => e.type === "calendar:event" && e.payload.eventId === "labour-day");
-    expect(labour()).toBe(-1);
-    const cardCount = ctx.find(ctx.host, "invite:card").length;
-    const goldCount = ctx.find(ctx.host, "gold:spawned").length;
-
-    advanceToTimer(ctx, MONTH_SUMMARY_ONLY_MS);
-    await until(() => labour() !== -1, "calendar:event labour-day");
-    const summaryIndex = lastIndexWhere(ctx.host.log, (e) => e.type === "month:summary");
-    expect(summaryIndex).toBeGreaterThan(-1);
-    expect(summaryIndex).toBeLessThan(labour());
-    expect(ctx.session.state.phase).toBe("calendarEvent");
-    expect(ctx.find(ctx.host, "invite:card")).toHaveLength(cardCount);
-    expect(ctx.find(ctx.host, "gold:spawned")).toHaveLength(goldCount);
-    const calendarTimer = latestTimer(ctx, 15_000 + 501);
-    expect(ctx.find(ctx.host, "calendar:event").at(-1)!.payload.deadline).toBe(calendarTimer.at + 15_000);
-    advanceToTimer(ctx, 15_000 + 501);
-    await until(() => ctx.find(ctx.host, "invite:card").length > cardCount, "Kartu Ajakan setelah kalender");
-    await until(() => ctx.find(ctx.host, "gold:spawned").length > goldCount, "Emas setelah kalender");
-    const cardAt = lastIndexWhere(ctx.host.log, (e) => e.type === "invite:card");
-    const goldAt = lastIndexWhere(ctx.host.log, (e) => e.type === "gold:spawned");
+    driveToBatch(ctx, 9);
+    await until(
+      () => ctx.find(ctx.host, "calendar:event").some((e) => e.payload.eventId === "labour-day"),
+      "calendar:event labour-day",
+    );
+    const batchId = ctx.session.state.batchId;
+    expect(ctx.session.state.pendingMonth).not.toBeNull();
+    expect(ctx.session.state.pendingCalendarEvent).not.toBeNull();
+    for (const p of [ctx.host, ctx.guest]) {
+      const summary = ctx.find(p, "month:summary").at(-1)!.payload;
+      const event = ctx.find(p, "calendar:event").at(-1)!.payload;
+      expect(summary.batchId).toBe(batchId);
+      expect(event.batchId).toBe(batchId);
+      expect(summary.deadline).toBe(event.deadline);
+    }
+    // Kartu Ajakan, Petak Emas, dan musim ikut jendela batch yang sama (sebelum batch ditutup).
+    expect(ctx.find(ctx.host, "invite:card").length).toBeGreaterThan(0);
+    expect(ctx.find(ctx.host, "gold:spawned").length).toBeGreaterThan(0);
+    const summaryAt = lastIndexWhere(ctx.host.log, (e) => e.type === "month:summary");
+    const eventAt = lastIndexWhere(ctx.host.log, (e) => e.type === "calendar:event");
     const turnAt = lastIndexWhere(ctx.host.log, (e) => e.type === "turn:start");
-    expect(labour()).toBeLessThan(cardAt);
-    expect(cardAt).toBeLessThan(goldAt);
-    expect(goldAt).toBeLessThan(turnAt);
+    const goldAt = lastIndexWhere(ctx.host.log, (e) => e.type === "gold:spawned");
+    expect(Math.max(summaryAt, eventAt, goldAt)).toBeGreaterThan(-1);
+    expect(turnAt).toBeLessThan(Math.min(summaryAt, eventAt, goldAt));
+    // Kalender tidak maju dan hanya satu timer batch (15 detik versi uji) yang dipasang.
+    expect(ctx.session.state.public.calendar.step).toBe(9);
+    const timers = ctx.clock.scheduled.filter((entry) => entry.ms === MONTH_PAY_SECONDS * 1000 + 501);
+    expect(timers.at(-1)!.at + MONTH_PAY_SECONDS * 1000).toBe(
+      ctx.find(ctx.host, "calendar:event").at(-1)!.payload.deadline,
+    );
+  }, 20_000);
+
+  it("jawaban sebagian tidak menutup batch; batch selesai setelah semua keputusan terjawab", async () => {
+    const ctx = await setup();
+    await openMonthChange(ctx, [[ctx.host.playerId, { debt: 4_000_000 }]], 9);
+    const month = ctx.session.state.pendingMonth!.month;
+    const answer = (p: Ctx["host"], choice: string) =>
+      p.socket.emitWithAck("calendar:answer", { requestId: rid(), eventId: "labour-day", choice } as never);
+
+    // Event Tanggal dijawab semua, tetapi hutang host belum: batch tetap terbuka.
+    expect(await answer(ctx.host, "skip")).toMatchObject({ ok: true });
+    expect(await answer(ctx.guest, "skip")).toMatchObject({ ok: true });
+    expect(ctx.session.state.phase).toBe("batch");
+    // Hutang dijawab terakhir: batch langsung ditutup, tanpa menunggu deadline.
+    expect(await pay(ctx.host, month, 0)).toMatchObject({ ok: true, paid: 0 });
+    expect(ctx.session.state.phase).toBe("turn");
+    expect(ctx.session.state.pendingCalendarEvent).toBeNull();
+    expect(ctx.session.state.pendingMonth).toBeNull();
+  }, 20_000);
+
+  it("Event Tanggal belum dijawab semua: batch tetap terbuka walau debtor sudah membayar", async () => {
+    const ctx = await setup();
+    await openMonthChange(ctx, [[ctx.host.playerId, { debt: 4_000_000 }]], 9);
+    const month = ctx.session.state.pendingMonth!.month;
+    expect(await pay(ctx.host, month, 0)).toMatchObject({ ok: true });
+    expect(ctx.session.state.phase).toBe("batch");
+    expect(
+      await ctx.host.socket.emitWithAck("calendar:answer", { requestId: rid(), eventId: "labour-day", choice: "join" } as never),
+    ).toMatchObject({ ok: true });
+    expect(ctx.session.state.phase).toBe("batch");
+    expect(
+      await ctx.guest.socket.emitWithAck("calendar:answer", { requestId: rid(), eventId: "labour-day", choice: "join" } as never),
+    ).toMatchObject({ ok: true });
+    expect(ctx.session.state.phase).toBe("turn");
+  }, 20_000);
+
+  it("waktu habis: Event Tanggal dianggap Tidak ikut dan hutang Rp0, lalu giliran pertama", async () => {
+    const ctx = await setup();
+    driveToBatch(ctx, 9);
+    await until(() => ctx.find(ctx.guest, "calendar:event").some((e) => e.payload.eventId === "labour-day"), "event");
+    const deadline = ctx.find(ctx.host, "calendar:event").at(-1)!.payload.deadline as number;
+    const turns = ctx.find(ctx.host, "turn:start").length;
+    ctx.clock.advance(deadline - ctx.clock.now());
+    expect(ctx.session.state.phase).toBe("batch");
+    ctx.clock.advance(501);
+    expect(ctx.session.state.phase).toBe("turn");
+    await until(() => ctx.find(ctx.host, "turn:start").length > turns, "turn:start setelah batch");
+    for (const p of [ctx.host, ctx.guest]) {
+      const result = ctx.find(p, "calendar:result").at(-1)!.payload;
+      expect(result).toMatchObject({ eventId: "labour-day", choice: "skip", autoChosen: true });
+    }
+  }, 20_000);
+
+  it("reconnect saat batch terbuka: snapshot memuat month dan calendar dengan batchId dan deadline yang sama", async () => {
+    const ctx = await setup();
+    driveToBatch(ctx, 9);
+    await until(() => ctx.find(ctx.host, "calendar:event").some((e) => e.payload.eventId === "labour-day"), "event");
+    const summary = ctx.find(ctx.host, "month:summary").at(-1)!.payload;
+    const event = ctx.find(ctx.host, "calendar:event").at(-1)!.payload;
+
+    ctx.host.socket.disconnect();
+    ctx.clock.advance(2_000);
+    const socket: TestSocket = createClient(ctx.baseUrl, {
+      transports: ["websocket"],
+      auth: { token: ctx.host.token },
+      reconnection: false,
+    });
+    openSockets.push(socket);
+    await new Promise<void>((resolve) => socket.once("connect", resolve));
+    const resumed = await socket.emitWithAck("session:resume", { requestId: rid(), roomCode: "UMR-1234" });
+    expect(resumed.ok).toBe(true);
+    if (!resumed.ok) return;
+    expect(resumed.snapshot.me.pendingMonth).toEqual(summary);
+    expect(resumed.snapshot.me.pendingCalendar).toEqual(event);
+    expect(resumed.snapshot.me.pendingMonth?.deadline).toBe(resumed.snapshot.me.pendingCalendar?.deadline);
+    expect(resumed.snapshot.me.pendingMonth?.batchId).toBe(resumed.snapshot.me.pendingCalendar?.batchId);
+
+    // Setelah batch ditutup tidak ada popup yang tersisa di snapshot.
+    ctx.clock.advance(MONTH_PAY_SECONDS * 1000 + 501);
+    await until(() => ctx.session.state.phase !== "batch", "batch tertutup");
+    const after = await socket.emitWithAck("session:resume", { requestId: rid(), roomCode: "UMR-1234" });
+    expect(after.ok && after.snapshot.me.pendingMonth).toBeNull();
+    expect(after.ok && after.snapshot.me.pendingCalendar).toBeNull();
   }, 20_000);
 });
 
@@ -459,10 +556,15 @@ describe("Fase Pembalikan", () => {
     }
   });
 
-  it("ronde berikutnya baru mulai setelah jeda REVEAL_STEP_MS x jumlah pemain", async () => {
+  it("ronde berikutnya baru mulai setelah jeda REVEAL_STEP_MS x jumlah pemain (+ RESULT_POPUP_MS bila ada kartu hasil)", async () => {
     const ctx = await setup();
     driveToBeforeRound(ctx, 4);
-    const delay = REVEAL_STEP_MS * 2;
+    // Kartu hasil pribadi di Fase Pembalikan terakhir menambah jeda RESULT_POPUP_MS.
+    const lastReveal = lastIndexWhere(ctx.host.log, (e) => e.type === "round:reveal");
+    const hasCards = [ctx.host, ctx.guest].some((p) =>
+      p.log.slice(lastReveal).some((e) => ["invite:resolved", "doom:triggered", "player:eliminated"].includes(e.type)),
+    );
+    const delay = REVEAL_STEP_MS * 2 + (hasCards ? RESULT_POPUP_MS : 0);
     const timer = ctx.clock.scheduled[lastIndexWhere(ctx.clock.scheduled, (entry) => entry.ms === delay)]!;
     expect(timer).toBeDefined();
     const remaining = timer.at + delay - ctx.clock.now();

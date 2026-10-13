@@ -91,7 +91,7 @@ function chanceNote(choice: CalendarChoice): string | undefined {
   return `${choice.chance.pct}% ${choice.chance.text}: ${effects.join(", ")}`;
 }
 
-function buildCalendarEvent(def: CalendarEventDefinition): DomainEvent {
+function buildCalendarEvent(def: CalendarEventDefinition, batchId: string): DomainEvent {
   const choices: CalendarEventPayload["choices"] = [];
   for (const id of CHOICE_ORDER) {
     const choice = def.choices[id];
@@ -109,10 +109,11 @@ function buildCalendarEvent(def: CalendarEventDefinition): DomainEvent {
     target: { kind: "room" },
     payload: {
       version: 0,
+      batchId,
       eventId: def.id,
       name: def.name,
       dateLabel: def.dateLabel,
-      deadline: 0, // diisi server (15 detik)
+      deadline: 0, // deadline bersama batch, diisi server
       choices,
     },
   };
@@ -198,17 +199,27 @@ export function startRound(state: GameState, random: RandomSource): RoundResult 
     });
   }
 
-  // GDD 2.4: proses gaji, biaya, bunga dan tampilkan popup sebelum event lain.
+  // GDD 4.2 v1.14: Ajakan dan Petak Emas dibagikan di awal ronde, supaya notifikasinya
+  // ikut jendela batch yang sama dengan Ganti Bulan dan Event Tanggal.
+  const prepared = prepareRound(next, events, random);
+  const roundPlayers = { ...prepared.players };
+  const batchId = `${state.public.gameId}-step${step}`;
+  const def = getCalendarEventAtStep(step);
+  let pendingMonth: GameState["pendingMonth"] = null;
+
+  // GDD 2.4: proses gaji, biaya, bunga; popup tampil bersamaan dengan Event Tanggal.
   if (isMonthChangeStep(step)) {
     const debtorIds: string[] = [];
     for (const playerId of state.baseTurnOrder) {
-      const player = players[playerId];
+      const player = roundPlayers[playerId];
       if (!player || player.eliminated) continue;
       const result = processMonthChange(player.status, calendar.month);
       const hasDebt = result.status.debt > 0;
       if (hasDebt) debtorIds.push(playerId);
       const payload = {
         ...result.summary,
+        batchId,
+        deadline: 0, // deadline bersama batch, diisi server
         payDebt: hasDebt
           ? { max: Math.min(result.status.wealth, result.status.debt), deadline: 0 }
           : null,
@@ -216,22 +227,31 @@ export function startRound(state: GameState, random: RandomSource): RoundResult 
       const target = { kind: "player", playerId } as const;
       events.push({ type: "month:summary", target, payload });
       events.push({ type: "player:status", target, payload: result.status });
-      players[playerId] = { ...player, status: result.status };
+      roundPlayers[playerId] = { ...player, status: result.status };
     }
-    return {
-      state: withPhase(
-        { ...next, pendingMonth: { month: calendar.month, debtorIds, answers: {} } },
-        "monthChange",
-      ),
-      events,
-    };
+    pendingMonth = { month: calendar.month, debtorIds, answers: {} };
   }
 
-  return { state: enterCalendarEventOrTurn(next, events, random), events };
+  const ready: GameState = { ...prepared, players: roundPlayers };
+  if (!pendingMonth && !def) return { state: withPhase(ready, "turn"), events };
+
+  if (def) events.push(buildCalendarEvent(def, batchId));
+  return {
+    state: withPhase(
+      {
+        ...ready,
+        pendingMonth,
+        pendingCalendarEvent: def ? { eventId: def.id, answers: {} } : null,
+        batchId,
+      },
+      "batch",
+    ),
+    events,
+  };
 }
 
-/** Setelah popup bulan dan Event Tanggal: Ajakan lalu Emas, baru giliran. */
-function prepareTurn(state: GameState, events: DomainEvent[], random: RandomSource): GameState {
+/** Awal ronde: Kartu Ajakan lalu Petak Emas (GDD 4.2 langkah 2-3). */
+function prepareRound(state: GameState, events: DomainEvent[], random: RandomSource): GameState {
   const step = state.public.calendar.step;
   const calendar = state.public.calendar;
   const players = { ...state.players };
@@ -239,7 +259,7 @@ function prepareTurn(state: GameState, events: DomainEvent[], random: RandomSour
   let board = state.board;
   const next: GameState = { ...state, players, public: publicState };
 
-  // GDD 4.8: bagikan Kartu Ajakan setelah popup kalender selesai.
+  // GDD 4.8: bagikan Kartu Ajakan di awal ronde.
   if (isInviteCardStep(step)) {
     for (const playerId of state.baseTurnOrder) {
       const player = players[playerId];
@@ -300,17 +320,6 @@ function prepareTurn(state: GameState, events: DomainEvent[], random: RandomSour
   return next;
 }
 
-/** Event Tanggal bila ada di langkah ini (phase calendarEvent + calendar:event), selain itu giliran. */
-function enterCalendarEventOrTurn(state: GameState, events: DomainEvent[], random: RandomSource): GameState {
-  const def = getCalendarEventAtStep(state.public.calendar.step);
-  if (!def) return withPhase(prepareTurn(state, events, random), "turn");
-  events.push(buildCalendarEvent(def));
-  return withPhase(
-    { ...state, pendingCalendarEvent: { eventId: def.id, answers: {} } },
-    "calendarEvent",
-  );
-}
-
 export type MonthPaymentResult =
   | {
       ok: true;
@@ -334,7 +343,7 @@ export function answerMonthPayment(
 ): MonthPaymentResult {
   const pending = state.pendingMonth;
   if (
-    state.phase !== "monthChange" ||
+    state.phase !== "batch" ||
     !pending ||
     pending.month !== month ||
     !pending.debtorIds.includes(playerId) ||
@@ -374,7 +383,7 @@ export function answerMonthPayment(
   };
 }
 
-/** True bila ada pemain berhutang yang ditunggu di popup Ganti Bulan. */
+/** True bila ada pemain berhutang yang ditunggu di batch awal ronde. */
 export function hasMonthDebtors(state: GameState): boolean {
   return (state.pendingMonth?.debtorIds.length ?? 0) > 0;
 }
@@ -386,29 +395,23 @@ export function allMonthPaymentsAnswered(state: GameState): boolean {
   return pending.debtorIds.every((id) => id in pending.answers);
 }
 
-/**
- * Menutup popup Ganti Bulan: debtor yang belum menjawab dianggap bayar 0, lalu
- * lanjut ke Event Tanggal (bila ada di langkah ini) atau giliran.
- */
-export function closeMonthChange(state: GameState, random: RandomSource): RoundResult {
-  if (state.phase !== "monthChange") return { state, events: [] };
-  const events: DomainEvent[] = [];
-  // Debtor yang tidak menjawab dicatat membayar Rp0.
-  let decisionLog = state.decisionLog;
-  const pending = state.pendingMonth;
-  for (const playerId of pending?.debtorIds ?? []) {
-    if (pending && playerId in pending.answers) continue;
-    decisionLog = appendDecision(decisionLog, playerId, {
-      kind: "debtPayment",
-      step: state.public.calendar.step,
-      month: pending!.month,
-      amount: 0,
-      debtBefore: state.players[playerId]!.status.debt,
-      cleared: false,
-    });
-  }
-  const next = enterCalendarEventOrTurn({ ...state, decisionLog, pendingMonth: null }, events, random);
-  return { state: next, events };
+/** True bila semua pemain hidup sudah menjawab Event Tanggal (juga true bila tidak ada event). */
+export function allCalendarEventAnswered(state: GameState): boolean {
+  const pending = state.pendingCalendarEvent;
+  if (!pending) return true;
+  return Object.entries(state.players).every(
+    ([id, player]) => player.eliminated || id in pending.answers,
+  );
+}
+
+/** True bila batch punya keputusan (debtor atau Event Tanggal): durasi 15 detik, bukan hanya informasi. */
+export function batchNeedsDecision(state: GameState): boolean {
+  return state.phase === "batch" && (hasMonthDebtors(state) || state.pendingCalendarEvent !== null);
+}
+
+/** True bila semua keputusan batch sudah dijawab (batch boleh selesai lebih cepat). */
+export function allBatchDecisionsAnswered(state: GameState): boolean {
+  return allMonthPaymentsAnswered(state) && allCalendarEventAnswered(state);
 }
 
 /** Menyimpan jawaban satu pemain untuk Event Tanggal yang sedang terbuka. */
@@ -419,7 +422,7 @@ export function answerCalendarEvent(
   choice: CalendarChoiceId,
 ): AnswerResult {
   const pending = state.pendingCalendarEvent;
-  if (state.phase !== "calendarEvent" || !pending || pending.eventId !== eventId) {
+  if (state.phase !== "batch" || !pending || pending.eventId !== eventId) {
     return { ok: false, code: "EVENT_CLOSED", message: "Event Tanggal sudah ditutup." };
   }
   if (playerId in pending.answers) {
@@ -446,55 +449,82 @@ export function answerCalendarEvent(
 }
 
 /**
- * Menutup Event Tanggal: yang belum menjawab otomatis "skip", lalu efek diterapkan.
- * Eliminasi (Bangkrut, Burnout) baru dicek di Fase Pembalikan (GDD 4.2 v1.12).
+ * Menutup batch awal ronde (GDD 4.2 v1.14): debtor yang belum menjawab dicatat membayar Rp0,
+ * pemain yang belum menjawab Event Tanggal dianggap "skip" lalu efek diterapkan, dan fase
+ * pindah ke giliran. Eliminasi (Bangkrut, Burnout) baru dicek di Fase Pembalikan.
  */
-export function closeCalendarEvent(state: GameState, random: RandomSource): RoundResult {
-  const pending = state.pendingCalendarEvent;
-  const def = getCalendarEventAtStep(state.public.calendar.step);
-  if (!pending || !def) {
-    return { state: withPhase({ ...state, pendingCalendarEvent: null }, "turn"), events: [] };
-  }
+export function closeBatch(state: GameState, random: RandomSource): RoundResult {
+  if (state.phase !== "batch") return { state, events: [] };
   const events: DomainEvent[] = [];
   const players = { ...state.players };
   let decisionLog = state.decisionLog;
-  for (const playerId of state.public.turnOrder) {
-    const player = players[playerId];
-    if (!player || player.eliminated) continue;
-    const autoChosen = !(playerId in pending.answers);
-    const choiceId = pending.answers[playerId] ?? "skip";
-    const choice = def.choices[choiceId] ?? def.choices.skip;
-    const effects = [...choice.effects];
-    let flavor: string | undefined;
-    if (choice.chance && random.chance(choice.chance.pct)) {
-      effects.push(...choice.chance.effects);
-      flavor = choice.chance.text;
-    }
-    const status = applyEffects(player.status, effects).status;
-    players[playerId] = { ...player, status };
+  const step = state.public.calendar.step;
+
+  const month = state.pendingMonth;
+  for (const playerId of month?.debtorIds ?? []) {
+    if (month && playerId in month.answers) continue;
     decisionLog = appendDecision(decisionLog, playerId, {
-      kind: "calendar",
-      step: state.public.calendar.step,
-      eventId: def.id,
-      choice: choiceId,
-      autoChosen,
+      kind: "debtPayment",
+      step,
+      month: month!.month,
+      amount: 0,
+      debtBefore: players[playerId]!.status.debt,
+      cleared: false,
     });
-    const target = { kind: "player", playerId } as const;
-    events.push({
-      type: "calendar:result",
-      target,
-      payload: {
+  }
+
+  const pending = state.pendingCalendarEvent;
+  const def = getCalendarEventAtStep(step);
+  if (pending && def) {
+    for (const playerId of state.public.turnOrder) {
+      const player = players[playerId];
+      if (!player || player.eliminated) continue;
+      const autoChosen = !(playerId in pending.answers);
+      const choiceId = pending.answers[playerId] ?? "skip";
+      const choice = def.choices[choiceId] ?? def.choices.skip;
+      const effects = [...choice.effects];
+      let flavor: string | undefined;
+      if (choice.chance && random.chance(choice.chance.pct)) {
+        effects.push(...choice.chance.effects);
+        flavor = choice.chance.text;
+      }
+      const status = applyEffects(player.status, effects).status;
+      players[playerId] = { ...player, status };
+      decisionLog = appendDecision(decisionLog, playerId, {
+        kind: "calendar",
+        step,
         eventId: def.id,
         choice: choiceId,
         autoChosen,
-        effects,
-        ...(flavor ? { flavor } : {}),
-      },
-    });
-    events.push({ type: "player:status", target, payload: status });
+      });
+      const target = { kind: "player", playerId } as const;
+      events.push({
+        type: "calendar:result",
+        target,
+        payload: {
+          eventId: def.id,
+          choice: choiceId,
+          autoChosen,
+          effects,
+          ...(flavor ? { flavor } : {}),
+        },
+      });
+      events.push({ type: "player:status", target, payload: status });
+    }
   }
+
   return {
-    state: withPhase(prepareTurn({ ...state, players, decisionLog, pendingCalendarEvent: null }, events, random), "turn"),
+    state: withPhase(
+      {
+        ...state,
+        players,
+        decisionLog,
+        pendingMonth: null,
+        pendingCalendarEvent: null,
+        batchId: null,
+      },
+      "turn",
+    ),
     events,
   };
 }

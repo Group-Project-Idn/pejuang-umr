@@ -451,7 +451,7 @@ describe("jalur snapshot divalidasi seperti dispatcher", { timeout: 20_000 }, ()
     const player = session.state.players[target.playerId]!;
     session.state = {
       ...session.state,
-      phase: "monthChange",
+      phase: "batch",
       pendingMonth: { month: 2, debtorIds: [target.playerId], answers: {} },
       pendingTurn: { turnId: `turn-1-${target.playerId}`, playerId: target.playerId, mode: "normal", options: [] },
     };

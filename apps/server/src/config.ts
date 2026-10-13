@@ -10,10 +10,12 @@ export type ServerConfig = {
   roomEmptyMs?: number;
   /** Jeda animasi per pemain di Fase Pembalikan sebelum ronde berikutnya (ms). */
   revealStepMs?: number;
-  /** Lama popup Ganti Bulan menunggu slider Bayar Hutang (detik). */
+  /** Lama batch popup awal ronde bila ada keputusan: Bayar Hutang atau Event Tanggal (detik). */
   monthPaySeconds?: number;
-  /** Lama popup Ganti Bulan tampil bila tidak ada yang berhutang (ms). */
-  monthSummaryOnlyMs?: number;
+  /** Lama batch popup awal ronde bila semua popup hanya informasi (ms). */
+  popupInfoMs?: number;
+  /** Lama kartu hasil pribadi di akhir ronde, ditambahkan ke jeda Fase Pembalikan (ms). */
+  resultPopupMs?: number;
   /** Penyedia Refleksi: "none" (default, hanya insight berbasis aturan) atau "fake" (tes/dev, bukan production). */
   reflectionProvider?: ReflectionProviderName;
   /** Batas waktu provider Refleksi (ms) sebelum memakai cadangan aturan. */
@@ -28,7 +30,8 @@ export const DEFAULT_ROOM_IDLE_MS = 600_000;
 export const DEFAULT_ROOM_EMPTY_MS = 120_000;
 export const DEFAULT_REVEAL_STEP_MS = 2_500;
 export const DEFAULT_MONTH_PAY_SECONDS = 15;
-export const DEFAULT_MONTH_SUMMARY_ONLY_MS = 3_000;
+export const DEFAULT_POPUP_INFO_MS = 8_000;
+export const DEFAULT_RESULT_POPUP_MS = 8_000;
 export const DEFAULT_REFLECTION_TIMEOUT_MS = 15_000;
 
 function readDuration(value: string | undefined, fallback: number, name: string): number {
@@ -99,11 +102,8 @@ export function readServerConfig(
       DEFAULT_MONTH_PAY_SECONDS,
       "MONTH_PAY_SECONDS",
     ),
-    monthSummaryOnlyMs: readDuration(
-      env.MONTH_SUMMARY_ONLY_MS,
-      DEFAULT_MONTH_SUMMARY_ONLY_MS,
-      "MONTH_SUMMARY_ONLY_MS",
-    ),
+    popupInfoMs: readDuration(env.POPUP_INFO_MS, DEFAULT_POPUP_INFO_MS, "POPUP_INFO_MS"),
+    resultPopupMs: readDuration(env.RESULT_POPUP_MS, DEFAULT_RESULT_POPUP_MS, "RESULT_POPUP_MS"),
     reflectionProvider: readReflectionProvider(
       env.REFLECTION_PROVIDER,
       env.NODE_ENV === "production",

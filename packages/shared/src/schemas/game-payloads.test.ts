@@ -64,7 +64,7 @@ describe("bentuk payload S->C", () => {
     expect(PrivateStatusSchema.safeParse({ ...after, debt: 0.5 }).success).toBe(false);
     expect(MonthSummaryPayloadSchema.safeParse({
       month: 3, salary: 5_730_000, livingCost: 4_600_000,
-      interest: 750_000, interestAddedToDebt: 0, payDebt: null,
+      interest: 750_000, interestAddedToDebt: 0, batchId: "g-b3", deadline: 8_000, payDebt: null,
       before: PRIVATE_STATUS, after,
     }).success).toBe(true);
   });
@@ -95,6 +95,7 @@ describe("bentuk payload S->C", () => {
     expect(
       CalendarEventPayloadSchema.safeParse({
         version: 3,
+        batchId: "g-b3",
         eventId: "wedding",
         name: "Kondangan Teman",
         dateLabel: "15 Mei",
@@ -131,6 +132,8 @@ describe("bentuk payload S->C", () => {
         livingCost: 4_600_000,
         interest: 0,
         interestAddedToDebt: 0,
+        batchId: "g-b3",
+        deadline: 8_000,
         payDebt: null,
         before: PRIVATE_STATUS,
         after: PRIVATE_STATUS,
