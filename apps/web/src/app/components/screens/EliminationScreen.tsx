@@ -1,5 +1,6 @@
 import { formatRupiah, type EliminationReason, type PrivateStatus, type Reflection } from "@pejuang/shared";
 import { getEliminatedLabel } from "@/lib/result-screens";
+import { useSfxOnMount } from "@/lib/use-sfx";
 import ReflectionCard from "../game/ReflectionCard";
 import Button from "../ui/Button";
 
@@ -25,6 +26,7 @@ export default function EliminationScreen({
   message: string;
   onLeave: () => void;
 }) {
+  useSfxOnMount("eliminated");
   return (
     <div className="lobby-desk min-h-dvh px-3 py-6 sm:px-6">
       <main className="room-folder mx-auto grid w-full max-w-2xl content-start gap-4 text-[color:var(--ink-text)]" style={{ minHeight: 0 }}>

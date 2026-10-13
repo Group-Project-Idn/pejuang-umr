@@ -7,8 +7,12 @@ import type {
   RoomState,
   Snapshot,
 } from "@pejuang/shared";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { hexKey } from "@pejuang/shared";
 import { getTurnSecondsLeft } from "@/lib/game-view";
+import { playSfx } from "@/lib/sfx";
+import { popupOpenSound, revealSounds, tickSound, type RevealSoundState } from "@/lib/sfx-events";
+import { useMusicTrack } from "@/lib/use-sfx";
 import { resolveHexClick } from "@/lib/hex-detail";
 import {
   canUseInviteCard,
@@ -216,6 +220,56 @@ export default function GameInterface({
       }
     : null;
 
+  // Suara dari titik presentasi, bukan dari event socket mentah.
+  useMusicTrack("bgm-game");
+  const turnId = me?.pendingTurn?.turnId ?? null;
+  useEffect(() => {
+    if (turnId) playSfx("turn-start");
+  }, [turnId]);
+  const tick = tickSound(timeLeft, Boolean(game.turnDeadline), game.activePlayerId === me?.playerId);
+  useEffect(() => {
+    if (tick) playSfx(tick);
+  }, [tick, timeLeft, game.turnDeadline]);
+  const popupKey = popupGrid?.key ?? null;
+  const popupSound = popupOpenSound(popupCards.map((card) => card.kind));
+  const lastPopupKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (!popupKey) {
+      lastPopupKey.current = null;
+      return;
+    }
+    if (lastPopupKey.current === popupKey || !popupSound) return;
+    lastPopupKey.current = popupKey;
+    playSfx(popupSound);
+  }, [popupKey, popupSound]);
+  const incomingInviteId = popup ? pendingInvite?.inviteId ?? null : null;
+  useEffect(() => {
+    if (incomingInviteId) playSfx("invite");
+  }, [incomingInviteId]);
+  // Fase Pembalikan: flip di awal animasi; Zonk/Aman/Hoki hanya dari Realita yang sudah terbuka (shownGame).
+  const lastReveal = useRef<{ endsAt: number; state: RevealSoundState } | null>(null);
+  useEffect(() => {
+    if (revealEndsAt === null || !revealProgress) {
+      lastReveal.current = null;
+      return;
+    }
+    const next: RevealSoundState = { activeKey: revealProgress.activeKey, flipped: revealProgress.flippedKeys };
+    const previous = lastReveal.current;
+    lastReveal.current = { endsAt: revealEndsAt, state: next };
+    // Bergabung/reconnect di tengah fase: jangan memutar ulang yang sudah lewat.
+    // Reduced motion: hasil terbuka sekaligus saat fase dimulai, jadi bunyikan sekali tanpa menunggu animasi.
+    const freshStart = next.flipped.size === 0 || (reducedMotion && serverNow < revealEndsAt);
+    const baseline: RevealSoundState = previous?.endsAt === revealEndsAt
+      ? previous.state
+      : freshStart ? { activeKey: null, flipped: new Set() } : next;
+    const step = game.calendar.step;
+    const sounds = revealSounds(baseline, next, (key) => {
+      const opened = shownGame.openedHexes.find((tile) => tile.step === step && hexKey(tile.hex) === key);
+      return opened ? opened.reality?.outcome ?? null : undefined;
+    });
+    for (const sound of sounds) playSfx(sound);
+  });
+
   const activePlayer = useMemo(
     () => room.players.find(
       (player) => player.playerId === game.activePlayerId,
@@ -309,6 +363,7 @@ export default function GameInterface({
               inviteTargeting={inviteTargeting}
               onSelectHex={(key) => {
                 if (resolveHexClick(key, litOptions, shownGame.openedHexes)) {
+                  playSfx("step");
                   setSelectedHexKey(key);
                 }
               }}

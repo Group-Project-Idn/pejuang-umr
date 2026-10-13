@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { formatRupiah, type GameFinishedPayload, type PublicGameState, type PrivateStatus, type Reflection } from "@pejuang/shared";
 import { getAvatarSrc } from "@/lib/avatars";
+import { useSfxOnMount } from "@/lib/use-sfx";
 import {
   buildResultHeader,
   buildResultRows,
@@ -131,6 +132,7 @@ export default function ResultScreen({
   onLeave: () => void;
 }) {
   const [shareMessage, setShareMessage] = useState("");
+  useSfxOnMount("finish");
   const rows = result ? buildResultRows({ ranking: result.ranking, reasons, selfId, status }) : [];
   const header = buildResultHeader(calendar);
 
