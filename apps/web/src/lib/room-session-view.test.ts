@@ -591,3 +591,42 @@ describe("reflection:ready dan Main Lagi", () => {
     expect(applyRoomState(finished, { ...initial.room!, status: "finished" }).result).not.toBeNull();
   });
 });
+
+describe("hint musim dan notifikasi Petak Emas", () => {
+  const gold = {
+    goldId: "g1",
+    hex: { q: 1, r: 1 },
+    title: "Bonus Proyek",
+    plan: [],
+    expiresAtStep: 4,
+  };
+  const start = () => applySessionSnapshot(createRoomSessionView(), snapshot(5), 0);
+
+  it("menyimpan season:changed.hint di state sesi", () => {
+    const { state } = applySessionPublicEvent(start(), {
+      type: "season:changed",
+      payload: {
+        version: 6,
+        season: "transition",
+        vulnerableCategories: ["health"],
+        zonkFocus: "sick",
+        hint: "Pancaroba: petak Kesehatan lebih rawan",
+      },
+    });
+    expect(state.seasonHint).toBe("Pancaroba: petak Kesehatan lebih rawan");
+  });
+
+  it("gold:spawned dan gold:expired menghasilkan pemberitahuan", () => {
+    const spawned = applySessionPublicEvent(start(), {
+      type: "gold:spawned",
+      payload: { version: 6, gold },
+    }).state;
+    expect(spawned.goldNotice?.text).toBe("Petak Emas muncul! Hilang dalam 3 ronde");
+    const expired = applySessionPublicEvent(spawned, {
+      type: "gold:expired",
+      payload: { version: 7, goldId: "g1", hex: gold.hex },
+    }).state;
+    expect(expired.goldNotice?.text).toBe("Petak Emas hangus");
+    expect(expired.goldNotice!.id).toBeGreaterThan(spawned.goldNotice!.id);
+  });
+});

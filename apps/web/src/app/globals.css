@@ -415,3 +415,9 @@ button { font: inherit; }
 .turn-options button small { font-size: 9px; font-weight: 700; }
 .game-action-message { position: absolute; top: 8px; right: 12px; z-index: 20; max-width: min(420px,80vw); margin: 0; padding: 8px 12px; border-radius: 8px; background: #211e23; color: #f8e5b8; font-size: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.3); }
 @media (max-width:760px) { .turn-options { bottom: 36px; width: calc(100% - 16px); }.turn-options > div { grid-template-columns: 1fr; }.turn-options button { min-height: 44px; grid-template-columns: 1fr auto; }.game-action-message { position: fixed; } }
+.tile-plan-label { display: inline-block; max-width: 74px; padding: 2px 4px; border-radius: 4px; background: rgba(255,247,222,.92); color: #332820; font-size: 11px; font-weight: 900; line-height: 1.1; text-align: center; }
+.board-unsupported { margin: auto; padding: 24px; max-width: 360px; text-align: center; color: #f8e5b8; font-size: 14px; }
+.eliminated-score { opacity: .55; }
+.board-canvas-empty { display: grid; place-items: center; background: #2a2024; }
+.season-hint { grid-column: 1 / -1; font-size: 9px; }
+.gold-notice { position: absolute; top: 8px; left: 50%; z-index: 9; transform: translateX(-50%); padding: 8px 14px; border: 2px solid #7c5715; border-radius: 999px; background: #ffe067; color: #59400f; font-size: 12px; font-weight: 900; box-shadow: 0 0 18px #ffd84d; }

@@ -425,6 +425,8 @@ export function LobbyClient({ code }: { code: string }) {
         connectionStatus={status}
         serverClockOffsetMs={sessionView.serverClockOffsetMs}
         actionMessage={message}
+        seasonHint={sessionView.seasonHint}
+        goldNotice={sessionView.goldNotice}
         actionPending={pending === "calendar" || pending === "turn" || pending === "month"}
         onPayDebt={payDebt}
         onAnswerCalendar={answerCalendar}
