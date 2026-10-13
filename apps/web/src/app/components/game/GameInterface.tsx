@@ -1,6 +1,5 @@
 "use client";
 
-import { hexKey } from "@pejuang/shared";
 import type {
   CalendarEventPayload,
   HexCoord,
@@ -9,7 +8,9 @@ import type {
   Snapshot,
 } from "@pejuang/shared";
 import { useEffect, useMemo, useState } from "react";
+import { getSeasonHint } from "@/lib/board-hud";
 import { getTurnSecondsLeft } from "@/lib/game-view";
+import { resolveHexClick } from "@/lib/hex-detail";
 import CalendarEventView from "../game-v2/CalendarEventView";
 import HexDetailSheet from "../game-v2/HexDetailSheet";
 import GameBoard from "./GameBoard";
@@ -37,6 +38,8 @@ export default function GameInterface({
   serverClockOffsetMs,
   actionMessage,
   actionPending,
+  seasonHint,
+  goldNotice,
   onAnswerCalendar,
   onPayDebt,
   onChooseHex,
@@ -48,6 +51,8 @@ export default function GameInterface({
   serverClockOffsetMs: number;
   actionMessage: string;
   actionPending: boolean;
+  seasonHint: string | null;
+  goldNotice: { id: number; text: string } | null;
   onAnswerCalendar: (
     eventId: string,
     choice: CalendarEventPayload["choices"][number]["id"],
@@ -61,6 +66,7 @@ export default function GameInterface({
 }) {
   const [now, setNow] = useState(() => Date.now());
   const [selectedHexKey, setSelectedHexKey] = useState<string | null>(null);
+  const [dismissedNoticeId, setDismissedNoticeId] = useState<number | null>(null);
   useEffect(() => {
     if (!game.turnDeadline) return;
     const timer = window.setInterval(
@@ -69,6 +75,17 @@ export default function GameInterface({
     );
     return () => window.clearInterval(timer);
   }, [game.turnDeadline]);
+  useEffect(() => {
+    if (!goldNotice) return;
+    const timer = window.setTimeout(
+      () => setDismissedNoticeId(goldNotice.id),
+      5000,
+    );
+    return () => window.clearTimeout(timer);
+  }, [goldNotice]);
+  const visibleNotice = goldNotice && goldNotice.id !== dismissedNoticeId
+    ? goldNotice.text
+    : null;
   const timeLeft = getTurnSecondsLeft({
     localNow: now,
     serverClockOffsetMs,
@@ -85,9 +102,11 @@ export default function GameInterface({
     "Papan mengikuti snapshot authoritative dari server.";
   const pendingTurn = me?.pendingTurn ?? null;
   const turnMode = pendingTurn && "stressPenalty" in pendingTurn ? "deadEnd" : "normal";
-  const selectedOption = pendingTurn?.options.find(
-    (option) => hexKey(option.hex) === selectedHexKey,
-  ) ?? null;
+  const litOptions = pendingTurn?.options ?? [];
+  // Dihitung ulang tiap render, jadi isi sheet ikut berganti saat heksa lain diklik.
+  const detail = selectedHexKey
+    ? resolveHexClick(selectedHexKey, litOptions, game.openedHexes)
+    : null;
 
   return (
     <main className="game-page">
@@ -108,6 +127,9 @@ export default function GameInterface({
               {SEASON_ICON[game.calendar.season]}
               <span>{SEASON_LABEL[game.calendar.season]}</span>
             </div>
+            <small className="season-hint" role="status">
+              {getSeasonHint(game.calendar.season, seasonHint)}
+            </small>
           </div>
           <div className="mission-card">
             <span>▰</span>
@@ -128,29 +150,27 @@ export default function GameInterface({
               <div role="status" className="gold-badge">Fase Pembalikan · Realita dibuka sesuai urutan giliran</div>
             ) : null}
             {game.gold ? <div className="gold-badge">✦<strong>Petak<br />Emas</strong></div> : null}
-            <GameBoard game={game} room={room} />
+            <GameBoard
+              game={game}
+              room={room}
+              lit={litOptions}
+              onSelectHex={(key) => {
+                if (resolveHexClick(key, litOptions, game.openedHexes)) {
+                  setSelectedHexKey(key);
+                }
+              }}
+            />
             {pendingTurn ? (
-              <section className="turn-options" aria-label="Pilihan heksa">
+              <p className="turn-options" role="status">
                 <strong>
                   {turnMode === "deadEnd"
-                    ? "Jalan Buntu · pilih tujuan lompat (+1 Level Stress)"
-                    : "Pilih tujuanmu"}
+                    ? "Jalan Buntu · ketuk heksa menyala untuk melompat (+1 Level Stress)"
+                    : "Ketuk heksa yang menyala untuk melihat detailnya"}
                 </strong>
-                <div>
-                  {pendingTurn.options.map((option) => (
-                    <button
-                      key={hexKey(option.hex)}
-                      type="button"
-                      disabled={actionPending}
-                      onClick={() => setSelectedHexKey(hexKey(option.hex))}
-                      aria-label={`Lihat ${option.title}, heksa ${option.hex.q}, ${option.hex.r}`}
-                    >
-                      <span>{option.isGold ? "✦" : option.title}</span>
-                      <small>{option.hex.q}, {option.hex.r}</small>
-                    </button>
-                  ))}
-                </div>
-              </section>
+              </p>
+            ) : null}
+            {visibleNotice ? (
+              <div className="gold-notice" role="status">{visibleNotice}</div>
             ) : null}
             <div className="event-toast" role="status">{eventMessage}</div>
           </section>
@@ -169,20 +189,18 @@ export default function GameInterface({
             </div>
           </div>
           <div className="action-buttons">
-            <button type="button" disabled aria-label="Mulai ulang belum tersedia"><span>↻</span><small>Ulang</small></button>
             <button type="button" disabled aria-label="Ekspresi belum tersedia"><span>☺</span><small>Emote</small></button>
             <button type="button" disabled className="invite-button" aria-label="Kartu ajakan belum tersedia"><i>0</i><span>▱</span><small>Kartu ajakan</small></button>
-            <button type="button" disabled className="pause-button" aria-label="Jeda belum tersedia"><span>Ⅱ</span><small>Jeda</small></button>
           </div>
         </footer>
       </section>
-      <p className="game-tip">Pilih tujuan lewat tombol heksa · papan dapat diputar dan diperbesar</p>
+      <p className="game-tip">Klik heksa yang menyala atau heksa terbuka · papan dapat diputar dan diperbesar</p>
       {actionMessage ? <p className="game-action-message" role="status">{actionMessage}</p> : null}
       <HexDetailSheet
-        option={selectedOption}
+        detail={detail}
         pending={actionPending}
         onChoose={(hex) => {
-          if (!pendingTurn) return;
+          if (!pendingTurn || !detail?.canChoose) return;
           onChooseHex(pendingTurn.turnId, hex, turnMode);
           setSelectedHexKey(null);
         }}

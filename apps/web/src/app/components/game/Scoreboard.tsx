@@ -3,6 +3,7 @@
 import type { PublicGameState, RoomState } from "@pejuang/shared";
 import Image from "next/image";
 import { getAvatarSrc } from "@/lib/avatars";
+import { buildScoreRows } from "@/lib/board-hud";
 
 export default function Scoreboard({
   game,
@@ -13,18 +14,14 @@ export default function Scoreboard({
   room: RoomState;
   playerId: string;
 }) {
-  const sorted = [...game.scores].sort(
-    (first, second) =>
-      first.rank - second.rank ||
-      second.provisionalScore - first.provisionalScore,
-  );
+  const rows = buildScoreRows(game.scores, game.activePlayerId);
 
   return (
     <aside className="paper-panel scoreboard">
       <p className="panel-kicker">Papan skor</p>
       <p className="score-subtitle">Skor sementara</p>
       <ol>
-        {sorted.map((score) => {
+        {rows.map((score) => {
           const player = room.players.find(
             (candidate) => candidate.playerId === score.playerId,
           );
@@ -32,10 +29,12 @@ export default function Scoreboard({
             <li
               key={score.playerId}
               className={
-                game.activePlayerId === score.playerId ? "active-score" : ""
+                [score.isTurn ? "active-score" : "", score.eliminated ? "eliminated-score" : ""].join(" ").trim()
               }
             >
-              <span className="rank">{score.rank}.</span>
+              <span className="rank">
+                {score.isFirst ? <span role="img" aria-label="Peringkat 1">👑</span> : `${score.rank}.`}
+              </span>
               <span className="score-avatar">
                 {player ? (
                   <Image src={getAvatarSrc(player.avatarId)} alt={`Karakter ${player.name}`} width={26} height={26} className="size-[26px] object-contain" />
@@ -46,7 +45,11 @@ export default function Scoreboard({
                   {player?.name ?? score.playerId}
                   {score.playerId === playerId ? " (Kamu)" : ""}
                 </strong>
-                <small>{score.provisionalScore} poin</small>
+                <small>
+                  {score.scoreText}
+                  {score.eliminated ? " · ✕ Tereliminasi" : ""}
+                  {score.isTurn ? " · Jalan" : ""}
+                </small>
               </span>
             </li>
           );

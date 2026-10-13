@@ -1,10 +1,10 @@
 "use client";
 
 import { createBoard, hexKey } from "@pejuang/shared";
-import type { PublicGameState, RoomState } from "@pejuang/shared";
+import type { PublicGameState, RoomState, TileOption } from "@pejuang/shared";
 import { Html, OrbitControls, RoundedBox } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
-import { Suspense, useEffect, useMemo, useRef } from "react";
+import { Component, Suspense, useEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from "react";
 import * as THREE from "three";
 import {
   getBoardDeskSize,
@@ -12,6 +12,7 @@ import {
   hexToWorld,
   TILE_DETAILS,
 } from "@/data/game";
+import { isWebGLAvailable, NO_WEBGL_MESSAGE } from "@/lib/board-hud";
 import GameCharacters from "./GameCharacters";
 
 const tempObject = new THREE.Object3D();
@@ -23,8 +24,18 @@ const HEX_TILE_HEIGHT = 0.25;
 const HEX_TILE_SURFACE_OFFSET = 0.02;
 const HEX_TILE_OUTLINE_COLOR = "#111318";
 const FOG_HIDDEN_COLOR = "#343941";
+const LIT_COLOR = "#ffe9a8";
+const LIT_OUTLINE_COLOR = "#ffd84d";
 
-function HexTiles({ game }: { game: PublicGameState }) {
+function HexTiles({
+  game,
+  lit,
+  onSelectHex,
+}: {
+  game: PublicGameState;
+  lit: readonly TileOption[];
+  onSelectHex: (key: string) => void;
+}) {
   const outlineMesh = useRef<THREE.InstancedMesh>(null);
   const surfaceMesh = useRef<THREE.InstancedMesh>(null);
   const board = useMemo(
@@ -36,6 +47,10 @@ function HexTiles({ game }: { game: PublicGameState }) {
     [game.openedHexes],
   );
   const goldKey = game.gold ? hexKey(game.gold.hex) : null;
+  const litByHex = useMemo(
+    () => new Map(lit.map((option) => [hexKey(option.hex), option])),
+    [lit],
+  );
 
   useEffect(() => {
     if (!outlineMesh.current || !surfaceMesh.current) return;
@@ -54,8 +69,14 @@ function HexTiles({ game }: { game: PublicGameState }) {
       tempObject.position.y = HEX_TILE_SURFACE_OFFSET;
       tempObject.updateMatrix();
       surface.setMatrixAt(index, tempObject.matrix);
-      outline.setColorAt(index, tempColor.set(HEX_TILE_OUTLINE_COLOR));
-      const color = goldKey === key
+      const isLit = litByHex.has(key);
+      outline.setColorAt(
+        index,
+        tempColor.set(isLit ? LIT_OUTLINE_COLOR : HEX_TILE_OUTLINE_COLOR),
+      );
+      const color = isLit && !opened
+        ? litByHex.get(key)?.isGold ? TILE_DETAILS.gold.color : LIT_COLOR
+        : goldKey === key
         ? TILE_DETAILS.gold.color
         : opened
           ? TILE_DETAILS[opened.category].color
@@ -66,7 +87,7 @@ function HexTiles({ game }: { game: PublicGameState }) {
     surface.instanceMatrix.needsUpdate = true;
     if (outline.instanceColor) outline.instanceColor.needsUpdate = true;
     if (surface.instanceColor) surface.instanceColor.needsUpdate = true;
-  }, [board, goldKey, openedByHex]);
+  }, [board, goldKey, litByHex, openedByHex]);
 
   return (
     <>
@@ -90,6 +111,15 @@ function HexTiles({ game }: { game: PublicGameState }) {
         args={[undefined, undefined, board.length]}
         castShadow
         receiveShadow
+        onClick={(event) => {
+          // Hanya klik/ketuk; heksa yang tidak menyala dan belum terbuka diabaikan.
+          const hex = event.instanceId === undefined ? undefined : board[event.instanceId];
+          if (!hex) return;
+          const key = hexKey(hex);
+          if (!litByHex.has(key) && !openedByHex.has(key)) return;
+          event.stopPropagation();
+          onSelectHex(key);
+        }}
       >
         <cylinderGeometry
           args={[
@@ -101,6 +131,23 @@ function HexTiles({ game }: { game: PublicGameState }) {
         />
         <meshStandardMaterial roughness={0.72} metalness={0.05} />
       </instancedMesh>
+      {lit.map((option) => {
+        const { x, z } = hexToWorld(option.hex.q, option.hex.r);
+        return (
+          <Html
+            key={`lit-${hexKey(option.hex)}`}
+            position={[x, 0.34, z]}
+            center
+            transform
+            distanceFactor={10}
+            style={{ pointerEvents: "none" }}
+          >
+            <span className="tile-plan-label">
+              {option.isGold ? "✦ " : ""}{option.title}
+            </span>
+          </Html>
+        );
+      })}
       {game.openedHexes.map((tile) => {
         const { x, z } = hexToWorld(tile.hex.q, tile.hex.r);
         return (
@@ -125,9 +172,13 @@ function HexTiles({ game }: { game: PublicGameState }) {
 function DeskScene({
   game,
   room,
+  lit,
+  onSelectHex,
 }: {
   game: PublicGameState;
   room: RoomState;
+  lit: readonly TileOption[];
+  onSelectHex: (key: string) => void;
 }) {
   const board = useMemo(
     () => createBoard(game.boardRadius),
@@ -162,7 +213,7 @@ function DeskScene({
       >
         <meshStandardMaterial color="#61331f" roughness={0.86} />
       </RoundedBox>
-      <HexTiles game={game} />
+      <HexTiles game={game} lit={lit} onSelectHex={onSelectHex} />
       <Suspense fallback={null}>
         <GameCharacters
           game={game}
@@ -182,24 +233,63 @@ function DeskScene({
   );
 }
 
+let webglSupport: boolean | null = null;
+function getWebglSupport(): boolean {
+  webglSupport ??= isWebGLAvailable();
+  return webglSupport;
+}
+const subscribeNever = () => () => {};
+
+function BoardUnsupported() {
+  return (
+    <div className="board-canvas board-canvas-empty" role="alert">
+      <p className="board-unsupported">{NO_WEBGL_MESSAGE}</p>
+    </div>
+  );
+}
+
+/** Canvas yang gagal dibuat (mis. konteks WebGL hilang) menampilkan pesan yang sama. */
+class BoardErrorBoundary extends Component<
+  { children: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    return this.state.failed ? <BoardUnsupported /> : this.props.children;
+  }
+}
+
 export default function GameBoard({
   game,
   room,
+  lit,
+  onSelectHex,
 }: {
   game: PublicGameState;
   room: RoomState;
+  /** Heksa menyala milik pemain aktif; kosong untuk pemain lain. */
+  lit: readonly TileOption[];
+  onSelectHex: (key: string) => void;
 }) {
   const cameraDistance = 8 + game.boardRadius * 1.2;
+  const webgl = useSyncExternalStore(subscribeNever, getWebglSupport, () => null);
+  if (webgl === false) return <BoardUnsupported />;
+  if (webgl === null) return <div className="board-canvas" aria-busy="true" />;
   return (
     <div className="board-canvas" aria-label="Papan permainan heksagonal 3D">
-      <Canvas
-        shadows
-        dpr={[1, 1.6]}
-        camera={{ position: [0, cameraDistance, cameraDistance * 0.84], fov: 42 }}
-        gl={{ antialias: true, powerPreference: "high-performance" }}
-      >
-        <DeskScene game={game} room={room} />
-      </Canvas>
+      <BoardErrorBoundary>
+        <Canvas
+          shadows
+          dpr={[1, 1.6]}
+          camera={{ position: [0, cameraDistance, cameraDistance * 0.84], fov: 42 }}
+          gl={{ antialias: true, powerPreference: "high-performance" }}
+        >
+          <DeskScene game={game} room={room} lit={lit} onSelectHex={onSelectHex} />
+        </Canvas>
+      </BoardErrorBoundary>
     </div>
   );
 }

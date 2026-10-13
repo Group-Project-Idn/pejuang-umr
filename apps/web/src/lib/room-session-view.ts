@@ -26,6 +26,10 @@ export type RoomSessionView = {
   result: Snapshot["result"];
   serverClockOffsetMs: number;
   privateRevision: number;
+  /** Keterangan musim dari season:changed; tidak ada di snapshot. */
+  seasonHint: string | null;
+  /** Pemberitahuan Petak Emas terbaru; id naik tiap pemberitahuan baru. */
+  goldNotice: { id: number; text: string } | null;
 };
 
 export type SessionTransition = {
@@ -41,6 +45,8 @@ export function createRoomSessionView(): RoomSessionView {
     result: null,
     serverClockOffsetMs: 0,
     privateRevision: 0,
+    seasonHint: null,
+    goldNotice: null,
   };
 }
 
@@ -95,6 +101,8 @@ export function applySessionSnapshot(
     privateRevision: preserveNewerStatus
       ? current.privateRevision
       : current.privateRevision + 1,
+    seasonHint: sameGame ? current.seasonHint : null,
+    goldNotice: sameGame ? current.goldNotice : null,
   };
 }
 
@@ -228,6 +236,24 @@ function clearPrivatePending(
     : null;
 }
 
+export const GOLD_SPAWNED_NOTICE = "Petak Emas muncul! Hilang dalam 3 ronde";
+export const GOLD_EXPIRED_NOTICE = "Petak Emas hangus";
+
+function goldNoticeFor(
+  state: RoomSessionView,
+  event: PublicGameEvent,
+): RoomSessionView["goldNotice"] {
+  const id = (state.goldNotice?.id ?? 0) + 1;
+  if (event.type === "gold:spawned") return { id, text: GOLD_SPAWNED_NOTICE };
+  if (
+    event.type === "gold:expired" &&
+    state.gameView.game?.gold?.goldId === event.payload.goldId
+  ) {
+    return { id, text: GOLD_EXPIRED_NOTICE };
+  }
+  return state.goldNotice;
+}
+
 export function applySessionPublicEvent(
   current: RoomSessionView,
   event: PublicGameEvent,
@@ -247,6 +273,8 @@ export function applySessionPublicEvent(
         result: null,
         serverClockOffsetMs: event.payload.serverTime - receivedAt,
         privateRevision: current.privateRevision + 1,
+        seasonHint: null,
+        goldNotice: null,
       },
       needsResume: false,
     };
@@ -278,6 +306,10 @@ export function applySessionPublicEvent(
       privateRevision: finished || clearCalendar || clearTurn || clearMonth
         ? state.privateRevision + 1
         : state.privateRevision,
+      seasonHint: event.type === "season:changed"
+        ? event.payload.hint
+        : state.seasonHint,
+      goldNotice: goldNoticeFor(state, event),
     };
   });
 }
