@@ -36,11 +36,15 @@ export function selectHexFromClick(
   return resolveHexClick(key, lit, opened);
 }
 
-/** Panel non-modal: lapisan luar tidak menangkap pointer, hanya panel. */
+/**
+ * Panel non-modal: lapisan luar tidak menangkap pointer, hanya kartu.
+ * HP: lembar bawah (maks ~70vh). Desktop (≥768px): di kolom kanan game-shell, menutupi Papan Skor.
+ */
+export const HEX_PANEL_MOBILE_MAX_HEIGHT = "70vh";
 export const HEX_PANEL_WRAPPER_CLASS =
-  "pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center p-4 md:inset-x-auto md:inset-y-0 md:right-0 md:items-center md:justify-end";
+  "pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center p-3 md:absolute md:inset-x-auto md:bottom-4 md:right-5 md:top-[105px] md:justify-end md:p-0";
 export const HEX_PANEL_CLASS =
-  "pointer-events-auto w-full max-w-md rounded-lg border border-garis bg-kartu p-4 text-teks-utama shadow-lg";
+  "paper-panel hex-card pointer-events-auto flex w-full max-w-md max-h-[70vh] flex-col md:max-h-full md:w-[300px] md:max-w-none";
 
 /** Cadangan daftar tombol heksa bila pemain punya giliran tetapi tak ada heksa menyala tergambar. */
 export function shouldShowHexFallback(input: {
