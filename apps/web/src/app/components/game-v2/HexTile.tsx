@@ -1,5 +1,5 @@
 import type { Category, Risk } from "@pejuang/shared";
-import { TILE_DETAILS } from "@/data/game";
+import CategoryIcon from "../game/CategoryIcon";
 
 export type HexTileState = "closed" | "lit" | "open" | "dead";
 
@@ -20,7 +20,6 @@ export const RISK_LINES = {
 
 /** Heksa 2D mobile-first: 4 state + ikon kategori + garis risiko (bukan warna saja). */
 export default function HexTile({ visual }: { visual: HexTileVisual }) {
-  const detail = visual.category ? TILE_DETAILS[visual.category] : null;
   return (
     <button
       type="button"
@@ -32,7 +31,11 @@ export default function HexTile({ visual }: { visual: HexTileVisual }) {
     >
       <span className="grid place-items-center gap-0.5">
         <span aria-hidden="true" className="text-body">
-          {visual.state === "closed" ? "?" : (detail?.icon ?? "·")}
+          {visual.state === "closed" || !visual.category ? (
+            visual.state === "closed" ? "?" : "·"
+          ) : (
+            <CategoryIcon category={visual.category} size={20} />
+          )}
         </span>
         {visual.risk ? (
           <small aria-hidden="true" className="text-label tabular-nums">

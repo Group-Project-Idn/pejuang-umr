@@ -50,7 +50,7 @@ export default function HexDetailSheet({ detail, pending, onChoose, onClose }: H
   return (
     <SidePanel
       open={detail !== null}
-      title={detail ? `${detail.icon} ${detail.title}`.trim() : "Detail heksa"}
+      title={detail ? detail.title : "Detail heksa"}
       onClose={onClose}
     >
       {detail ? (
