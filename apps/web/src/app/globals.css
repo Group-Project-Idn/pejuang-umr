@@ -426,7 +426,7 @@ button { font: inherit; }
 .reveal-banner strong { font-family: Georgia, serif; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; }
 .reveal-banner small, .reveal-result { font-size: 11px; }
 .reveal-result { animation: reveal-in .5s ease-out; }
-.tile-outcome { display: block; margin-top: 2px; padding: 1px 6px; border-radius: 3px; font-size: 9px; font-weight: 900; text-align: center; color: #fff; animation: tile-flip .6s ease-out; }
+.tile-outcome { position: absolute; left: 50%; bottom: 100%; margin-bottom: 44px; transform: translateX(-50%); white-space: nowrap; display: block; padding: 2px 8px; border: 2px solid #32251f; border-radius: 4px; font-size: 14px; font-weight: 900; text-align: center; color: #fff; animation: tile-flip .6s ease-out; }
 .tile-outcome-zonk { background: #a64438; }
 .tile-outcome-safe { background: #5f6b73; }
 .tile-outcome-lucky { background: #3f8f5a; }
@@ -472,3 +472,24 @@ button { font: inherit; }
 .hex-card .hex-choose { background: #3fb871; color: #10351f; border: 3px solid #483629; box-shadow: 0 4px 0 rgba(45,27,17,.35); font-weight: 900; min-height: 52px; font-size: 15px; letter-spacing: .03em; }
 .hex-card .hex-choose:hover:not(:disabled) { background: #52c982; }
 .hex-card .hex-close { background: transparent; color: #382b22; border: 2px solid #483629; }
+.reveal-popup-wrap { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; padding: 12px; pointer-events: none; }
+.reveal-popup { pointer-events: auto; align-self: auto; display: flex; flex-direction: column; width: min(420px, 100%); max-height: 100%; transform: rotate(-.5deg); box-shadow: 6px 8px 0 rgba(45,27,17,.3), inset 0 0 24px rgba(136,82,23,.13); }
+.reveal-popup-scroll { display: grid; align-content: start; gap: 8px; min-height: 0; overflow-y: auto; padding: 20px 16px 14px; position: relative; z-index: 1; }
+.reveal-popup-sub { margin: 0; font-size: 12px; font-weight: 700; }
+.reveal-rows { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.reveal-row { display: grid; gap: 6px; padding: 8px 10px; border: 2px solid #483629; border-radius: 8px; background: rgba(255,247,207,.6); }
+.reveal-row-active { background: #ffe067; box-shadow: 0 0 0 3px #f7d56a, 0 0 14px #ffd84d; }
+.reveal-row-waiting { opacity: .7; }
+.reveal-row-head { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.reveal-row-tile { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; font-size: 12px; font-weight: 700; text-align: right; }
+.reveal-row-wait { margin: 0; font-size: 12px; font-weight: 700; font-style: italic; }
+.reveal-row-body { display: grid; gap: 6px; }
+.reveal-row-body p { margin: 0; font-size: 12px; font-weight: 700; }
+.reveal-row-flip { animation: reveal-row-flip .6s ease-out; transform-origin: top; }
+.reveal-stamp-zonk { border-radius: 2px; background: rgba(179,50,31,.1); }
+.reveal-stamp-safe { border-radius: 14px; background: rgba(59,74,92,.1); }
+.reveal-stamp-lucky { border-radius: 4px 14px; background: rgba(31,122,69,.1); }
+.reveal-minimize { justify-self: end; padding: 4px 12px; font-size: 12px; font-weight: 800; color: #382b22; background: transparent; border: 2px solid #483629; border-radius: 8px; cursor: pointer; }
+button.reveal-banner { cursor: pointer; font: inherit; }
+@keyframes reveal-row-flip { from { transform: rotateX(90deg); opacity: 0; } to { transform: rotateX(0); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .reveal-row-flip { animation: none; } }

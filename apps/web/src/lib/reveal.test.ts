@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { PublicGameState } from "@pejuang/shared";
 import {
+  buildRevealRows,
   buildRevealSchedule,
   getRevealOrder,
   getRevealProgress,
@@ -97,5 +98,62 @@ describe("jadwal animasi Fase Pembalikan", () => {
     expect(byPlayer("p3").reality).toBeNull();
     expect(masked.openedHexes.find((o) => o.step === 4)?.reality).not.toBeNull();
     expect(maskUnrevealed(game, schedule, getRevealProgress(schedule, ENDS))).toBe(game);
+  });
+});
+
+describe("baris popup Fase Pembalikan", () => {
+  const room = {
+    players: [
+      { playerId: "p1", name: "Ani", avatarId: "raka" },
+      { playerId: "p2", name: "Budi", avatarId: "sinta" },
+      { playerId: "p3", name: "Cici", avatarId: "icha" },
+    ],
+  } as unknown as Parameters<typeof buildRevealRows>[3];
+
+  function rowsAt(offset: number) {
+    const game = makeGame();
+    const schedule = buildRevealSchedule(getRevealOrder(game), ENDS, REVEAL_STEP_MS);
+    const progress = getRevealProgress(schedule, START + offset);
+    return buildRevealRows(maskUnrevealed(game, schedule, progress), schedule, progress, room);
+  }
+
+  it("urut schedule dengan status waiting/active/revealed", () => {
+    const rows = rowsAt(REVEAL_STEP_MS + 100);
+    expect(rows.map((r) => [r.name, r.status])).toEqual([
+      ["Ani", "revealed"],
+      ["Budi", "active"],
+      ["Cici", "waiting"],
+    ]);
+    expect(rows[0]!.reality).toMatchObject({ state: "revealed", outcome: "zonk" });
+  });
+
+  it("baris yang belum dibalik tidak memuat teks Realita", () => {
+    const rows = rowsAt(REVEAL_STEP_MS + 100);
+    expect(rows[1]!.reality).toBeNull();
+    expect(rows[2]!.reality).toBeNull();
+    expect(JSON.stringify(rows.slice(1))).not.toContain('"text":"x"');
+  });
+
+  it("memakai game yang sudah di-mask, bukan game mentah", () => {
+    const game = makeGame();
+    const schedule = buildRevealSchedule(getRevealOrder(game), ENDS, REVEAL_STEP_MS);
+    const progress = getRevealProgress(schedule, START);
+    const rows = buildRevealRows(maskUnrevealed(game, schedule, progress), schedule, progress, room);
+    expect(rows.every((r) => r.reality === null)).toBe(true);
+    expect(rows[0]!.status).toBe("active");
+  });
+
+  it("Petak Emas tanpa Realita ditandai none setelah dibalik", () => {
+    const game = makeGame();
+    const goldGame = {
+      ...game,
+      revealOrder: ["p4"],
+    } as PublicGameState;
+    const schedule = buildRevealSchedule(getRevealOrder(goldGame), ENDS, REVEAL_STEP_MS);
+    const progress = getRevealProgress(schedule, ENDS + 1);
+    const rows = buildRevealRows(goldGame, schedule, progress, room);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.name).toBe("pemain");
+    expect(rows[0]!.reality).toEqual({ state: "none" });
   });
 });

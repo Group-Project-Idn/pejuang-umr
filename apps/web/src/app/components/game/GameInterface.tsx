@@ -23,6 +23,7 @@ import {
   type InviteFlow,
 } from "@/lib/invites";
 import {
+  buildRevealRows,
   buildRevealSchedule,
   getRevealOrder,
   getRevealProgress,
@@ -32,6 +33,7 @@ import {
 import CalendarEventView from "../game-v2/CalendarEventView";
 import NoticeViews from "../game-v2/NoticeViews";
 import HexDetailSheet from "../game-v2/HexDetailSheet";
+import RevealPopup from "../game-v2/RevealPopup";
 import {
   InviteCardSheet,
   InviteConfirmSheet,
@@ -123,6 +125,8 @@ export default function GameInterface({
   const [inviteFlow, setInviteFlow] = useState<InviteFlow | null>(null);
   const [seenInviteIds, setSeenInviteIds] = useState<ReadonlySet<string>>(() => new Set());
   const [expiredInviteId, setExpiredInviteId] = useState<string | null>(null);
+  // Popup Fase Pembalikan diminimalkan untuk revealEndsAt ini; fase berikutnya muncul lagi.
+  const [minimizedRevealEndsAt, setMinimizedRevealEndsAt] = useState<number | null>(null);
   const pendingInvite = me?.pendingInvite ?? null;
   const reducedMotion = usePrefersReducedMotion();
   const revealEndsAt = game.phase === "reveal" ? game.revealEndsAt : null;
@@ -166,6 +170,13 @@ export default function GameInterface({
   const shownGame = revealSchedule && revealProgress
     ? maskUnrevealed(game, revealSchedule, revealProgress)
     : game;
+  const revealRows = revealSchedule && revealProgress
+    ? buildRevealRows(shownGame, revealSchedule, revealProgress, room)
+    : [];
+  const revealPopupOpen = revealEndsAt !== null &&
+    serverNow < revealEndsAt &&
+    revealRows.length > 0 &&
+    minimizedRevealEndsAt !== revealEndsAt;
   const latestReveal = revealSchedule && revealProgress
     ? [...revealSchedule.steps].reverse().find((step) => revealProgress.flippedKeys.has(step.key))
     : undefined;
@@ -200,8 +211,7 @@ export default function GameInterface({
     ),
     [game.activePlayerId, room.players],
   );
-  const eventMessage = game.openedHexes.at(-1)?.title ??
-    "Papan mengikuti snapshot authoritative dari server.";
+  const eventMessage = game.openedHexes.at(-1)?.title ?? null;
   const pendingTurn = me?.pendingTurn ?? null;
   const turnMode = pendingTurn && "stressPenalty" in pendingTurn ? "deadEnd" : "normal";
   const litOptions = pendingTurn?.options ?? [];
@@ -218,7 +228,7 @@ export default function GameInterface({
         <header className="top-hud">
           <div className="brand-mark">
             <span>PU</span>
-            <div><strong>Pejuang UMR</strong><small>Life strategy game</small></div>
+            <div><strong>Pejuang UMR</strong></div>
           </div>
           <div className="calendar-card">
             <span className="binder binder-left" />
@@ -248,8 +258,14 @@ export default function GameInterface({
         <div className="game-layout">
           <StatusPanel status={me?.status ?? null} />
           <section className="board-stage">
-            {game.phase === "reveal" ? (
-              <div role="status" className="reveal-banner">
+            {game.phase === "reveal" && !revealPopupOpen ? (
+              <button
+                type="button"
+                role="status"
+                className="reveal-banner"
+                aria-label="Buka kembali popup Fase Pembalikan"
+                onClick={() => setMinimizedRevealEndsAt(null)}
+              >
                 <strong>Fase Pembalikan</strong>
                 {latestRevealTile?.reality && latestReveal ? (
                   <span key={latestReveal.key} className={`reveal-result reveal-result-${latestRevealTile.reality.outcome}`}>
@@ -258,7 +274,10 @@ export default function GameInterface({
                 ) : (
                   <small>Realita dibuka sesuai urutan giliran</small>
                 )}
-              </div>
+              </button>
+            ) : null}
+            {revealPopupOpen ? (
+              <RevealPopup rows={revealRows} onMinimize={() => setMinimizedRevealEndsAt(revealEndsAt)} />
             ) : null}
             {game.gold ? <div className="gold-badge">✦<strong>Petak<br />Emas</strong></div> : null}
             <GameBoard
@@ -285,7 +304,7 @@ export default function GameInterface({
             {visibleNotice ? (
               <div className="gold-notice" role="status">{visibleNotice}</div>
             ) : null}
-            <div className="event-toast" role="status">{eventMessage}</div>
+            {eventMessage ? <div className="event-toast" role="status">{eventMessage}</div> : null}
           </section>
           <Scoreboard game={game} room={room} playerId={me?.playerId ?? ""} />
         </div>
@@ -298,7 +317,7 @@ export default function GameInterface({
                   ? `Giliran ${activePlayer.name}`
                   : "Menunggu giliran"}
               </strong>
-              <small>Semua aksi permainan divalidasi server</small>
+              {pendingTurn ? <small>Pilih satu heksa yang menyala</small> : null}
             </div>
           </div>
           <div className="action-buttons">

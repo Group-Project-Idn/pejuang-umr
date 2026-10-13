@@ -36,7 +36,7 @@ function effectValue(effect: Effect): string {
   return `${effect.delta > 0 ? "+" : effect.delta < 0 ? "−" : ""}${value.replace("-", "")}`;
 }
 
-function EffectList({ effects }: { effects: Effect[] }) {
+export function EffectList({ effects }: { effects: Effect[] }) {
   return (
     <ul className="flex flex-wrap gap-2">
       {effects.map((effect, index) => (
@@ -63,7 +63,6 @@ export default function HexDetailSheet({ detail, pending, onChoose, onClose }: H
     <SidePanel
       open={detail !== null}
       title={detail?.title ?? "Detail Heksa"}
-      title={detail ? detail.title : "Detail heksa"}
       onClose={onClose}
       className={detail?.isGold ? "hex-card-gold" : ""}
       header={

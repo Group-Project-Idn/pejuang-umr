@@ -1,5 +1,5 @@
 import { hexKey } from "@pejuang/shared";
-import type { HexCoord, PublicGameState } from "@pejuang/shared";
+import type { Category, Effect, HexCoord, PublicGameState, RoomState } from "@pejuang/shared";
 
 export type RevealStep = {
   playerId: string;
@@ -112,4 +112,68 @@ export function maskUnrevealed(
         : opened,
     ),
   };
+}
+
+export type RevealRowStatus = "waiting" | "active" | "revealed";
+
+export type RevealRowReality =
+  | { state: "none" }
+  | { state: "revealed"; outcome: keyof typeof OUTCOME_LABEL; text: string; effects: Effect[] };
+
+export type RevealRow = {
+  playerId: string;
+  name: string;
+  avatarId: string;
+  key: string;
+  title: string;
+  category: Category;
+  status: RevealRowStatus;
+  /** Null selama belum dibalik; Petak Emas (tanpa Realita) berstatus "none" setelah dibalik. */
+  reality: RevealRowReality | null;
+};
+
+/**
+ * Baris popup Fase Pembalikan per pemain, urut schedule.steps. Realita hanya dibaca dari
+ * `shownGame` (hasil maskUnrevealed) dan hanya untuk heksa di progress.flippedKeys.
+ */
+export function buildRevealRows(
+  shownGame: PublicGameState,
+  schedule: RevealSchedule,
+  progress: RevealProgress,
+  room: Pick<RoomState, "players">,
+): RevealRow[] {
+  return schedule.steps.flatMap((step) => {
+    const opened = shownGame.openedHexes.find(
+      (entry) =>
+        entry.step === shownGame.calendar.step &&
+        entry.byPlayerId === step.playerId &&
+        hexKey(entry.hex) === step.key,
+    );
+    if (!opened) return [];
+    const player = room.players.find((entry) => entry.playerId === step.playerId);
+    const flipped = progress.done || progress.flippedKeys.has(step.key);
+    const status: RevealRowStatus = flipped
+      ? "revealed"
+      : progress.activeKey === step.key ? "active" : "waiting";
+    const reality: RevealRowReality | null = !flipped
+      ? null
+      : opened.reality
+        ? {
+            state: "revealed",
+            outcome: opened.reality.outcome,
+            text: opened.reality.text,
+            effects: opened.reality.effects,
+          }
+        : { state: "none" };
+    return [{
+      playerId: step.playerId,
+      name: player?.name ?? "pemain",
+      avatarId: player?.avatarId ?? "",
+      key: step.key,
+      title: opened.title,
+      category: opened.category,
+      status,
+      reality,
+    }];
+  });
 }
