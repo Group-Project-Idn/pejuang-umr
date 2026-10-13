@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   InviteIncomingPayloadSchema,
 } from "./invite";
-import { PublicGameStateSchema, TileOptionSchema } from "./game";
+import { GamePatchPayloadSchema, PublicGameStateSchema, TileOptionSchema } from "./game";
 
 const PRIVACY_FIELDS = ["wealth", "debt", "health", "stress"] as const;
 
@@ -23,6 +23,8 @@ function validGameState() {
     turnOrder: ["p1"],
     activePlayerId: "p1",
     turnDeadline: null,
+    revealEndsAt: null,
+    inviteBusyPlayerIds: [],
     pawns: [],
     openedHexes: [],
     gold: null,
@@ -55,6 +57,18 @@ describe("privasi payload", () => {
 
   it("PublicGameStateSchema menerima objek tanpa field privasi", () => {
     expect(PublicGameStateSchema.safeParse(validGameState()).success).toBe(true);
+  });
+
+  it("PublicGameState.inviteBusyPlayerIds hanya berisi id string, tanpa motif, isi, atau pengirim", () => {
+    const state = { ...validGameState(), inviteBusyPlayerIds: ["p2"] };
+    expect(PublicGameStateSchema.safeParse(state).success).toBe(true);
+    const leaked = { ...state, inviteBusyPlayerIds: [{ playerId: "p2", motive: "commission" }] };
+    expect(PublicGameStateSchema.safeParse(leaked).success).toBe(false);
+    const op = { version: 2, ops: [{ type: "inviteBusy", playerIds: ["p2"] }] };
+    expect(GamePatchPayloadSchema.safeParse(op).success).toBe(true);
+    expect(
+      GamePatchPayloadSchema.safeParse({ version: 2, ops: [{ type: "inviteBusy", playerIds: [{ id: "p2" }] }] }).success,
+    ).toBe(false);
   });
 
   it("InviteIncomingPayloadSchema menolak objek yang membawa motive", () => {

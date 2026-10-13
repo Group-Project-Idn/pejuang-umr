@@ -59,6 +59,8 @@ function snapshot(version: number): Snapshot {
       turnOrder: ["p1"],
       activePlayerId: null,
       turnDeadline: null,
+      revealEndsAt: null,
+      inviteBusyPlayerIds: [],
       pawns: [{ playerId: "p1", hex: { q: 0, r: 0 } }],
       openedHexes: [],
       gold: null,
@@ -75,6 +77,7 @@ function snapshot(version: number): Snapshot {
       pendingCalendar: null,
       pendingInvite: null,
       pendingMonth: null,
+      inviteResults: [],
       reflection: null,
     },
     result: null,
@@ -96,7 +99,7 @@ describe("room session recovery", () => {
       const initial = applySessionSnapshot(createRoomSessionView(), snapshot(3), 10_000);
       const revealed = applySessionPublicEvent(initial, {
         type: "round:reveal",
-        payload: { version: 4, round: 1, step: 1, order: [] },
+        payload: { version: 4, round: 1, step: 1, order: [], revealEndsAt: 12_000 },
       });
       const calendarPatch = {
         version: 5,
@@ -168,13 +171,13 @@ describe("room session recovery", () => {
     const initial = applySessionSnapshot(createRoomSessionView(), snapshot(3), 10_000);
     const reveal = applySessionPublicEvent(initial, {
       type: "round:reveal",
-      payload: { version: 4, round: 1, step: 1, order: [] },
+      payload: { version: 4, round: 1, step: 1, order: [], revealEndsAt: 12_000 },
     });
     expect(reveal.needsResume).toBe(false);
     expect(reveal.state.gameView.game?.phase).toBe("reveal");
     const duplicate = applySessionPublicEvent(reveal.state, {
       type: "round:reveal",
-      payload: { version: 4, round: 1, step: 1, order: [] },
+      payload: { version: 4, round: 1, step: 1, order: [], revealEndsAt: 12_000 },
     });
     expect(duplicate.needsResume).toBe(false);
     expect(duplicate.state).toBe(reveal.state);
@@ -301,6 +304,38 @@ describe("room session recovery", () => {
     expect(transition.needsResume).toBe(false);
     expect(transition.state.room?.players[0]?.connected).toBe(false);
     expect(transition.state.gameView.game?.version).toBe(5);
+  });
+
+  it("snapshot membawa revealEndsAt dan inviteBusyPlayerIds; patch calendar mengosongkan inviteResults", () => {
+    const base = snapshot(3);
+    const result = {
+      inviteId: "invite-1-p2",
+      fromPlayerId: "p2",
+      targetPlayerId: "p1",
+      answer: "join" as const,
+      autoDeclined: false,
+      motive: "sincere" as const,
+      effectsForYou: [],
+    };
+    const incoming = {
+      ...base,
+      game: { ...base.game!, phase: "reveal" as const, revealEndsAt: 15_000, inviteBusyPlayerIds: ["p1"] },
+      me: { ...base.me, inviteResults: [result] },
+    };
+    const initial = applySessionSnapshot(createRoomSessionView(), incoming, 10_000);
+    expect(initial.gameView.game).toMatchObject({ revealEndsAt: 15_000, inviteBusyPlayerIds: ["p1"] });
+    expect(initial.me?.inviteResults).toEqual([result]);
+    const busy = applySessionGamePatch(initial, {
+      version: 4,
+      ops: [{ type: "inviteBusy", playerIds: [] }, { type: "phase", phase: "calendar" }],
+    });
+    expect(busy.state.gameView.game).toMatchObject({ inviteBusyPlayerIds: [], phase: "calendar", revealEndsAt: null });
+    expect(busy.state.me?.inviteResults).toEqual([result]);
+    const nextRound = applySessionGamePatch(busy.state, {
+      version: 5,
+      ops: [{ type: "calendar", calendar: initial.gameView.game!.calendar }],
+    });
+    expect(nextRound.state.me?.inviteResults).toEqual([]);
   });
 
   it("menjaga satu urutan versi lintas patch, timer, dan event publik", () => {

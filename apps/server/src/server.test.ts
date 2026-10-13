@@ -6,7 +6,7 @@ import type {
 } from "@pejuang/shared";
 import { RoomLookupResponseSchema } from "@pejuang/shared";
 import { io as createClient, type Socket } from "socket.io-client";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { RoomRepository } from "./repositories/room-repository";
 import { createGuestToken, verifyGuestToken } from "./services/guest-token";
 import { createPejuangServer } from "./server";
@@ -134,6 +134,28 @@ describe("server foundation", () => {
       ok: true,
       message: "Halo Pejuang UMR, server menerima pesanmu",
     });
+  });
+});
+
+describe("ping:test", () => {
+  it("tidak didaftarkan di luar NODE_ENV=test", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      const { baseUrl } = await startServer();
+      const guest = createGuestToken({ name: "Sinta", avatarId: "sinta" }, secret);
+      const socket: Socket<ServerToClientEvents, ClientToServerEvents> = createClient(baseUrl, {
+        transports: ["websocket"],
+        auth: { token: guest.token },
+        reconnection: false,
+      });
+      openSockets.push(socket);
+      await waitForSocketEvent<void>(socket, "connect");
+      await expect(
+        socket.timeout(200).emitWithAck("ping:test", { name: "Pejuang UMR" }),
+      ).rejects.toThrow();
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
 

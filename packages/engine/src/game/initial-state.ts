@@ -69,6 +69,8 @@ export function createGameSetup(
     turnOrder,
     activePlayerId: null,
     turnDeadline: null,
+    revealEndsAt: null,
+    inviteBusyPlayerIds: [],
     pawns,
     openedHexes: [],
     gold: null,
