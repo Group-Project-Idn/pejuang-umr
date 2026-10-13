@@ -14,7 +14,8 @@ const result: GameFinishedPayload = {
 };
 const noop = () => undefined;
 const renderResult = (isHost: boolean) => renderToStaticMarkup(createElement(ResultScreen, {
-  result, reflection: null, isHost, busy: false, message: "", onRematch: noop, onLeave: noop,
+  result, reflection: null, selfId: "p1", calendar: { step: 24, totalSteps: 24, round: 12, month: 12, dateLabel: "31 Desember", season: "dry", seasonHint: "x", nextEvent: null }, reasons: [{ playerId: "p2", reason: "bankrupt" }],
+  status: { wealth: 14_000_000, debt: 4_000_000, debtLimit: 25_000_000, health: 5, stress: 5 }, isHost, busy: false, message: "", onRematch: noop, onLeave: noop,
 }));
 
 describe("ResultScreen", () => {
@@ -24,8 +25,16 @@ describe("ResultScreen", () => {
     expect(html).toContain(">12<");
     expect(html).not.toContain("80.6");
     expect(html).toContain("-Rp30.000.000");
-    expect(html).toContain("Tereliminasi");
+    expect(html).toContain("Tereliminasi: Bangkrut");
     expect(html).toContain("Menyusun refleksimu...");
+    expect(html).toContain("31 Desember | Langkah 24/24");
+    expect(html).toContain("Bagikan hasil");
+  });
+  it("Kekayaan dan Hutang hanya muncul sekali (milik sendiri)", () => {
+    const html = renderResult(true);
+    expect(html.match(/Kekayaan/g)).toHaveLength(1);
+    expect(html.match(/Hutang/g)).toHaveLength(1);
+    expect(html).not.toContain("Modifier");
   });
   it("host melihat Main Lagi", () => {
     const html = renderResult(true);
@@ -35,7 +44,7 @@ describe("ResultScreen", () => {
   it("bukan host melihat teks menunggu tanpa tombol Main Lagi", () => {
     const html = renderResult(false);
     expect(html).toContain("Menunggu host memulai Main Lagi");
-    expect(html).not.toContain(">Main Lagi<");
+    expect(html).toMatch(/<button[^>]*disabled[^>]*>Main Lagi</);
     expect(html).toContain("Kembali ke Lobby");
   });
 });

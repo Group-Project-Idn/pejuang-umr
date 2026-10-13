@@ -1,82 +1,102 @@
+"use client";
+
 import Image from "next/image";
-import {
-  formatRupiah,
-  type GameFinishedPayload,
-  type Reflection,
-} from "@pejuang/shared";
+import { useState } from "react";
+import { formatRupiah, type GameFinishedPayload, type PublicGameState, type PrivateStatus, type Reflection } from "@pejuang/shared";
 import { getAvatarSrc } from "@/lib/avatars";
-import { formatScore, REMATCH_COPY } from "@/lib/result-screens";
+import {
+  buildResultHeader,
+  buildResultRows,
+  buildShareText,
+  getPodiumOrder,
+  REMATCH_COPY,
+  SHARE_MESSAGE,
+  shareResultText,
+  type EliminationReasonEntry,
+  type ResultRow,
+} from "@/lib/result-screens";
 import ReflectionCard from "../game/ReflectionCard";
 import Button from "../ui/Button";
-import Card from "../ui/Card";
 
 export const RESULT_COPY = {
   title: "Hasil Akhir",
+  subtitle: "Evaluasi kinerja 12 bulan",
+  ranking: "Peringkat",
   scoreLabel: "Skor Kesejahteraan",
-  eliminated: "Tereliminasi",
+  detail: "Lihat rincian",
   rematch: "Main Lagi",
   leave: "Kembali ke Lobby",
+  share: "Bagikan hasil",
 } as const;
 
-type Rank = GameFinishedPayload["ranking"][number];
-
-function Avatar({ rank, size }: { rank: Rank; size: number }) {
+function Avatar({ row, size }: { row: ResultRow; size: number }) {
   return (
     <Image
-      src={getAvatarSrc(rank.avatarId)}
-      alt={`Karakter ${rank.name}`}
+      src={getAvatarSrc(row.avatarId)}
+      alt={`Karakter ${row.name}`}
       width={size}
       height={size}
-      className="object-contain"
+      className={`object-contain ${row.eliminated ? "grayscale" : ""}`}
       style={{ width: size, height: size }}
     />
   );
 }
 
-function Podium({ top }: { top: Rank[] }) {
-  // Urutan visual: peringkat 2, 1, 3.
-  const ordered = [top[1], top[0], top[2]].filter((r): r is Rank => Boolean(r));
+function Podium({ top }: { top: ResultRow[] }) {
   return (
-    <ol className="flex items-end justify-center gap-3" aria-label="Podium">
-      {ordered.map((rank) => (
-        <li key={rank.playerId} className="grid justify-items-center gap-1 text-center">
-          <Avatar rank={rank} size={rank.rank === 1 ? 72 : 56} />
-          <span className="text-body-sm font-medium">{rank.name}</span>
-          <span className="text-label tabular-nums">
-            #{rank.rank} · {formatScore(rank.finalScore)}
+    <ol className="flex items-end justify-center gap-2 sm:gap-4" aria-label="Podium">
+      {getPodiumOrder(top).map((row) => (
+        <li
+          key={row.playerId}
+          className={`ui-note grid w-28 justify-items-center gap-1 p-2 text-center sm:w-32 ${row.eliminated ? "opacity-70 grayscale" : ""}`}
+          style={{ paddingTop: row.rank === 1 ? 20 : 8 }}
+        >
+          <Avatar row={row} size={row.rank === 1 ? 72 : 56} />
+          <span className="text-body-sm font-bold">
+            {row.name}
+            {row.isSelf ? " (Kamu)" : ""}
           </span>
+          <span className="text-title tabular-nums">{row.score}</span>
+          <span className="text-label">#{row.rank}</span>
+          {row.eliminatedLabel ? <span className="text-label font-bold">{row.eliminatedLabel}</span> : null}
         </li>
       ))}
     </ol>
   );
 }
 
-function RankRow({ rank }: { rank: Rank }) {
+function RankRow({ row }: { row: ResultRow }) {
+  const { details } = row;
   return (
-    <li className="ui-note p-3">
+    <li className={`ui-note p-3 ${row.eliminated ? "opacity-75 grayscale" : ""}`}>
       <details>
         <summary className="flex min-h-11 cursor-pointer items-center gap-3">
-          <span className="w-6 text-title tabular-nums">{rank.rank}</span>
-          <Avatar rank={rank} size={40} />
-          <span className="grid flex-1">
-            <span className="font-medium">{rank.name}</span>
-            {rank.eliminated ? (
-              <span className="text-label text-bahaya">
-                {RESULT_COPY.eliminated}
-                {rank.eliminatedAtStep ? ` · Langkah ${rank.eliminatedAtStep}` : ""}
-              </span>
-            ) : null}
+          <span className="w-6 text-title tabular-nums">{row.rank}</span>
+          <Avatar row={row} size={40} />
+          <span className="grid min-w-0 flex-1">
+            <span className="truncate font-bold">
+              {row.name}
+              {row.isSelf ? " (Kamu)" : ""}
+            </span>
+            {row.eliminatedLabel ? <span className="text-label font-bold">{row.eliminatedLabel}</span> : null}
+            <span className="text-label underline">{RESULT_COPY.detail}</span>
           </span>
           <span className="text-right">
-            <span className="block text-title tabular-nums">{formatScore(rank.finalScore)}</span>
-            <span className="block text-label text-teks-redup">{RESULT_COPY.scoreLabel}</span>
+            <span className="block text-title tabular-nums">{row.score}</span>
+            <span className="block text-label">{RESULT_COPY.scoreLabel}</span>
           </span>
         </summary>
         <dl className="mt-3 grid grid-cols-2 gap-2 text-body-sm">
-          <dt>Harta Bersih</dt><dd className="text-right">{formatRupiah(rank.netWorth)}</dd>
-          <dt>Poin Keuangan</dt><dd className="text-right tabular-nums">{formatScore(rank.points.finance)}</dd>
-          <dt>Poin Kesehatan</dt><dd className="text-right tabular-nums">{formatScore(rank.points.health)}</dd>
-          <dt>Poin Ketenangan</dt><dd className="text-right tabular-nums">{formatScore(rank.points.calm)}</dd>
+          {details.own ? (
+            <>
+              <dt>Kekayaan</dt><dd className="text-right">{formatRupiah(details.own.wealth)}</dd>
+              <dt>Hutang</dt><dd className="text-right">{formatRupiah(details.own.debt)}</dd>
+            </>
+          ) : null}
+          <dt>Harta Bersih</dt><dd className="text-right">{formatRupiah(details.netWorth)}</dd>
+          <dt>Poin Keuangan</dt><dd className="text-right tabular-nums">{details.points.finance}</dd>
+          <dt>Poin Kesehatan</dt><dd className="text-right tabular-nums">{details.points.health}</dd>
+          <dt>Poin Ketenangan</dt><dd className="text-right tabular-nums">{details.points.calm}</dd>
         </dl>
       </details>
     </li>
@@ -89,6 +109,10 @@ export default function ResultScreen({
   isHost,
   busy,
   message,
+  selfId = null,
+  status = null,
+  reasons = [],
+  calendar = null,
   onRematch,
   onLeave,
 }: {
@@ -97,37 +121,71 @@ export default function ResultScreen({
   isHost: boolean;
   busy: boolean;
   message: string;
+  /** Pemain sendiri; Kekayaan dan Hutang hanya dibuka untuknya. */
+  selfId?: string | null;
+  status?: PrivateStatus | null;
+  reasons?: EliminationReasonEntry[];
+  /** game.calendar; sumber chip langkah/tanggal dan stempel. */
+  calendar?: PublicGameState["calendar"] | null;
   onRematch: () => void;
   onLeave: () => void;
 }) {
-  const ranking = result ? [...result.ranking].sort((a, b) => a.rank - b.rank) : [];
+  const [shareMessage, setShareMessage] = useState("");
+  const rows = result ? buildResultRows({ ranking: result.ranking, reasons, selfId, status }) : [];
+  const header = buildResultHeader(calendar);
+
+  const share = async () => {
+    const outcome = await shareResultText(buildShareText(rows), {
+      share: typeof navigator !== "undefined" && navigator.share ? navigator.share.bind(navigator) : undefined,
+      clipboard: typeof navigator !== "undefined" ? navigator.clipboard : undefined,
+    });
+    setShareMessage(SHARE_MESSAGE[outcome]);
+  };
+
   return (
-    <div className="lobby-desk min-h-dvh text-[#fbe6b1]">
-    <main className="mx-auto grid w-full max-w-md gap-4 px-4 py-6">
-      <h1 className="text-headline">{RESULT_COPY.title}</h1>
-      {result ? (
-        <>
-          <Podium top={ranking.slice(0, 3)} />
-          <ol className="grid gap-2" aria-label="Peringkat">
-            {ranking.map((rank) => <RankRow key={rank.playerId} rank={rank} />)}
-          </ol>
-        </>
-      ) : (
-        <Card><p role="status" className="text-body-sm">Menyusun hasil akhir...</p></Card>
-      )}
-      <ReflectionCard reflection={reflection} />
-      {message ? <p role="status" className="text-body-sm">{message}</p> : null}
-      <div className="grid gap-2">
-        {isHost ? (
-          <Button onClick={onRematch} disabled={busy}>{RESULT_COPY.rematch}</Button>
+    <div className="lobby-desk min-h-dvh px-3 py-6 sm:px-6">
+      <main className="room-folder mx-auto grid w-full max-w-5xl content-start gap-5 text-[color:var(--ink-text)]" style={{ minHeight: 0 }}>
+        <header className="flex flex-wrap items-center gap-3">
+          {header.chip ? <span className="ui-note px-3 py-1 text-body-sm font-bold">{header.chip}</span> : null}
+          <div className="grid">
+            <h1 className="text-headline font-black uppercase">{RESULT_COPY.title}</h1>
+            <p className="text-body-sm">{RESULT_COPY.subtitle}</p>
+          </div>
+          <span className="ui-stamp text-title">{header.stamp}</span>
+        </header>
+
+        {result ? (
+          <div className="grid gap-5 md:grid-cols-[1.1fr_1fr]">
+            <div className="grid content-start gap-5">
+              <Podium top={rows.slice(0, 3)} />
+              <ReflectionCard reflection={reflection} />
+            </div>
+            <section aria-labelledby="ranking-title" className="ui-note grid content-start gap-2 p-3">
+              <h2 id="ranking-title" className="text-title font-black uppercase">{RESULT_COPY.ranking}</h2>
+              <p className="text-label">{RESULT_COPY.scoreLabel} (0-100)</p>
+              <ol className="grid gap-2" aria-label="Peringkat">
+                {rows.map((row) => <RankRow key={row.playerId} row={row} />)}
+              </ol>
+            </section>
+          </div>
         ) : (
-          <p role="status" className="text-center text-body-sm">
-            {REMATCH_COPY.waitingHost}
-          </p>
+          <p role="status" className="ui-note p-3 text-body-sm">Menyusun hasil akhir...</p>
         )}
-        <Button variant="secondary" onClick={onLeave} disabled={busy}>{RESULT_COPY.leave}</Button>
-      </div>
-    </main>
+
+        {message || shareMessage ? <p role="status" className="text-body-sm">{message || shareMessage}</p> : null}
+        <div className="grid gap-2 sm:grid-cols-3">
+          {isHost ? (
+            <Button onClick={onRematch} disabled={busy}>{RESULT_COPY.rematch}</Button>
+          ) : (
+            <div className="grid gap-1 text-center">
+              <Button disabled>{RESULT_COPY.rematch}</Button>
+              <p role="status" className="text-label">{REMATCH_COPY.waitingHost}</p>
+            </div>
+          )}
+          <Button variant="secondary" onClick={onLeave} disabled={busy}>{RESULT_COPY.leave}</Button>
+          <Button variant="outlined" onClick={share} disabled={!result}>{RESULT_COPY.share}</Button>
+        </div>
+      </main>
     </div>
   );
 }

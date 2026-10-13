@@ -2,6 +2,7 @@ import type {
   Ack,
   EliminationReason,
   GameFinishedPayload,
+  PrivateStatus,
   PublicGameState,
   RoomState,
   Snapshot,
@@ -66,3 +67,123 @@ export function canRematch(room: RoomState | null, playerId: string | null) {
 }
 
 export type RankEntry = GameFinishedPayload["ranking"][number];
+
+export type ResultHeader = { chip: string; stamp: string; early: boolean };
+
+/**
+ * Chip dan stempel Hasil Akhir dari kalender game. Selesai normal bila langkah terakhir
+ * tercapai (tanggal kalender); lebih awal bila tinggal 1 pemain. Tanpa kalender: tanpa chip.
+ */
+export function buildResultHeader(
+  calendar: Pick<PublicGameState["calendar"], "step" | "totalSteps" | "dateLabel"> | null | undefined,
+): ResultHeader {
+  if (!calendar) return { chip: "", stamp: "Selesai", early: false };
+  const progress = `Langkah ${calendar.step}/${calendar.totalSteps}`;
+  if (calendar.step >= calendar.totalSteps) {
+    return { chip: `${calendar.dateLabel} | ${progress}`, stamp: "Selesai", early: false };
+  }
+  return { chip: `Selesai lebih awal | ${progress}`, stamp: "Berakhir", early: true };
+}
+
+export type EliminationReasonEntry = { playerId: string; reason: EliminationReason };
+
+/** "Tereliminasi: Bangkrut" / "Tereliminasi: Burnout Total"; tanpa alasan hanya "Tereliminasi". */
+export function getEliminatedLabel(reason: EliminationReason | null | undefined): string {
+  return reason ? `Tereliminasi: ${ELIMINATION_REASON_LABEL[reason]}` : "Tereliminasi";
+}
+
+export type ResultRow = {
+  playerId: string;
+  rank: number;
+  name: string;
+  avatarId: RankEntry["avatarId"];
+  isSelf: boolean;
+  /** Skor Kesejahteraan 0-100 bulat. */
+  score: number;
+  eliminated: boolean;
+  eliminatedLabel: string | null;
+  details: {
+    netWorth: number;
+    points: { finance: number; health: number; calm: number };
+    /** Hanya terisi untuk diri sendiri (status pribadi); lawan selalu null. */
+    own: { wealth: number; debt: number } | null;
+  };
+};
+
+/** Data tampilan Hasil Akhir: urut peringkat, skor bulat, rincian lawan tanpa Kekayaan/Hutang. */
+export function buildResultRows(input: {
+  ranking: RankEntry[];
+  reasons: EliminationReasonEntry[];
+  selfId: string | null;
+  status: PrivateStatus | null;
+}): ResultRow[] {
+  const { ranking, reasons, selfId, status } = input;
+  return [...ranking]
+    .sort((a, b) => a.rank - b.rank)
+    .map((entry) => {
+      const isSelf = entry.playerId === selfId;
+      const reason = reasons.find((item) => item.playerId === entry.playerId)?.reason ?? null;
+      return {
+        playerId: entry.playerId,
+        rank: entry.rank,
+        name: entry.name,
+        avatarId: entry.avatarId,
+        isSelf,
+        score: formatScore(entry.finalScore),
+        eliminated: entry.eliminated,
+        eliminatedLabel: entry.eliminated ? getEliminatedLabel(reason) : null,
+        details: {
+          netWorth: entry.netWorth,
+          points: {
+            finance: formatScore(entry.points.finance),
+            health: formatScore(entry.points.health),
+            calm: formatScore(entry.points.calm),
+          },
+          own: isSelf && status ? { wealth: status.wealth, debt: status.debt } : null,
+        },
+      };
+    });
+}
+
+/** Urutan visual podium: peringkat 2, 1, 3. */
+export function getPodiumOrder<T>(top: T[]): T[] {
+  return [top[1], top[0], top[2]].filter((item): item is T => item !== undefined);
+}
+
+/** Teks ringkas untuk Bagikan hasil; hanya data publik game:finished. */
+export function buildShareText(rows: ResultRow[]): string {
+  const lines = rows.map((row) => `${row.rank}. ${row.name}: ${row.score}/100${row.eliminated ? " (tereliminasi)" : ""}`);
+  return ["Hasil Akhir Pejuang UMR: Jakarta Survival", "Skor Kesejahteraan (0-100)", ...lines].join("\n");
+}
+
+export type ShareOutcome = "shared" | "copied" | "failed";
+
+export async function shareResultText(
+  text: string,
+  env: {
+    share?: (data: { title: string; text: string }) => Promise<void>;
+    clipboard?: Pick<Clipboard, "writeText">;
+  },
+): Promise<ShareOutcome> {
+  if (env.share) {
+    try {
+      await env.share({ title: "Hasil Akhir Pejuang UMR", text });
+      return "shared";
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return "failed";
+    }
+  }
+  if (!env.clipboard) return "failed";
+  try {
+    await env.clipboard.writeText(text);
+    return "copied";
+  } catch {
+    return "failed";
+  }
+}
+
+export const SHARE_MESSAGE: Record<ShareOutcome, string> = {
+  shared: "",
+  copied: "Ringkasan hasil disalin.",
+  failed: "Gagal membagikan hasil.",
+};
