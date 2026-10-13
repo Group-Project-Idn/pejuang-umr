@@ -94,6 +94,7 @@ export default function GameInterface({
   invitePending,
   onSendInvite,
   onRespondInvite,
+  devFinish,
 }: {
   room: RoomState;
   game: PublicGameState;
@@ -119,6 +120,7 @@ export default function GameInterface({
   invitePending: boolean;
   onSendInvite: (payload: { turnId: string; cardId: string; targetPlayerId: string }) => void;
   onRespondInvite: (inviteId: string, answer: "join" | "decline") => void;
+  devFinish?: { pending: boolean; onFinish: () => void };
 }) {
   const [now, setNow] = useState(() => Date.now());
   const [selectedHexKey, setSelectedHexKey] = useState<string | null>(null);
@@ -225,6 +227,17 @@ export default function GameInterface({
   return (
     <main className="game-page">
       <section className="game-shell">
+        {devFinish ? (
+          <button
+            type="button"
+            className="lobby-comic-btn dev-finish-btn"
+            disabled={devFinish.pending}
+            onClick={devFinish.onFinish}
+          >
+            <small>ALAT UJI</small>
+            {devFinish.pending ? "Menyelesaikan..." : "Selesaikan permainan"}
+          </button>
+        ) : null}
         <header className="top-hud">
           <div className="brand-mark">
             <span>PU</span>
