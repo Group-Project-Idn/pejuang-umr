@@ -9,6 +9,7 @@ import type {
   PublicGameState,
   ReflectionReadyPayload,
   RoomState,
+  ServerToClientEvents,
   Snapshot,
   TurnOptionsPayload,
 } from "@pejuang/shared";
@@ -33,7 +34,18 @@ export type RoomSessionView = {
   seasonHint: string | null;
   /** Pemberitahuan Petak Emas terbaru; id naik tiap pemberitahuan baru. */
   goldNotice: { id: number; text: string } | null;
+  /** Pemberitahuan sementara (overlay Doom, hasil Event Tanggal); dihapus lewat dismissNotice. */
+  notices: TransientNotice[];
+  /** Pencacah id pemberitahuan; tidak turun sehingga id tidak dipakai ulang. */
+  noticeSeq: number;
 };
+
+export type DoomTriggeredPayload = Parameters<ServerToClientEvents["doom:triggered"]>[0];
+export type CalendarResultPayload = Parameters<ServerToClientEvents["calendar:result"]>[0];
+
+export type TransientNotice =
+  | { id: number; kind: "doom"; payload: DoomTriggeredPayload }
+  | { id: number; kind: "calendarResult"; payload: CalendarResultPayload };
 
 export type SessionTransition = {
   state: RoomSessionView;
@@ -50,6 +62,8 @@ export function createRoomSessionView(): RoomSessionView {
     privateRevision: 0,
     seasonHint: null,
     goldNotice: null,
+    notices: [],
+    noticeSeq: 0,
   };
 }
 
@@ -106,6 +120,8 @@ export function applySessionSnapshot(
       : current.privateRevision + 1,
     seasonHint: sameGame ? current.seasonHint : null,
     goldNotice: sameGame ? current.goldNotice : null,
+    notices: sameGame ? current.notices : [],
+    noticeSeq: current.noticeSeq,
   };
 }
 
@@ -346,6 +362,7 @@ export function applySessionPublicEvent(
         privateRevision: current.privateRevision + 1,
         seasonHint: null,
         goldNotice: null,
+        notices: [],
       },
       needsResume: false,
     };
@@ -441,6 +458,39 @@ export function applySessionMonthSummary(
     me: { ...current.me, pendingMonth: payload, pendingCalendar: null },
     privateRevision: current.privateRevision + 1,
   };
+}
+
+function addNotice(
+  current: RoomSessionView,
+  notice:
+    | { kind: "doom"; payload: DoomTriggeredPayload }
+    | { kind: "calendarResult"; payload: CalendarResultPayload },
+): RoomSessionView {
+  const id = current.noticeSeq + 1;
+  return {
+    ...current,
+    notices: [...current.notices, { id, ...notice }],
+    noticeSeq: id,
+  };
+}
+
+export function applyDoomTriggered(
+  current: RoomSessionView,
+  payload: DoomTriggeredPayload,
+): RoomSessionView {
+  return addNotice(current, { kind: "doom", payload });
+}
+
+export function applyCalendarResult(
+  current: RoomSessionView,
+  payload: CalendarResultPayload,
+): RoomSessionView {
+  return addNotice(current, { kind: "calendarResult", payload });
+}
+
+export function dismissNotice(current: RoomSessionView, id: number): RoomSessionView {
+  if (!current.notices.some((notice) => notice.id === id)) return current;
+  return { ...current, notices: current.notices.filter((notice) => notice.id !== id) };
 }
 
 export function applySessionPlayerConnection(

@@ -43,6 +43,8 @@ import { createRequestId } from "@/lib/request-id";
 import { clearRoomCode, writeRoomCode } from "@/lib/room-session";
 import { getInviteErrorMessage, INVITE_SENT_NOTICE } from "@/lib/invites";
 import {
+  applyCalendarResult,
+  applyDoomTriggered,
   applyInviteCard,
   applyInviteIncoming,
   applyInviteResolved,
@@ -58,9 +60,13 @@ import {
   applySessionTurnOptions,
   clearAcceptedPrivateAction,
   createRoomSessionView,
+  dismissNotice,
+  type CalendarResultPayload,
+  type DoomTriggeredPayload,
   type RoomSessionView,
   type SessionTransition,
 } from "@/lib/room-session-view";
+import { DEBT_CLEARED_NOTICE, getPayDebtErrorMessage } from "@/app/components/game/MonthChangeView";
 import { createSessionResumeController } from "@/lib/session-resume-controller";
 import { disconnectSocket, getSocket, type GameSocket } from "@/lib/socket";
 import { subscribeSocketEvents } from "@/lib/socket-subscriptions";
@@ -81,6 +87,7 @@ export function LobbyClient({ code }: { code: string }) {
   const [pending, setPending] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [invitePending, setInvitePending] = useState(false);
+  const [monthError, setMonthError] = useState("");
   const room = sessionView.room;
   const game = sessionView.gameView.game;
 
@@ -209,6 +216,12 @@ export function LobbyClient({ code }: { code: string }) {
     const onMonthSummary = (payload: MonthSummaryPayload) => {
       commitSession((current) => applySessionMonthSummary(current, payload));
     };
+    const onDoomTriggered = (payload: DoomTriggeredPayload) => {
+      commitSession((current) => applyDoomTriggered(current, payload));
+    };
+    const onCalendarResult = (payload: CalendarResultPayload) => {
+      commitSession((current) => applyCalendarResult(current, payload));
+    };
     const onTurnOptions = (payload: TurnOptionsPayload) => {
       commitSession((current) => applySessionTurnOptions(current, payload));
     };
@@ -251,6 +264,8 @@ export function LobbyClient({ code }: { code: string }) {
       ["reflection:ready", onReflectionReady],
       ["calendar:event", onCalendarEvent],
       ["month:summary", onMonthSummary],
+      ["doom:triggered", onDoomTriggered],
+      ["calendar:result", onCalendarResult],
       ["turn:options", onTurnOptions],
       ["turn:dead-end", onDeadEnd],
       ["invite:card", onInviteCard],
@@ -354,17 +369,27 @@ export function LobbyClient({ code }: { code: string }) {
   function payDebt(month: number, amount: number) {
     if (!socket || pending) return;
     setPending("month");
+    setMonthError("");
     socket.timeout(3_000).emit(
       "month:pay-debt",
       { requestId: createRequestId(), month, amount },
       (error, response) => {
-        const result: Ack = error ? { ok: false, error: "INTERNAL" } : response;
+        const result = error ? { ok: false as const, error: "INTERNAL" as const } : response;
         if (result.ok) {
-          const next = clearAcceptedPrivateAction(sessionViewRef.current, { kind: "month", month });
-          sessionViewRef.current = next;
-          setSessionView(next);
+          commitLocal(clearAcceptedPrivateAction(sessionViewRef.current, { kind: "month", month }));
+          setPending(null);
+          setMessage(result.debtCleared ? DEBT_CLEARED_NOTICE : getRoomActionMessage("Pembayaran hutang", result));
+          return;
         }
-        handleResponse("Pembayaran hutang", result);
+        // Waktu habis: server sudah menutup popup, hitung sebagai bayar Rp0.
+        if (result.error === "PAYMENT_CLOSED") {
+          commitLocal(clearAcceptedPrivateAction(sessionViewRef.current, { kind: "month", month }));
+          setMessage(getPayDebtErrorMessage(result.error));
+          setPending(null);
+          return;
+        }
+        setPending(null);
+        setMonthError(getPayDebtErrorMessage(result.error));
       },
     );
   }
@@ -428,6 +453,12 @@ export function LobbyClient({ code }: { code: string }) {
     );
   }
 
+  const dismissNoticeById = useCallback((id: number) => {
+    const next = dismissNotice(sessionViewRef.current, id);
+    sessionViewRef.current = next;
+    setSessionView(next);
+  }, []);
+
   function commitLocal(next: RoomSessionView) {
     sessionViewRef.current = next;
     setSessionView(next);
@@ -489,6 +520,9 @@ export function LobbyClient({ code }: { code: string }) {
         actionMessage={message}
         seasonHint={sessionView.seasonHint}
         goldNotice={sessionView.goldNotice}
+        notices={sessionView.notices}
+        monthError={monthError}
+        onDismissNotice={dismissNoticeById}
         actionPending={pending === "calendar" || pending === "turn" || pending === "month"}
         onPayDebt={payDebt}
         onAnswerCalendar={answerCalendar}
