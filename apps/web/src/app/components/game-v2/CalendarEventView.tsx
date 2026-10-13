@@ -25,20 +25,22 @@ export default function CalendarEventView({ event, pending, onAnswer }: Calendar
             if (choice) onAnswer(event.eventId, choice.id);
           }}
         >
-          <p className="text-body-sm text-teks-sekunder">{event.dateLabel}</p>
+          <p className="comic-stamp">EVENT TANGGAL</p>
+          <p className="comic-event-date">{event.dateLabel}</p>
           <fieldset className="grid gap-2">
-            <legend className="text-label text-teks-sekunder">Pilih jawabanmu</legend>
+            <legend className="text-label">Pilih jawabanmu</legend>
             {event.choices.map((choice) => (
-              <label key={choice.id} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-sm border border-garis bg-kartu-tinggi px-3 py-2 text-body-sm text-teks-utama">
-                <input type="radio" name="choice" value={choice.id} required className="size-4 accent-[#f5c542]" />
-                <span className="grid">
+              <label key={choice.id} className="comic-choice">
+                <input type="radio" name="choice" value={choice.id} required className="comic-choice-radio" />
+                <span className="comic-choice-text">
                   <span>{choice.label}</span>
-                  {choice.note ? <small className="text-label text-teks-sekunder">{choice.note}</small> : null}
+                  {choice.note ? <small className="comic-choice-note">{choice.note}</small> : null}
                 </span>
+                <span aria-hidden="true" className="comic-choice-check">✓</span>
               </label>
             ))}
           </fieldset>
-          <Button variant="primary" type="submit" disabled={pending}>
+          <Button variant="primary" className="comic-btn-primary" type="submit" disabled={pending}>
             {pending ? "Mengirim..." : "Kirim jawaban"}
           </Button>
         </form>
