@@ -26,7 +26,7 @@ describe.skipIf(!chrome)("dialog Ganti Bulan di browser", () => {
 
       const status = { wealth: 100000, debt: 100000, debtLimit: 25000000, health: 7, stress: 2 };
       const summary = {
-        month: 2, salary: 5730000, livingCost: 4600000, interest: 30000,
+        month: 2, salary: 5730000, livingCost: 5200000, passiveStress: 1, interest: 30000,
         interestAddedToDebt: 0, before: status, after: status,
         batchId: "game-1-step3", deadline: Date.now() + 15000, payDebt: { max: 100000 },
       };

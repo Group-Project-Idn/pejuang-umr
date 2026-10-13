@@ -11,6 +11,12 @@ import {
   startRound,
 } from "./round";
 import { chooseHex, endRound, startTurn, timeoutTurn } from "./turn";
+import {
+  botCalendarChoice,
+  botPaymentAmount,
+  chooseBotHex,
+  type BotKind,
+} from "./simulation-bots";
 
 const MAX_ITERATIONS = 2000;
 const TIMEOUT_PCT = 10;
@@ -89,6 +95,12 @@ export interface RandomPlayOptions {
   observe?: Observer;
   /** Nama untuk pesan galat iterasi berlebih. */
   label?: string;
+  /** Jenis bot per pemain; pemain tanpa entri bermain acak seperti bawaan. */
+  bots?: Readonly<Record<string, BotKind>>;
+  /** Peluang habis waktu per giliran (persen); bawaan 10. */
+  timeoutPct?: number;
+  /** Peluang pemain tidak menjawab Event Tanggal (persen); bawaan 15. */
+  skipAnswerPct?: number;
 }
 
 export interface RandomPlayResult {
@@ -102,11 +114,15 @@ export function playRandomGame(
   playerCount: number,
   seed: number,
   observe?: Observer,
+  extra: Pick<RandomPlayOptions, "bots" | "timeoutPct" | "skipAnswerPct" | "payment"> & {
+    balance?: GameState["balance"];
+  } = {},
 ): SimulationResult {
   const engineRandom = new SeededRandom(seed);
   const playerIds = Array.from({ length: playerCount }, (_, index) => `p${index + 1}`);
 
   const created = createGame(playerIds, `sim-${seed}`, engineRandom);
+  if (extra.balance) created.state.balance = extra.balance;
   const initialUsedHexKeys = [...created.state.board.usedHexKeys];
   observe?.(created.state, created.events);
 
@@ -117,6 +133,10 @@ export function playRandomGame(
     playerIds,
     observe,
     label: `seed ${seed}`,
+    bots: extra.bots,
+    timeoutPct: extra.timeoutPct,
+    skipAnswerPct: extra.skipAnswerPct,
+    payment: extra.payment,
   });
   return {
     state: played.state,
@@ -135,6 +155,8 @@ export function playRandomGame(
 export function playRandomFrom(initial: GameState, options: RandomPlayOptions): RandomPlayResult {
   const { engineRandom, playerRandom, inviteRandom, playerIds, observe } = options;
   const label = options.label ?? "simulasi";
+  const timeoutPct = options.timeoutPct ?? TIMEOUT_PCT;
+  const skipAnswerPct = options.skipAnswerPct ?? SKIP_ANSWER_PCT;
   const inviteLog: InviteLogEntry[] = [];
   let state = initial;
   const events: DomainEvent[] = [];
@@ -217,8 +239,12 @@ export function playRandomFrom(initial: GameState, options: RandomPlayOptions): 
         if (playerId in pendingMonth!.answers) continue;
         const status = state.players[playerId]!.status;
         const max = Math.min(status.wealth, status.debt);
+        const botKind = options.bots?.[playerId];
+        const botAmount = botKind ? botPaymentAmount(botKind, max) : null;
         const amount =
-          options.payment === "random"
+          botAmount !== null
+            ? botAmount
+            : options.payment === "random"
             ? playerRandom.integer(0, Math.floor(max / BOT_PAYMENT_ROUNDING)) * BOT_PAYMENT_ROUNDING
             : Math.floor(max / 2 / BOT_PAYMENT_ROUNDING) * BOT_PAYMENT_ROUNDING;
         const answered = answerMonthPayment(state, playerId, pendingMonth!.month, amount);
@@ -232,8 +258,10 @@ export function playRandomFrom(initial: GameState, options: RandomPlayOptions): 
         );
         for (const playerId of state.public.turnOrder) {
           if (playerId in state.pendingCalendarEvent!.answers) continue;
-          if (playerRandom.chance(SKIP_ANSWER_PCT)) continue; // waktu habis -> skip otomatis
-          const choice: CalendarChoiceId = playerRandom.pick(choices);
+          if (playerRandom.chance(skipAnswerPct)) continue; // waktu habis -> skip otomatis
+          const botKind = options.bots?.[playerId];
+          const botChoice = botKind ? botCalendarChoice(botKind, state, playerId) : null;
+          const choice: CalendarChoiceId = botChoice ?? playerRandom.pick(choices);
           const answered = answerCalendarEvent(state, playerId, def.id, choice);
           if (!answered.ok) throw new Error(`${answered.code}: ${answered.message}`);
           state = answered.state;
@@ -259,13 +287,16 @@ export function playRandomFrom(initial: GameState, options: RandomPlayOptions): 
     if (isFinished(state)) continue;
 
     const pending = state.pendingTurn;
-    const result = playerRandom.chance(TIMEOUT_PCT)
+    const botKind = options.bots?.[pending.playerId];
+    const result = playerRandom.chance(timeoutPct)
       ? timeoutTurn(state, pending.turnId, engineRandom)
       : chooseHex(
           state,
           pending.playerId,
           pending.turnId,
-          playerRandom.pick(pending.options),
+          botKind
+            ? chooseBotHex(botKind, state, pending.playerId, pending.options, playerRandom)
+            : playerRandom.pick(pending.options),
           engineRandom,
         );
     if (!result.ok) throw new Error(`${result.code}: ${result.message}`);

@@ -277,7 +277,7 @@ Kedalaman dibuat dengan **tingkat terang-gelap permukaan**, bukan bayangan: surf
   - Heksa dengan 4 state: tertutup (gelap), menyala (kuning dengan glow dan ikon kategori; detail Rencana hanya di popup), terbuka (permukaan terang dengan ikon kategori; sisi Rencana sampai Fase Pembalikan, lalu sisi Realita), Petak Emas.
   - Pion karakter, mahkota Peringkat 1, dan label "Jalan" pada pemain yang sedang giliran.
   - Popup Detail Heksa dengan tombol Pilih (bottom sheet di mobile, panel samping kanan di desktop). Klik heksa menyala lain langsung mengganti isinya. Heksa terbuka juga bisa diklik semua pemain untuk melihat detailnya, tanpa tombol Pilih.
-  - Popup Ganti Bulan: rincian Gaji, Biaya Hidup, Bunga, Kekayaan baru, dan slider Bayar Hutang dengan batas waktu.
+  - Popup Ganti Bulan: rincian Gaji, Biaya Hidup, Bunga, Tekanan bulanan (Level Stress +1), Kekayaan baru, dan slider Bayar Hutang dengan batas waktu.
   - Animasi Fase Pembalikan (heksa dibalik satu per satu sesuai urutan giliran).
   - Kartu Refleksi AI di Layar Eliminasi dan Hasil Akhir.
   - Indikator risiko Rendah/Sedang/Tinggi, dibedakan lewat jumlah garis atau bentuk ikon (bukan hanya warna).

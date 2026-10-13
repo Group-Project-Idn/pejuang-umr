@@ -209,6 +209,7 @@ describe("Ganti Bulan: month:pay-debt", () => {
 
     const hostSummary = ctx.find(ctx.host, "month:summary")[0]!.payload;
     expect(hostSummary.month).toBe(2);
+    expect(hostSummary.passiveStress).toBe(1);
     expect(hostSummary.payDebt.max).toBe(4_000_000);
     const paymentTimer = latestTimer(ctx, MONTH_PAY_SECONDS * 1000 + 501);
     expect(hostSummary.deadline).toBe(paymentTimer.at + MONTH_PAY_SECONDS * 1000);
@@ -246,7 +247,7 @@ describe("Ganti Bulan: month:pay-debt", () => {
       debtCleared: true,
       stressDelta: -2,
     });
-    expect(ctx.session.state.players[ctx.guest.playerId]!.status).toMatchObject({ debt: 0, stress: 3 });
+    expect(ctx.session.state.players[ctx.guest.playerId]!.status).toMatchObject({ debt: 0, stress: 4 }); // 5 + Tekanan bulanan 1 - 2 (lunas)
     await until(() => ctx.find(ctx.host, "turn:start").length > turnsBefore, "turn:start setelah popup ditutup");
 
     // Terlambat: popup sudah ditutup.

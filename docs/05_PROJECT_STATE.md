@@ -1,6 +1,6 @@
 # Pejuang UMR: Jakarta Survival - Ringkasan Konteks (Project State)
 
-Dokumen serah terima dari percakapan sebelumnya. Baca ini dulu, lalu dokumen lain di project knowledge. Terakhir diperbarui: 14 Oktober 2026 (GDD v1.14, API Contract v0.7 [kode masih di v0.6], migrasi kode G1-G7 dan W1 selesai).
+Dokumen serah terima dari percakapan sebelumnya. Baca ini dulu, lalu dokumen lain di project knowledge. Terakhir diperbarui: 14 Oktober 2026 (GDD v1.15, API Contract v0.7 [kode masih di v0.6], migrasi kode G1-G7 dan W1 selesai).
 
 ## 1. Produk dalam satu paragraf
 
@@ -11,7 +11,7 @@ Pejuang UMR: Jakarta Survival adalah **web app game multiplayer berbasis giliran
 | File                                         | Isi                                                                |
 | -------------------------------------------- | ------------------------------------------------------------------ |
 | 00_PROJECT_INSTRUCTIONS.md                   | Teks untuk kolom "Project instructions"                            |
-| 01_GDD_Pejuang_UMR_v1_14.md                  | GDD terkonsolidasi: aturan game, scope MVP, Room dan sesi, backlog |
+| 01_GDD_Pejuang_UMR_v1_15.md                  | GDD terkonsolidasi: aturan game, scope MVP, Room dan sesi, backlog |
 | 02_DESIGN.md                                 | Design system dan arah visual (format DESIGN.md)                   |
 | 03_REKOMENDASI_Stack_Struktur_dan_Kontrak.md | Stack, monorepo, REST, event Socket.IO, kontrak, privasi data      |
 | 04_UI_Screens_dan_Prompts.md                 | Status layar, prompt gambar, daftar teks yang harus persis         |
@@ -30,6 +30,7 @@ Di repo, semua dokumen ada di `docs/`: `GDD.md` (salinan GDD terbaru), `02_DESIG
 - GDD v1.10 (dari audit): papan 3D, Bayar Hutang dibatasi Kekayaan, tag kebal hanya petak Kesehatan saat Pancaroba, game selesai saat tinggal 1 pemain, Keluar saat game = koneksi putus, ambang ikon risiko, Ubah nama hanya di Lobby.
 - GDD v1.11 (dari pengerjaan Game loop, Room, Petak Emas, Ajakan): Petak Emas bersebelahan selalu menyala, aturan kick, penutupan room otomatis, Main Lagi.
 - GDD v1.12 (dari 99 komentar tim pada v1.11): Fase Pembalikan (Realita dibuka di akhir ronde), Bangkrut = Hutang lebih dari Rp25 juta, bunga 3%, Bayar Hutang lewat slider, pengali dihapus, timer 15/30/60 tanpa jeda, Ajakan 2 motif, papan selalu 127 heksa, Heksa Mati dan penonton dihapus, skor seimbang 0-100, Refleksi AI masuk MVP, pion = karakter, klik tanpa hover, Edit Profile. API Contract naik ke v0.3 (46 event).
+- GDD v1.15 (14 Oktober 2026): angka keseimbangan hasil simulasi bot diterapkan: Biaya Hidup Rp5.200.000, Tekanan bulanan Level Stress +1 per ganti bulan, pengali Zonk 2, pembagi Poin Keuangan tetap Rp500.000. Meja campuran bot: skor 61-64, eliminasi 8-11%, Doom 26-33% pemain (laporan: `docs/audit/BALANCE_REPORT.md`).
 - GDD v1.14 (14 Oktober 2026): Petak Emas 5 kali (Langkah 5, 9, 13, 17, 21), popup awal ronde serentak dalam satu grid (8 detik informasi, 15 detik ada keputusan; menggantikan popup berurutan dan keputusan D2), animasi Pembalikan bergelombang dan kartu hasil pribadi serentak, katalog 117 petak biasa dan 8 Petak Emas (5 dipakai per game, hadiah maksimal Rp10.000.000), Tumpukan Realita per kategori, warna indikator (Level Stress merah mulai 8, Kesehatan merah di bawah 4), room uji UMR-0099 dan `dev:finish-game`, hasil akhir skor 0-100. API Contract v0.7 (hanya catatan; kode menyusul).
 - GDD v1.13 (keputusan selama migrasi kode): pemain berhutang dengan Kekayaan 0 tetap ditunggu (D5), Fase Pembalikan menunggu Ajakan terbuka (D6), kalender tidak maju selama jeda, host tereliminasi digantikan saat game selesai dan Main Lagi bisa ditolak (D7), label timer "Kilat", avatar 4 karakter. API Contract v0.4 disesuaikan dengan kode akhir.
 
@@ -49,7 +50,7 @@ Di repo, semua dokumen ada di `docs/`: `GDD.md` (salinan GDD terbaru), `02_DESIG
 - **Popup awal ronde serentak (v1.14):** Ganti Bulan, Event Tanggal, notifikasi musim, Petak Emas, dan Beban Peringkat 1 tampil dalam satu grid dengan satu hitung mundur (8 detik informasi, 15 detik ada keputusan). Popup keputusan bertag "Butuh keputusanmu!" tanpa X; popup informasi punya X.
 - **Fase Pembalikan (akhir ronde):** animasi bergelombang dari heksa ronde itu (Realita terbuka), hasil Ajakan, Doom Spending, cek Bangkrut dan Burnout, Skor Sementara diperbarui, lalu kartu hasil pribadi tampil serentak.
 - Indikator hanya empat: Kekayaan, Hutang, Kesehatan, Level Stress. Poin Sosial dan Usaha Sampingan sudah dihapus.
-- Basis Jakarta: Gaji Rp5.730.000 (UMP DKI 2026), Biaya Hidup Wajib Rp4.600.000/bulan, bunga Hutang 3%/bulan. Bangkrut jika Hutang lebih dari Rp25.000.000 saat Fase Pembalikan. Hutang dibayar lewat slider di popup Ganti Bulan (petak Bayar Hutang dihapus).
+- Basis Jakarta: Gaji Rp5.730.000 (UMP DKI 2026), Biaya Hidup Wajib Rp5.200.000/bulan (v1.15), Tekanan bulanan Level Stress +1 per ganti bulan (v1.15), pengali Zonk 2 (v1.15), bunga Hutang 3%/bulan. Bangkrut jika Hutang lebih dari Rp25.000.000 saat Fase Pembalikan. Hutang dibayar lewat slider di popup Ganti Bulan (petak Bayar Hutang dihapus).
 - Multiplayer 24 langkah (1 langkah = 2 minggu), semua nilai 1× (pengali dihapus). Timer Giliran 15, 30, atau 60 detik, **diatur host di Room**, dan tidak pernah dijeda.
 - Papan selalu radius 6 (127 heksa) untuk 2-4 pemain, tanpa Heksa Mati. Papan skor publik menampilkan karakter, nama, dan **Skor Sementara** (0-100, rumus seimbang uang, kesehatan, ketenangan). Statistik detail hanya untuk pemiliknya (Panel Pribadi).
 - Petak Emas muncul di Langkah 5, 9, 13, 17, 21 (5 kali, v1.14) dan bertahan 4 ronde. Tiap game memakai 5 dari 8 Petak Emas tanpa pengulangan; hadiah maksimal Rp10.000.000. Beban Peringkat 1: +15 poin persen Peluang Zonk untuk pemain skor tertinggi, mulai Langkah 5.
@@ -127,7 +128,7 @@ Catatan npm: `workspace:*` tidak dikenal, pakai `"*"`. Hanya satu `package-lock.
 - Lisensi 4 gambar karakter sprite (dari repo lain) belum dikonfirmasi. Wajib diselesaikan atau diganti sebelum repo public atau deploy. Makin penting karena sejak GDD v1.12 karakter menjadi pion dan avatar.
 - Provider dan model LLM untuk Refleksi AI, beserta batas biaya per game.
 - Asumsi GDD v1.12: motif Ajakan hanya dibuka untuk pengirim dan target, skor ditampilkan bilangan bulat, bonus lunas (Level Stress -2) bisa diulang.
-- **Keseimbangan angka:** simulasi 200 game menunjukkan rata-rata skor 89, eliminasi 0%, Doom 0,1 kali per pemain, rata-rata Kekayaan akhir Rp26,6 juta. Game terlalu mudah, terutama karena sisa gaji +Rp1,13 juta per bulan dan Poin Keuangan cepat mentok. Usulan: simulasi pembanding (Biaya Hidup, pembagi Poin Keuangan, Zonk, pengali status, tiga jenis bot) dengan target skor 55-70, eliminasi 10-20%, Doom 25-40% pemain. Ditunda atas permintaan pengguna.
+- **Keseimbangan angka (v1.15):** angka sudah diterapkan dari simulasi bot (BALANCE_REPORT.md). Eliminasi 8,3-9,8% untuk 2 dan 3 pemain, sedikit di bawah target 10-20%. Perlu uji main dengan manusia sebelum angka dikunci; parameter bisa diubah lewat `GameState.balance` untuk simulasi ulang (`npm run simulate:balance -w @pejuang/engine`).
 - `ping:test` (event khusus tes) masih terdaftar di server produksi; usulan hanya didaftarkan saat `NODE_ENV=test`.
 - Op `phase` di `game:patch`: dikirim server atau dihapus dari kontrak (API Contract Keputusan Terbuka #12).
 - `npm install` melaporkan 5 kerentanan high. Cek dengan `npm audit --omit=dev` setelah fitur web selesai; jangan `npm audit fix --force` di tengah pekerjaan.
@@ -136,13 +137,13 @@ Catatan npm: `workspace:*` tidak dikenal, pakai `"*"`. Hanya satu `package-lock.
 - Aset gambar: perlu aset terpisah (latar meja, sprite heksa, ikon, karakter), disesuaikan dengan papan 3D.
 - Semua angka (Zonk dasar, nominal 1×, bunga 3%, Ajakan, Petak Emas, rumus skor, modal awal) adalah usulan awal untuk playtest. Simulasi bot di engine wajib dipakai untuk menilainya sebelum angka dikunci.
 - Katalog v1.14: 117 petak biasa (Kerja 29, Sosial 37, Kesehatan 29, Keuangan 22) dan 8 Petak Emas sudah ditetapkan di dokumen (`docs/katalog_master_sisi_rencana.md` + `docs/revisi_kesulitan_katalog.md`). Belum ada di kode. Isi Tumpukan Realita per kategori (termasuk pool `finance-debt`) belum ditulis.
-- **Opsi yang menunggu simulasi (Prompt 16):** Level Stress pasif per Ganti Bulan dan Biaya Hidup baru. Keduanya hanya opsi, bukan keputusan, sampai simulasi pembanding dijalankan.
+- **Tekanan bulanan dan Biaya Hidup baru:** sudah diputuskan di GDD v1.15 (bukan lagi opsi).
 - API Contract v0.7 baru mencatat perubahan; skema di `packages/shared` dan kode server/web belum diubah (popup serentak, jadwal Petak Emas, `dev:finish-game`).
 
 ## 7. Langkah berikutnya yang disarankan
 
 1. Web W2-W6 (`docs/PANDUAN_Migrasi_v1_12_Web.md`) sesuai pembagian dengan Nickzad, supaya game bisa dimainkan sampai Hasil Akhir.
-2. Simulasi pembanding untuk keseimbangan angka (Prompt 16: termasuk opsi Level Stress pasif per Ganti Bulan dan Biaya Hidup baru), lalu satu prompt kecil menerapkan angka. GDD v1.14 sudah ditulis.
+2. Uji main dengan pemain nyata untuk memastikan angka v1.15 (simulasi bot sudah selesai dan diterapkan). GDD v1.15 sudah ditulis.
 2a. Terapkan v1.14 ke kode lewat prompt kecil berurutan: skema shared (API Contract v0.7), katalog 117 petak dan Petak Emas 5 kali di engine, popup serentak di server dan web, `dev:finish-game` dan room uji.
 3. Pilih provider LLM, lalu satu prompt kecil menyambungkannya ke layanan Refleksi.
 4. Tugas kecil: `ping:test` hanya di tes, putuskan op `phase`, cek `npm audit`.

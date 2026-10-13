@@ -8,6 +8,7 @@ import {
   type RealityVariant,
   type SeasonZonkDefinition,
 } from "../data";
+import { scaleRealityEffects, type BalanceParams } from "../economy/balance";
 import type { RandomSource } from "../random";
 import { rollOutcome } from "./roll-outcome";
 import { calculateZonkChance } from "./zonk-chance";
@@ -81,6 +82,7 @@ export function resolveReality(
   tileId: string,
   context: RealityContext,
   random: RandomSource,
+  balance?: Partial<BalanceParams>,
 ): ResolvedReality {
   const tile = requireRegularTile(tileId);
 
@@ -104,7 +106,7 @@ export function resolveReality(
     return {
       outcome,
       text: seasonal.title,
-      effects: seasonal.effects,
+      effects: scaleRealityEffects(seasonal.effects, outcome, balance),
       seasonal: true,
       variantId: seasonal.id,
       zonkPct: chance.pct,
@@ -123,7 +125,7 @@ export function resolveReality(
   return {
     outcome,
     text: variant.text,
-    effects: variant.effects,
+    effects: scaleRealityEffects(variant.effects, outcome, balance),
     seasonal: false,
     variantId: variant.id,
     zonkPct: chance.pct,

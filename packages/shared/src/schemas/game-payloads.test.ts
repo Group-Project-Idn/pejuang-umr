@@ -63,7 +63,7 @@ describe("bentuk payload S->C", () => {
     expect(PrivateStatusSchema.safeParse({ ...after, debt: -1 }).success).toBe(false);
     expect(PrivateStatusSchema.safeParse({ ...after, debt: 0.5 }).success).toBe(false);
     expect(MonthSummaryPayloadSchema.safeParse({
-      month: 3, salary: 5_730_000, livingCost: 4_600_000,
+      month: 3, salary: 5_730_000, livingCost: 5_200_000, passiveStress: 1,
       interest: 750_000, interestAddedToDebt: 0, batchId: "g-b3", deadline: 8_000, payDebt: null,
       before: PRIVATE_STATUS, after,
     }).success).toBe(true);
@@ -129,7 +129,7 @@ describe("bentuk payload S->C", () => {
       MonthSummaryPayloadSchema.safeParse({
         month: 3,
         salary: 5_730_000,
-        livingCost: 4_600_000,
+        livingCost: 5_200_000, passiveStress: 1,
         interest: 0,
         interestAddedToDebt: 0,
         batchId: "g-b3",

@@ -1,4 +1,5 @@
 import type { PrivateStatus, ScoreRow } from "@pejuang/shared";
+import { DEFAULT_FINANCE_DIVISOR } from "../economy/balance";
 import { calculateWelfareScore, type WelfarePoints } from "./score";
 
 /** Selisih skor di bawah ini dianggap sama (galat pembulatan desimal). */
@@ -84,9 +85,10 @@ function compareForSort(a: WorkingEntry, b: WorkingEntry): number {
  */
 export function rankPlayers(
   entries: readonly RankingEntry[],
+  financeDivisor: number = DEFAULT_FINANCE_DIVISOR,
 ): RankedPlayer[] {
   const working: WorkingEntry[] = entries.map((entry) => {
-    const welfare = calculateWelfareScore(entry.status);
+    const welfare = calculateWelfareScore(entry.status, financeDivisor);
     return {
       playerId: entry.playerId,
       rank: 0,
@@ -124,8 +126,11 @@ export function rankPlayers(
 }
 
 /** Baris Papan Skor ({@link ScoreRow}) dari hasil {@link rankPlayers}. */
-export function toScoreRows(entries: readonly RankingEntry[]): ScoreRow[] {
-  return rankPlayers(entries).map((player) => ({
+export function toScoreRows(
+  entries: readonly RankingEntry[],
+  financeDivisor: number = DEFAULT_FINANCE_DIVISOR,
+): ScoreRow[] {
+  return rankPlayers(entries, financeDivisor).map((player) => ({
     playerId: player.playerId,
     provisionalScore: player.score,
     rank: player.rank,

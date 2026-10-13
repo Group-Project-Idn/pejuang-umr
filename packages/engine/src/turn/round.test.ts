@@ -200,7 +200,7 @@ describe("Ganti Bulan (GDD 2.4 v1.12)", () => {
       ofType(events, "month:summary").map((e) => [(e.target as { playerId: string }).playerId, e]),
     );
     expect(summaries.get("a")!.payload.payDebt).toEqual({ max: 4_000_000 });
-    // Kekayaan b setelah gaji dan biaya: 5.730.000 - 4.600.000 - bunga 3% dari Rp40 juta.
+    // Kekayaan b setelah gaji dan biaya: 5.730.000 - 5.200.000 - bunga 3% dari Rp40 juta.
     const b = summaries.get("b")!.payload;
     expect(b.payDebt).toEqual({ max: b.after.wealth });
     expect(b.payDebt!.max).toBeLessThan(40_000_000);
@@ -265,7 +265,7 @@ describe("Ganti Bulan (GDD 2.4 v1.12)", () => {
       const result = answerMonthPayment(state, "a", 2, 4_000_000);
       if (!result.ok) throw new Error(result.message);
       expect(result).toMatchObject({ paid: 4_000_000, debtCleared: true, stressDelta: -2 });
-      expect(result.state.players.a!.status).toMatchObject({ debt: 0, stress: 3 });
+      expect(result.state.players.a!.status).toMatchObject({ debt: 0, stress: 4 }); // +1 Tekanan bulanan, -2 lunas
     });
 
     it("membayar 0 diperbolehkan dan dihitung sudah menjawab", () => {

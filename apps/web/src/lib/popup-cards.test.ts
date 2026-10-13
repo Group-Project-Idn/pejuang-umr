@@ -16,7 +16,7 @@ const game = (extra: Partial<PublicGameState> = {}): PublicGameState => ({
   eliminated: [], phase: "calendar", ...extra,
 });
 const month = (payDebt: MonthSummaryPayload["payDebt"]): MonthSummaryPayload => ({
-  month: 2, salary: 5_730_000, livingCost: 4_600_000, interest: 0, interestAddedToDebt: 0,
+  month: 2, salary: 5_730_000, livingCost: 5_200_000, passiveStress: 1, interest: 0, interestAddedToDebt: 0,
   ...batch, before: status, after: status, payDebt,
 });
 const event: CalendarEventPayload = {

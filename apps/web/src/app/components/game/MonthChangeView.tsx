@@ -44,6 +44,9 @@ export default function MonthChangeView({ summary, pending, expired, error, onPa
         <div className="comic-receipt-row"><dt>Gaji masuk</dt><dd className="comic-amount-positive">+{formatRupiah(summary.salary)}</dd></div>
         <div className="comic-receipt-row"><dt>Biaya hidup wajib</dt><dd className="comic-amount-negative">−{formatRupiah(summary.livingCost)}</dd></div>
         <div className="comic-receipt-row"><dt>Bunga hutang</dt><dd className="comic-amount-negative">−{formatRupiah(summary.interest)}</dd></div>
+        {summary.passiveStress > 0 ? (
+          <div className="comic-receipt-row"><dt>Tekanan bulanan</dt><dd className="comic-amount-negative">Level Stress +{summary.passiveStress}</dd></div>
+        ) : null}
         {summary.interestAddedToDebt > 0 ? (
           <div className="comic-receipt-row"><dt>Bunga menjadi hutang</dt><dd className="comic-amount-negative">+{formatRupiah(summary.interestAddedToDebt)}</dd></div>
         ) : null}

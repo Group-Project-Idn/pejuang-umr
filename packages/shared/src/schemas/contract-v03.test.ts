@@ -128,7 +128,7 @@ describe("kontrak v0.3: field wajib", () => {
 
   it("MonthSummary mewajibkan payDebt (objek atau null)", () => {
     const summary = {
-      month: 2, salary: 5_730_000, livingCost: 4_600_000, interest: 30_000,
+      month: 2, salary: 5_730_000, livingCost: 5_200_000, passiveStress: 1, interest: 30_000,
       interestAddedToDebt: 0, batchId: "g-b2", deadline: 8_000, payDebt: null, before: STATUS, after: STATUS,
     };
     expect(MonthSummaryPayloadSchema.safeParse(summary).success).toBe(true);
@@ -159,7 +159,7 @@ describe("kontrak v0.3: field wajib", () => {
     });
     const reflection = { source: "ai", summary: "s", insights: [] };
     const month = {
-      month: 2, salary: 5_730_000, livingCost: 4_600_000, interest: 0,
+      month: 2, salary: 5_730_000, livingCost: 5_200_000, passiveStress: 1, interest: 0,
       interestAddedToDebt: 0, batchId: "g-b2", deadline: 8_000, payDebt: null, before: STATUS, after: STATUS,
     };
     // uji bagian me tetap lolos bila RoomState valid; uji bagian me secara terpisah

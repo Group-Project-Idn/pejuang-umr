@@ -15,7 +15,7 @@ describe("ringkasan Ganti Bulan setelah reconnect", () => {
   it.each([0, 500_000, 1_000_000])("tidak menyatakan hutang lunas saat sisa hutang Rp%s dan aksi pembayaran sudah selesai", (debt) => {
     const status: MonthSummaryPayload["after"] = { wealth: 5_000_000, debt, debtLimit: 25_000_000, health: 7, stress: 2 };
     const summary: MonthSummaryPayload = {
-      month: 2, salary: 5_730_000, livingCost: 4_600_000,
+      month: 2, salary: 5_730_000, livingCost: 5_200_000, passiveStress: 1,
       interest: 30_000, interestAddedToDebt: 0, batchId: "game-1-step3", deadline: 25_000,
       before: { ...status, debt: 1_000_000 }, after: status, payDebt: null,
     };
@@ -29,7 +29,7 @@ describe("ringkasan Ganti Bulan setelah reconnect", () => {
 });
 const baseStatus: MonthSummaryPayload["after"] = { wealth: 0, debt: 1_000_000, debtLimit: 25_000_000, health: 7, stress: 2 };
 const debtSummary = (max: number): MonthSummaryPayload => ({
-  month: 2, salary: 5_730_000, livingCost: 4_600_000, interest: 30_000, interestAddedToDebt: 0,
+  month: 2, salary: 5_730_000, livingCost: 5_200_000, passiveStress: 1, interest: 30_000, interestAddedToDebt: 0,
   before: baseStatus, after: baseStatus, batchId: "game-1-step3", deadline: Date.now() + 15_000, payDebt: { max },
 });
 const render = (summary: MonthSummaryPayload, error?: string) =>
@@ -100,5 +100,18 @@ describe("nota Ganti Bulan bergaya komik", () => {
     const markup = render(debtSummary(120_000), "Ada yang salah. Coba lagi.");
     expect(markup).toContain('role="alert" class="comic-error"');
     expect(markup).toContain("Ada yang salah. Coba lagi.");
+  });
+});
+
+describe("baris Tekanan bulanan", () => {
+  it("tampil dengan Level Stress +1 bila passiveStress 1", () => {
+    const markup = render(debtSummary(0));
+    expect(markup).toContain("Tekanan bulanan");
+    expect(markup).toContain("Level Stress +1");
+  });
+
+  it("tidak tampil bila passiveStress 0", () => {
+    const markup = render({ ...debtSummary(0), passiveStress: 0 });
+    expect(markup).not.toContain("Tekanan bulanan");
   });
 });

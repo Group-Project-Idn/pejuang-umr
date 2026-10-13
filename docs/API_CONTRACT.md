@@ -958,16 +958,17 @@ type MonthSummaryPayload = {
   batchId?: string; // v0.8: sama dengan calendar:event.batchId di ronde yang sama (opsional selama fase expand)
   deadline?: number; // v0.8: deadline bersama batch, selalu terisi server (juga saat payDebt null)
   salary: 5730000;
-  livingCost: 4600000;
+  livingCost: 5200000; // v1.15 (sebelumnya 4600000)
+  passiveStress: number; // v1.15: Tekanan bulanan, Level Stress pasif per Ganti Bulan (0 atau 1); baris ditampilkan bila > 0
   interest: number; // 3% dari Hutang (GDD 2.3 v1.12)
   interestAddedToDebt: number; // bagian bunga yang menjadi Hutang karena Kekayaan kurang
   before: PrivateStatus;
-  after: PrivateStatus; // setelah gaji, biaya hidup, dan bunga
+  after: PrivateStatus; // setelah gaji, biaya hidup, bunga, dan Tekanan bulanan
   payDebt: { max: number; /** @deprecated pakai deadline di atas */ deadline: number } | null; // null jika Hutang 0; max = min(Kekayaan, Hutang)
 };
 ```
 
-Urutan proses mengikuti GDD 2.4 v1.12: gaji → biaya hidup → bunga → slider Bayar Hutang. Doom Spending, Bangkrut, dan Burnout **tidak** dicek di sini, tetapi di Fase Pembalikan. Jika `payDebt` `null`, popup tetap tampil sebagai ringkasan dan ditutup otomatis saat batch selesai (hitung mundur bersama). Saat reconnect selama popup terbuka, `snapshot.me.pendingMonth` memuat ringkasan untuk semua pemain hidup; pemain tanpa Hutang atau yang sudah menjawab menerima `payDebt: null` sehingga tidak bisa membayar ulang. Event Tanggal (jika ada), kartu Ajakan, dan Petak Emas dikirim bersamaan di awal ronde (v0.8); giliran pertama dimulai setelah batch selesai.
+Urutan proses mengikuti GDD 2.4 v1.15: gaji → biaya hidup → bunga → Tekanan bulanan (Level Stress +1) → slider Bayar Hutang. Doom Spending, Bangkrut, dan Burnout **tidak** dicek di sini, tetapi di Fase Pembalikan. Jika `payDebt` `null`, popup tetap tampil sebagai ringkasan dan ditutup otomatis saat batch selesai (hitung mundur bersama). Saat reconnect selama popup terbuka, `snapshot.me.pendingMonth` memuat ringkasan untuk semua pemain hidup; pemain tanpa Hutang atau yang sudah menjawab menerima `payDebt: null` sehingga tidak bisa membayar ulang. Event Tanggal (jika ada), kartu Ajakan, dan Petak Emas dikirim bersamaan di awal ronde (v0.8); giliran pertama dimulai setelah batch selesai.
 
 **Lama popup (D5, diperbarui v0.7):** semua popup awal ronde berbagi satu hitung mundur (GDD 4.2 v1.14). Jika ada debtor atau Event Tanggal, server menunggu sampai semua keputusan terjawab atau `MONTH_PAY_SECONDS` (15 detik) habis. Debtor dengan Kekayaan 0 (`payDebt.max` = 0) tetap ditunggu; ia bisa menutup lebih cepat dengan membayar Rp0. Jika tidak ada keputusan sama sekali, hitung mundur `POPUP_INFO_MS` (8 detik), menggantikan `MONTH_SUMMARY_ONLY_MS` 3 detik (keputusan D2 lama, dihapus di v0.8). Satu timer server untuk seluruh batch.
 

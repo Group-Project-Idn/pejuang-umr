@@ -39,6 +39,7 @@ rawan per musim (GDD 3.4: Hujan = Kerja; Kemarau = Keuangan & Sosial; Pancaroba 
 
 - **Semua konten disimpan persis seperti tabel GDD dan dipakai apa adanya (1×)** di semua mode
   (GDD 1.3 v1.12). Engine tidak lagi mengali ×2 dan tidak lagi membatasi efek status ±3.
+- **[v1.15] Satu pengecualian saat runtime:** efek `RealityVariant` dan `SeasonZonkDefinition` yang hasilnya Zonk dikali 2 oleh engine (`DEFAULT_BALANCE.zonkMultiplier` di `packages/engine/src/economy/balance.ts`; GDD 4.4). Data konten tetap menyimpan nilai dasar; jangan menulis angka yang sudah dikali. Aman, Hoki, `plan`, Event Tanggal, dan Ajakan tidak dikali.
 - Skala nilai tidak ditulis per field (tidak ada `valueScale`).
 
 ## Perubahan data untuk GDD v1.12
