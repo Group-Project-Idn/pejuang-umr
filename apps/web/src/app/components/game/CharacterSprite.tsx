@@ -17,6 +17,8 @@ type CharacterSpriteProps = {
   dimmed?: boolean;
 };
 
+// Pion tidak boleh menelan klik heksa kecuali saat mode pilih target Ajakan.
+const noRaycast = () => null;
 const CHARACTER_HEIGHT = HEX_TILE_RADIUS * 1.8;
 const MOVEMENT_DAMPING = 8;
 const MOVEMENT_EPSILON = 0.012;
@@ -144,6 +146,7 @@ export default function CharacterSprite({
       </mesh>
       <sprite
         ref={spriteObject}
+        raycast={onSelect ? undefined : noRaycast}
         center={[0.5, 0]}
         scale={[characterWidth, CHARACTER_HEIGHT, 1]}
         renderOrder={2}

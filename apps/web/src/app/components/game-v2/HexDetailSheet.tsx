@@ -1,9 +1,9 @@
 import { formatRupiah } from "@pejuang/shared";
 import type { Effect } from "@pejuang/shared";
 import type { HexDetailView } from "@/lib/hex-detail";
-import BottomSheet from "../ui/BottomSheet";
 import Button from "../ui/Button";
 import Chip from "../ui/Chip";
+import SidePanel from "../ui/SidePanel";
 import { RiskIndicator } from "./legends";
 
 const STAT_LABEL: Record<Effect["stat"], string> = {
@@ -45,10 +45,10 @@ export type HexDetailSheetProps = {
   onClose: () => void;
 };
 
-/** Bottom sheet Detail Heksa: heksa menyala (bisa dipilih) atau heksa terbuka (hanya dibaca). */
+/** Panel non-modal Detail Heksa: heksa menyala (bisa dipilih) atau heksa terbuka (hanya dibaca). */
 export default function HexDetailSheet({ detail, pending, onChoose, onClose }: HexDetailSheetProps) {
   return (
-    <BottomSheet
+    <SidePanel
       open={detail !== null}
       title={detail ? `${detail.icon} ${detail.title}`.trim() : "Detail heksa"}
       onClose={onClose}
@@ -99,6 +99,6 @@ export default function HexDetailSheet({ detail, pending, onChoose, onClose }: H
           </Button>
         </div>
       ) : null}
-    </BottomSheet>
+    </SidePanel>
   );
 }
