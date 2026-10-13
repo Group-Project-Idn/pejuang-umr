@@ -8,7 +8,7 @@ function context(season: RealityContext["season"]): RealityContext {
   return { season, isRankOneBurden: false, health: 5 };
 }
 
-const FORBIDDEN_FIELDS = ["outcome", "realities", "zonkPct", "variantId"];
+const FORBIDDEN_FIELDS = ["outcome", "realities", "realityPool", "zonkPct", "variantId"];
 
 describe("buildTileOption - petak biasa (API_CONTRACT 3.2)", () => {
   it("Lembur Proyek: plan wealth +2.500.000 apa adanya", () => {

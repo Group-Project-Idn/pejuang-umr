@@ -18,6 +18,14 @@ export const TileCategorySchema = z.enum([
   "finance",
 ]);
 
+export const RealityPoolIdSchema = z.enum([
+  "work",
+  "social",
+  "health",
+  "finance",
+  "finance-debt",
+]);
+
 const EffectListSchema = z.array(EffectSchema).max(3);
 
 export const RealityVariantSchema = z.object({
@@ -27,19 +35,27 @@ export const RealityVariantSchema = z.object({
   effects: EffectListSchema,
 });
 
+/** GDD 5.2 v1.14: tiap Tumpukan Realita wajib punya varian untuk setiap jenis hasil. */
+export const RealityPoolDefinitionSchema = z
+  .object({
+    id: RealityPoolIdSchema,
+    variants: z.array(RealityVariantSchema).min(1),
+  })
+  .refine(
+    (pool) =>
+      OutcomeSchema.options.every((outcome) =>
+        pool.variants.some((variant) => variant.outcome === outcome),
+      ),
+    "Tumpukan Realita harus punya minimal 1 varian zonk, safe, dan lucky.",
+  );
+
 export const TileDefinitionSchema = z.object({
   id: ContentIdSchema,
   category: TileCategorySchema,
   title: z.string().min(1),
   plan: EffectListSchema,
   baseZonkPct: z.number().int().min(0).max(80),
-  realities: z.array(RealityVariantSchema).length(6).refine(
-    (realities) =>
-      realities.filter((reality) => reality.outcome === "zonk").length === 3 &&
-      realities.filter((reality) => reality.outcome === "safe").length === 2 &&
-      realities.filter((reality) => reality.outcome === "lucky").length === 1,
-    "Tumpukan Realita harus berisi 3 Zonk, 2 Aman, dan 1 Hoki (GDD 5.2).",
-  ),
+  realityPool: RealityPoolIdSchema,
 });
 
 export const GoldTileDefinitionSchema = z.object({
@@ -89,6 +105,8 @@ export type ContentId = z.infer<typeof ContentIdSchema>;
 export type TileCategory = z.infer<typeof TileCategorySchema>;
 export type Effect = z.infer<typeof EffectSchema>;
 export type RealityVariant = z.infer<typeof RealityVariantSchema>;
+export type RealityPoolId = z.infer<typeof RealityPoolIdSchema>;
+export type RealityPoolDefinition = z.infer<typeof RealityPoolDefinitionSchema>;
 export type TileDefinition = z.infer<typeof TileDefinitionSchema>;
 export type GoldTileDefinition = z.infer<typeof GoldTileDefinitionSchema>;
 export type CalendarChoice = z.infer<typeof CalendarChoiceSchema>;

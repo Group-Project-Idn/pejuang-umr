@@ -4,6 +4,7 @@ import { dirname, join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 import { CALENDAR_EVENTS } from "./calendar-events";
 import { GOLD_TILES } from "./gold-tiles";
+import { REALITY_POOLS } from "./reality-pools";
 import {
   INVITE_MOTIVE_EFFECTS,
   INVITE_MOTIVE_WEIGHTS,
@@ -33,6 +34,8 @@ function listSourceFiles(dir: string): string[] {
     );
 }
 
+const ALL_VARIANTS = REALITY_POOLS.flatMap((pool) => pool.variants);
+
 describe("katalog data konten", () => {
   it("memuat 12 petak biasa: 3 Kerja, 4 Sosial, 3 Kesehatan, 2 Keuangan", () => {
     expect(TILES).toHaveLength(12);
@@ -48,28 +51,29 @@ describe("katalog data konten", () => {
     expect(GOLD_TILES).toHaveLength(2);
   });
 
-  it("setiap petak punya 6 Realita: 3 zonk, 2 safe, 1 lucky (total 72)", () => {
-    let totalRealities = 0;
-    for (const tile of TILES) {
-      expect(tile.realities).toHaveLength(6);
-      expect(
-        tile.realities.filter((reality) => reality.outcome === "zonk"),
-      ).toHaveLength(3);
-      expect(
-        tile.realities.filter((reality) => reality.outcome === "safe"),
-      ).toHaveLength(2);
-      expect(
-        tile.realities.filter((reality) => reality.outcome === "lucky"),
-      ).toHaveLength(1);
-      totalRealities += tile.realities.length;
+  it("pool Realita berisi 72 varian awal, tiap pool punya minimal 1 varian per jenis hasil", () => {
+    expect(REALITY_POOLS).toHaveLength(5);
+    for (const pool of REALITY_POOLS) {
+      for (const outcome of ["zonk", "safe", "lucky"]) {
+        expect(
+          pool.variants.filter((variant) => variant.outcome === outcome).length,
+        ).toBeGreaterThanOrEqual(1);
+      }
     }
-    expect(totalRealities).toBe(72);
+    expect(ALL_VARIANTS).toHaveLength(72);
+  });
+
+  it("tidak ada petak yang masih membawa realities", () => {
+    for (const tile of TILES) {
+      expect(tile).not.toHaveProperty("realities");
+    }
   });
 
   it("semua id unik di seluruh konten", () => {
     const ids = [
       ...TILES.map((tile) => tile.id),
-      ...TILES.flatMap((tile) => tile.realities.map((reality) => reality.id)),
+      ...ALL_VARIANTS.map((variant) => variant.id),
+      ...REALITY_POOLS.map((pool) => pool.id),
       ...GOLD_TILES.map((tile) => tile.id),
       ...CALENDAR_EVENTS.map((event) => event.id),
       ...SEASON_ZONKS.map((zonk) => zonk.id),
@@ -81,9 +85,7 @@ describe("katalog data konten", () => {
   it("setiap plan dan effects punya maksimal 3 efek", () => {
     const allEffectLists: Array<readonly { stat: string; delta: number }[]> = [
       ...TILES.map((tile) => tile.plan),
-      ...TILES.flatMap((tile) =>
-        tile.realities.map((reality) => reality.effects),
-      ),
+      ...ALL_VARIANTS.map((variant) => variant.effects),
       ...GOLD_TILES.map((tile) => tile.plan),
       ...CALENDAR_EVENTS.flatMap((event) =>
         [event.choices.join, event.choices.skip, event.choices.joinPaylater]
@@ -263,7 +265,7 @@ describe("nilai konten 1x (GDD 1.3 v1.12)", () => {
   });
 
   it("'Bos marah': stress +3, health -2 apa adanya", () => {
-    const bosMarah = TILES.flatMap((tile) => tile.realities).find(
+    const bosMarah = ALL_VARIANTS.find(
       (reality) => reality.text === "Bos marah",
     );
     expect(bosMarah?.effects).toEqual([
@@ -276,8 +278,8 @@ describe("nilai konten 1x (GDD 1.3 v1.12)", () => {
     const effects = [
       ...TILES.flatMap((tile) => [
         ...tile.plan,
-        ...tile.realities.flatMap((reality) => reality.effects),
       ]),
+      ...ALL_VARIANTS.flatMap((variant) => variant.effects),
       ...GOLD_TILES.flatMap((tile) => tile.plan),
       ...SEASON_ZONKS.flatMap((zonk) => zonk.effects),
       ...CALENDAR_EVENTS.flatMap((event) =>
@@ -303,7 +305,11 @@ describe("nilai konten 1x (GDD 1.3 v1.12)", () => {
         { stat: "stress", delta: -2 },
       ],
     });
-    expect(trip?.realities.map((r) => [r.outcome, r.text, r.effects])).toEqual([
+    expect(ALL_VARIANTS.filter((r) => r.id.startsWith("day-trip-")).map((r) => [
+        r.outcome,
+        r.text,
+        r.effects,
+      ])).toEqual([
       ["zonk", "Macet parah di jalan", [{ stat: "stress", delta: 2 }]],
       [
         "zonk",

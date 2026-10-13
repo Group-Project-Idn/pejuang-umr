@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { GOLD_TILES } from "./gold-tiles";
+import { REALITY_POOLS } from "./reality-pools";
 import { TILES } from "./tiles";
 
 describe("katalog data petak", () => {
@@ -11,18 +12,32 @@ describe("katalog data petak", () => {
     }
   });
 
-  it("setiap petak punya tepat 6 Realita: 3 zonk, 2 safe, 1 lucky", () => {
+  it("setiap petak menunjuk pool yang ada, dan pool sesuai kategori", () => {
+    const poolIds = REALITY_POOLS.map((pool) => pool.id);
     for (const tile of TILES) {
-      expect(tile.realities).toHaveLength(6);
-      expect(
-        tile.realities.filter((reality) => reality.outcome === "zonk"),
-      ).toHaveLength(3);
-      expect(
-        tile.realities.filter((reality) => reality.outcome === "safe"),
-      ).toHaveLength(2);
-      expect(
-        tile.realities.filter((reality) => reality.outcome === "lucky"),
-      ).toHaveLength(1);
+      expect(poolIds).toContain(tile.realityPool);
+      if (tile.id === "online-loan") {
+        expect(tile.realityPool).toBe("finance-debt");
+      } else {
+        expect(tile.realityPool).toBe(tile.category);
+      }
+    }
+  });
+
+  it("memuat 5 pool Realita, masing-masing punya minimal 1 varian per jenis hasil", () => {
+    expect(REALITY_POOLS.map((pool) => pool.id).sort()).toEqual([
+      "finance",
+      "finance-debt",
+      "health",
+      "social",
+      "work",
+    ]);
+    for (const pool of REALITY_POOLS) {
+      for (const outcome of ["zonk", "safe", "lucky"]) {
+        expect(
+          pool.variants.filter((variant) => variant.outcome === outcome).length,
+        ).toBeGreaterThanOrEqual(1);
+      }
     }
   });
 

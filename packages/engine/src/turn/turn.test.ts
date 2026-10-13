@@ -426,7 +426,7 @@ describe("chooseHex", () => {
       wealth: 500_000,
       debt: 25_000_000,
     });
-    const chosen = choose(game, new SequenceRandomSource([0, 0.1]));
+    const chosen = choose(game, new SequenceRandomSource([0, 0]));
     expect(chosen.state.players[first]!.status.wealth).toBe(0);
     expect(chosen.state.players[first]!.status.debt).toBe(25_000_000);
     expect(chosen.state.players[first]!.eliminated).toBe(false);

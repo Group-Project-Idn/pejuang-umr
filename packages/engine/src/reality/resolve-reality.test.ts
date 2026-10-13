@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SEASON_ZONKS, TILES } from "../data";
+import { REALITY_POOLS, SEASON_ZONKS, TILES } from "../data";
 import { SequenceRandomSource } from "../random";
 import { resolveReality, type RealityContext } from "./resolve-reality";
 
@@ -16,7 +16,9 @@ function noBurden(
 function realitiesOf(tileId: string, outcome: string) {
   const tile = TILES.find((candidate) => candidate.id === tileId);
   if (!tile) throw new Error(`petak ${tileId} tidak ada`);
-  return tile.realities.filter((reality) => reality.outcome === outcome);
+  const pool = REALITY_POOLS.find((candidate) => candidate.id === tile.realityPool);
+  if (!pool) throw new Error(`pool ${tile.realityPool} tidak ada`);
+  return pool.variants.filter((variant) => variant.outcome === outcome);
 }
 
 describe("resolveReality (GDD 4.4)", () => {
@@ -113,7 +115,7 @@ describe("resolveReality - Zonk Musim (GDD 3.4, 4.5)", () => {
     const result = resolveReality(
       LEMBUR,
       noBurden("rainy"),
-      new SequenceRandomSource([0.299, 0.7, 0.7]),
+      new SequenceRandomSource([0.299, 0.7, 0.3]),
     );
 
     expect(result.outcome).toBe("zonk");

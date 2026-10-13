@@ -1,8 +1,10 @@
 import type { Effect, Outcome, Season } from "@pejuang/shared";
 import {
   GOLD_TILES,
+  REALITY_POOLS,
   SEASON_ZONKS,
   TILES,
+  type RealityPoolId,
   type RealityVariant,
   type SeasonZonkDefinition,
 } from "../data";
@@ -50,10 +52,14 @@ function seasonZonksFor(season: Season): SeasonZonkDefinition[] {
 }
 
 function variantsOfOutcome(
-  realities: readonly RealityVariant[],
+  poolId: RealityPoolId,
   outcome: Outcome,
 ): RealityVariant[] {
-  return realities.filter((reality) => reality.outcome === outcome);
+  const pool = REALITY_POOLS.find((candidate) => candidate.id === poolId);
+  if (!pool) {
+    throw new Error(`Tumpukan Realita "${poolId}" tidak ada di katalog.`);
+  }
+  return pool.variants.filter((variant) => variant.outcome === outcome);
 }
 
 /**
@@ -61,9 +67,9 @@ function variantsOfOutcome(
  *
  * 1. Peluang Zonk dihitung lewat {@link calculateZonkChance} (GDD 4.5), lalu
  *    jenis hasil digelempar lewat {@link rollOutcome} (GDD 4.4 langkah 1).
- * 2. Satu varian acak diambil dari jenis tersebut di Tumpukan Realita petak.
+ * 2. Satu varian acak diambil dari jenis tersebut di Tumpukan Realita (pool) milik petak.
  * 3. Khusus Zonk di petak kategori rawan: 50% memakai Zonk Musim acak sesuai
- *    Fokus Zonk musim itu (GDD 3.4), sisanya memakai varian Zonk bawaan petak.
+ *    Fokus Zonk musim itu (GDD 3.4), sisanya memakai varian Zonk dari pool petak.
  *
  * Imunitas Sakit (GDD 3.4) sudah tertanam di {@link calculateZonkChance}: saat
  * `seasonApplied` false, cabang Zonk Musim tidak pernah terpilih, jadi pemain
@@ -105,11 +111,11 @@ export function resolveReality(
     };
   }
 
-  const variants = variantsOfOutcome(tile.realities, outcome);
+  const variants = variantsOfOutcome(tile.realityPool, outcome);
   if (variants.length === 0) {
-    // Skema data menjamin 3 zonk, 2 safe, 1 lucky per petak (CONTENT_SCHEMA).
+    // Skema pool menjamin minimal 1 varian per jenis hasil (CONTENT_SCHEMA).
     throw new Error(
-      `Petak "${tileId}" tidak punya varian Realita "${outcome}".`,
+      `Pool "${tile.realityPool}" milik petak "${tileId}" tidak punya varian Realita "${outcome}".`,
     );
   }
   const variant = random.pick(variants);
