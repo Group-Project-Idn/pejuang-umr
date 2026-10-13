@@ -5,6 +5,9 @@ import type {
   CalendarEventPayload,
   DeadEndPayload,
   HexCoord,
+  InviteCard,
+  InviteIncomingPayload,
+  InviteResolvedPayload,
   MonthSummaryPayload,
   PrivateStatus,
   ReflectionReadyPayload,
@@ -38,7 +41,11 @@ import {
 import { canRematch, getRematchMessage, selectRoomScreen } from "@/lib/result-screens";
 import { createRequestId } from "@/lib/request-id";
 import { clearRoomCode, writeRoomCode } from "@/lib/room-session";
+import { getInviteErrorMessage, INVITE_SENT_NOTICE } from "@/lib/invites";
 import {
+  applyInviteCard,
+  applyInviteIncoming,
+  applyInviteResolved,
   applyPrivateStatus,
   applyReflectionReady,
   applyRoomState,
@@ -73,6 +80,7 @@ export function LobbyClient({ code }: { code: string }) {
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [invitePending, setInvitePending] = useState(false);
   const room = sessionView.room;
   const game = sessionView.gameView.game;
 
@@ -207,6 +215,15 @@ export function LobbyClient({ code }: { code: string }) {
     const onDeadEnd = (payload: DeadEndPayload) => {
       commitSession((current) => applySessionTurnOptions(current, payload));
     };
+    const onInviteCard = (payload: { card: InviteCard | null }) => {
+      commitSession((current) => applyInviteCard(current, payload));
+    };
+    const onInviteIncoming = (payload: InviteIncomingPayload) => {
+      commitSession((current) => applyInviteIncoming(current, payload));
+    };
+    const onInviteResolved = (payload: InviteResolvedPayload) => {
+      commitSession((current) => applyInviteResolved(current, payload));
+    };
     const onKicked = () => {
       clearRoomCode();
       router.replace("/lobby");
@@ -236,6 +253,9 @@ export function LobbyClient({ code }: { code: string }) {
       ["month:summary", onMonthSummary],
       ["turn:options", onTurnOptions],
       ["turn:dead-end", onDeadEnd],
+      ["invite:card", onInviteCard],
+      ["invite:incoming", onInviteIncoming],
+      ["invite:resolved", onInviteResolved],
       ["player:connection", onConnection],
       ["game:started", onGameStarted],
       ["turn:start", onTurnStart],
@@ -371,6 +391,48 @@ export function LobbyClient({ code }: { code: string }) {
     );
   }
 
+  function sendInvite(payload: { turnId: string; cardId: string; targetPlayerId: string }) {
+    if (!socket || invitePending) return;
+    setInvitePending(true);
+    socket.timeout(3_000).emit(
+      "invite:send",
+      { requestId: createRequestId(), ...payload },
+      (error, response) => {
+        const result = error ? { ok: false as const, error: "INTERNAL" as const } : response;
+        setInvitePending(false);
+        if (result.ok) {
+          commitLocal(clearAcceptedPrivateAction(sessionViewRef.current, { kind: "inviteCard", cardId: payload.cardId }));
+          setMessage(INVITE_SENT_NOTICE);
+        } else {
+          setMessage(getInviteErrorMessage(result.error));
+        }
+      },
+    );
+  }
+
+  function respondInvite(inviteId: string, answer: "join" | "decline") {
+    if (!socket || invitePending) return;
+    setInvitePending(true);
+    socket.timeout(3_000).emit(
+      "invite:respond",
+      { requestId: createRequestId(), inviteId, answer },
+      (error, response) => {
+        const result: Ack = error ? { ok: false, error: "INTERNAL" } : response;
+        setInvitePending(false);
+        // Jawaban terlambat juga menutup popup; server sudah menghitungnya Tolak.
+        if (result.ok || result.error === "INVITE_EXPIRED") {
+          commitLocal(clearAcceptedPrivateAction(sessionViewRef.current, { kind: "invite", inviteId }));
+        }
+        if (!result.ok) setMessage(getInviteErrorMessage(result.error));
+      },
+    );
+  }
+
+  function commitLocal(next: RoomSessionView) {
+    sessionViewRef.current = next;
+    setSessionView(next);
+  }
+
   async function copyRoomCode() {
     const copied = await copyTextToClipboard(code, navigator.clipboard);
     setMessage(copied
@@ -431,6 +493,9 @@ export function LobbyClient({ code }: { code: string }) {
         onPayDebt={payDebt}
         onAnswerCalendar={answerCalendar}
         onChooseHex={chooseHex}
+        invitePending={invitePending}
+        onSendInvite={sendInvite}
+        onRespondInvite={respondInvite}
       />
     );
   }

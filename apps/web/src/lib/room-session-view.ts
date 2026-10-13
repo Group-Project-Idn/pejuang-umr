@@ -1,6 +1,9 @@
 import type {
   CalendarEventPayload,
   DeadEndPayload,
+  InviteCard,
+  InviteIncomingPayload,
+  InviteResolvedPayload,
   MonthSummaryPayload,
   PrivateStatus,
   PublicGameState,
@@ -166,9 +169,28 @@ export function applySessionTurnOptions(
 /** Menutup prompt privat setelah server menerima aksi yang sesuai. */
 export function clearAcceptedPrivateAction(
   current: RoomSessionView,
-  action: { kind: "turn"; turnId: string } | { kind: "calendar"; eventId: string } | { kind: "month"; month: number },
+  action:
+    | { kind: "turn"; turnId: string }
+    | { kind: "calendar"; eventId: string }
+    | { kind: "month"; month: number }
+    | { kind: "inviteCard"; cardId: string }
+    | { kind: "invite"; inviteId: string },
 ): RoomSessionView {
   if (!current.me) return current;
+  if (action.kind === "inviteCard" && current.me.inviteCard?.cardId === action.cardId) {
+    return {
+      ...current,
+      me: { ...current.me, inviteCard: null },
+      privateRevision: current.privateRevision + 1,
+    };
+  }
+  if (action.kind === "invite" && current.me.pendingInvite?.inviteId === action.inviteId) {
+    return {
+      ...current,
+      me: { ...current.me, pendingInvite: null },
+      privateRevision: current.privateRevision + 1,
+    };
+  }
   if (
     action.kind === "turn" &&
     current.me.pendingTurn?.turnId === action.turnId
@@ -200,6 +222,55 @@ export function clearAcceptedPrivateAction(
     };
   }
   return current;
+}
+
+/** Kartu Ajakan milik pemain ini; kartu lama hangus saat kartu baru (atau null) datang. */
+export function applyInviteCard(
+  current: RoomSessionView,
+  payload: { card: InviteCard | null },
+): RoomSessionView {
+  if (!current.me) return current;
+  return {
+    ...current,
+    me: { ...current.me, inviteCard: payload.card },
+    privateRevision: current.privateRevision + 1,
+  };
+}
+
+/** Popup Ajakan hanya untuk target; payload yang bukan untuk pemain ini diabaikan. */
+export function applyInviteIncoming(
+  current: RoomSessionView,
+  payload: InviteIncomingPayload,
+): RoomSessionView {
+  if (!current.me || payload.fromPlayerId === current.me.playerId) return current;
+  return {
+    ...current,
+    me: { ...current.me, pendingInvite: payload },
+    privateRevision: current.privateRevision + 1,
+  };
+}
+
+/**
+ * Hasil Fase Pembalikan (dengan motif) disimpan hanya bila pemain ini pengirim atau target,
+ * tanpa duplikat per inviteId. Popup target untuk Ajakan itu ditutup.
+ */
+export function applyInviteResolved(
+  current: RoomSessionView,
+  payload: InviteResolvedPayload,
+): RoomSessionView {
+  const me = current.me;
+  if (!me) return current;
+  if (payload.fromPlayerId !== me.playerId && payload.targetPlayerId !== me.playerId) return current;
+  const known = me.inviteResults.some((result) => result.inviteId === payload.inviteId);
+  return {
+    ...current,
+    me: {
+      ...me,
+      inviteResults: known ? me.inviteResults : [...me.inviteResults, payload],
+      pendingInvite: me.pendingInvite?.inviteId === payload.inviteId ? null : me.pendingInvite,
+    },
+    privateRevision: current.privateRevision + 1,
+  };
 }
 
 function versionTransition(

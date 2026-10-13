@@ -11,8 +11,27 @@ import { useEffect, useMemo, useState } from "react";
 import { getSeasonHint } from "@/lib/board-hud";
 import { getTurnSecondsLeft } from "@/lib/game-view";
 import { resolveHexClick } from "@/lib/hex-detail";
+import {
+  buildInviteResultView,
+  canUseInviteCard,
+  getDisabledInvitePawnIds,
+  getInvitePopup,
+  getPlayerName,
+  INVITE_FLOW_CANCELLED_NOTICE,
+  isInviteExpired,
+  resolveInviteFlow,
+  selectUnseenInviteResults,
+  type InviteFlow,
+} from "@/lib/invites";
 import CalendarEventView from "../game-v2/CalendarEventView";
 import HexDetailSheet from "../game-v2/HexDetailSheet";
+import {
+  InviteCardSheet,
+  InviteConfirmSheet,
+  InviteIncomingView,
+  InvitePickBanner,
+  InviteResultsView,
+} from "../game-v2/invites";
 import GameBoard from "./GameBoard";
 import Scoreboard from "./Scoreboard";
 import MonthChangeView from "./MonthChangeView";
@@ -43,6 +62,9 @@ export default function GameInterface({
   onAnswerCalendar,
   onPayDebt,
   onChooseHex,
+  invitePending,
+  onSendInvite,
+  onRespondInvite,
 }: {
   room: RoomState;
   game: PublicGameState;
@@ -63,18 +85,26 @@ export default function GameInterface({
     hex: HexCoord,
     mode: "normal" | "deadEnd",
   ) => void;
+  invitePending: boolean;
+  onSendInvite: (payload: { turnId: string; cardId: string; targetPlayerId: string }) => void;
+  onRespondInvite: (inviteId: string, answer: "join" | "decline") => void;
 }) {
   const [now, setNow] = useState(() => Date.now());
   const [selectedHexKey, setSelectedHexKey] = useState<string | null>(null);
   const [dismissedNoticeId, setDismissedNoticeId] = useState<number | null>(null);
+  const [inviteFlow, setInviteFlow] = useState<InviteFlow | null>(null);
+  const [seenInviteIds, setSeenInviteIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [expiredInviteId, setExpiredInviteId] = useState<string | null>(null);
+  const pendingInvite = me?.pendingInvite ?? null;
+  const needsTick = Boolean(game.turnDeadline || pendingInvite);
   useEffect(() => {
-    if (!game.turnDeadline) return;
+    if (!needsTick) return;
     const timer = window.setInterval(
       () => setNow(Date.now()),
       250,
     );
     return () => window.clearInterval(timer);
-  }, [game.turnDeadline]);
+  }, [needsTick]);
   useEffect(() => {
     if (!goldNotice) return;
     const timer = window.setTimeout(
@@ -91,6 +121,25 @@ export default function GameInterface({
     serverClockOffsetMs,
     deadline: game.turnDeadline,
   });
+
+  const serverNow = now + serverClockOffsetMs;
+  // Alur Ajakan batal sendiri bila Timer Giliran habis, giliran berganti, atau kartu hilang.
+  const activeFlow = resolveInviteFlow(inviteFlow, me, game, serverNow);
+  const flowCancelled = inviteFlow !== null && activeFlow === null;
+  const inviteButtonEnabled = canUseInviteCard(me, game) && !actionPending;
+  const popup = getInvitePopup(me, now, serverClockOffsetMs);
+  const popupExpired = isInviteExpired(pendingInvite, now, serverClockOffsetMs);
+  const expiredNotice = popupExpired && pendingInvite?.inviteId !== expiredInviteId;
+  const resultViews = selectUnseenInviteResults(me?.inviteResults ?? [], seenInviteIds)
+    .map((result) => buildInviteResultView(result, me?.playerId ?? "", room))
+    .filter((view) => view !== null);
+  const inviteTargeting = activeFlow?.step === "pick" && me
+    ? {
+        disabledIds: getDisabledInvitePawnIds(game, me.playerId),
+        onSelect: (targetPlayerId: string) =>
+          setInviteFlow({ step: "confirm", turnId: activeFlow.turnId, cardId: activeFlow.cardId, targetPlayerId }),
+      }
+    : null;
 
   const activePlayer = useMemo(
     () => room.players.find(
@@ -154,6 +203,7 @@ export default function GameInterface({
               game={game}
               room={room}
               lit={litOptions}
+              inviteTargeting={inviteTargeting}
               onSelectHex={(key) => {
                 if (resolveHexClick(key, litOptions, game.openedHexes)) {
                   setSelectedHexKey(key);
@@ -190,7 +240,15 @@ export default function GameInterface({
           </div>
           <div className="action-buttons">
             <button type="button" disabled aria-label="Ekspresi belum tersedia"><span>☺</span><small>Emote</small></button>
-            <button type="button" disabled className="invite-button" aria-label="Kartu ajakan belum tersedia"><i>0</i><span>▱</span><small>Kartu ajakan</small></button>
+            <button
+              type="button"
+              className="invite-button"
+              disabled={!inviteButtonEnabled}
+              aria-label="Kartu Ajakan"
+              onClick={() => {
+                if (pendingTurn) setInviteFlow({ step: "card", turnId: pendingTurn.turnId });
+              }}
+            ><i>{me?.inviteCard ? 1 : 0}</i><span>▱</span><small>Kartu Ajakan</small></button>
           </div>
         </footer>
       </section>
@@ -205,6 +263,50 @@ export default function GameInterface({
           setSelectedHexKey(null);
         }}
         onClose={() => setSelectedHexKey(null)}
+      />
+      {activeFlow?.step === "pick" ? <InvitePickBanner onCancel={() => setInviteFlow(null)} /> : null}
+      {flowCancelled ? (
+        <p className="game-action-message" role="status">
+          {INVITE_FLOW_CANCELLED_NOTICE}{" "}
+          <button type="button" className="underline" onClick={() => setInviteFlow(null)}>Tutup</button>
+        </p>
+      ) : null}
+      <InviteCardSheet
+        card={me?.inviteCard ?? null}
+        open={activeFlow?.step === "card"}
+        onClose={() => setInviteFlow(null)}
+        onPickTarget={() => {
+          if (activeFlow?.step === "card" && me?.inviteCard) {
+            setInviteFlow({ step: "pick", turnId: activeFlow.turnId, cardId: me.inviteCard.cardId });
+          }
+        }}
+      />
+      <InviteConfirmSheet
+        flow={activeFlow}
+        targetName={activeFlow?.step === "confirm" ? getPlayerName(room, activeFlow.targetPlayerId) : ""}
+        plan={me?.inviteCard?.plan ?? null}
+        pending={invitePending}
+        onCancel={() => setInviteFlow(null)}
+        onConfirm={() => {
+          if (activeFlow?.step !== "confirm" || !pendingTurn) return;
+          onSendInvite({
+            turnId: pendingTurn.turnId,
+            cardId: activeFlow.cardId,
+            targetPlayerId: activeFlow.targetPlayerId,
+          });
+          setInviteFlow(null);
+        }}
+      />
+      <InviteIncomingView
+        popup={popup}
+        expired={expiredNotice}
+        pending={invitePending}
+        onRespond={onRespondInvite}
+        onDismissExpired={() => pendingInvite && setExpiredInviteId(pendingInvite.inviteId)}
+      />
+      <InviteResultsView
+        results={resultViews}
+        onDismiss={(inviteId) => setSeenInviteIds((seen) => new Set(seen).add(inviteId))}
       />
       <CalendarEventView
         event={me?.pendingCalendar ?? null}
