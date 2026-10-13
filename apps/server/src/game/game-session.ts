@@ -2,6 +2,7 @@ import {
   CalendarEventPayloadSchema,
   DeadEndPayloadSchema,
   InviteIncomingPayloadSchema,
+  InviteResolvedPayloadSchema,
   MonthSummaryPayloadSchema,
   ReflectionSchema,
   TurnOptionsPayloadSchema,
@@ -41,6 +42,7 @@ import type {
   Ack,
   HexCoord,
   InviteIncomingPayload,
+  InviteResolvedPayload,
   MonthSummaryPayload,
   PublicGameState,
 } from "@pejuang/shared";
@@ -117,6 +119,7 @@ export class GameSession {
     },
   ) {
     this.state = state;
+    this.publishedPhase = state.public.phase;
     const given = Object.fromEntries(
       Object.entries(runtime.timing ?? {}).filter(([, value]) => value !== undefined),
     );
@@ -144,6 +147,13 @@ export class GameSession {
   private awaitingInvites = false;
   /** Batas waktu (epoch ms) tiap Ajakan terbuka, untuk menolak jawaban yang terlambat. */
   private readonly inviteDeadlines = new Map<string, number>();
+  /** invite:resolved per pemain dari Fase Pembalikan terakhir; dikosongkan saat ronde berikutnya mulai. */
+  private readonly inviteResults = new Map<string, InviteResolvedPayload[]>();
+  /** Waktu server animasi Fase Pembalikan selesai (dari round:reveal terakhir). */
+  private revealEndsAt: number | null = null;
+  /** Nilai terakhir yang sudah dikirim lewat game:patch, untuk mendeteksi perubahan. */
+  private publishedPhase: PublicGameState["phase"];
+  private publishedBusy: string[] = [];
 
   /** Memulai ronde pertama. */
   start(): void {
@@ -303,6 +313,7 @@ export class GameSession {
     this.inviteTimers.delete(inviteId);
     this.inviteDeadlines.delete(inviteId);
     this.openInvites.delete(inviteId);
+    this.syncPublic();
     if (this.awaitingInvites && !hasOpenInvites(this.state)) {
       this.awaitingInvites = false;
       this.revealRound();
@@ -343,8 +354,17 @@ export class GameSession {
     return null;
   }
 
+  /** Hasil Ajakan pemain ini dari Fase Pembalikan terakhir (untuk snapshot). */
+  inviteResultsFor(playerId: string): InviteResolvedPayload[] {
+    return (this.inviteResults.get(playerId) ?? []).flatMap((payload) => {
+      const parsed = this.forSnapshot("inviteResult", payload, (v) => InviteResolvedPayloadSchema.safeParse(v));
+      return parsed ? [parsed] : [];
+    });
+  }
+
   private runRound(): void {
     if (this.finished) return;
+    this.inviteResults.clear();
     const result = startRound(this.state, this.random);
     this.applyRoundResult(result);
     if (result.nextAction === "finished") return this.finish();
@@ -456,6 +476,7 @@ export class GameSession {
     const result = finishGame(this.state, this.identities);
     this.state = result.state;
     this.runtime.send(result.events);
+    this.syncPublic();
     this.requestFinalReflections(result.events);
     this.runtime.onFinished();
   }
@@ -541,6 +562,11 @@ export class GameSession {
             },
           };
         }
+        if (event.type === "round:reveal") {
+          const revealEndsAt = now + this.timing.revealStepMs * event.payload.order.length;
+          this.revealEndsAt = revealEndsAt;
+          return { ...event, payload: { ...event.payload, revealEndsAt } };
+        }
         if (event.type === "turn:start") {
           return {
             ...event,
@@ -554,7 +580,37 @@ export class GameSession {
         return event;
       });
     if (filled.length > 0) this.runtime.send(filled);
+    this.syncPublic();
     this.requestEliminationReflections(filled);
+  }
+
+  /** Id target dengan Ajakan belum dijawab, tanpa motif, isi, atau pengirim. */
+  private inviteBusyIds(): string[] {
+    return this.state.roundInvites
+      .filter((invite) => invite.answer === null)
+      .map((invite) => invite.targetId);
+  }
+
+  /** Mengirim game:patch phase dan inviteBusy bila nilainya berubah sejak pengiriman terakhir. */
+  private syncPublic(): void {
+    const ops: Array<
+      | { type: "phase"; phase: PublicGameState["phase"] }
+      | { type: "inviteBusy"; playerIds: string[] }
+    > = [];
+    const phase = this.state.public.phase;
+    if (phase !== this.publishedPhase) {
+      this.publishedPhase = phase;
+      ops.push({ type: "phase", phase });
+    }
+    const busy = this.inviteBusyIds();
+    if (busy.join("|") !== this.publishedBusy.join("|")) {
+      this.publishedBusy = busy;
+      ops.push({ type: "inviteBusy", playerIds: busy });
+    }
+    if (ops.length === 0) return;
+    this.runtime.send([
+      { type: "game:patch", target: { kind: "room" }, payload: { version: 0, ops } },
+    ]);
   }
 
   private clearCalendarTimer(): void {
@@ -590,6 +646,8 @@ export class GameSession {
       ...toPublicState(this.state),
       version: this.version,
       turnDeadline: this.turnDeadline,
+      revealEndsAt: this.state.public.phase === "reveal" ? this.revealEndsAt : null,
+      inviteBusyPlayerIds: this.inviteBusyIds(),
     });
   }
 
@@ -622,6 +680,9 @@ export class GameSession {
       this.result = payload as FinishedPayload;
     } else if (event.type === "calendar:event") {
       this.lastCalendar = payload as PendingCalendarPayload;
+    } else if (event.type === "invite:resolved" && event.target.kind === "player") {
+      const list = this.inviteResults.get(event.target.playerId) ?? [];
+      this.inviteResults.set(event.target.playerId, [...list, payload as InviteResolvedPayload]);
     } else if (event.type === "month:summary" && event.target.kind === "player") {
       this.lastMonth.set(event.target.playerId, payload as MonthSummaryPayload);
     }

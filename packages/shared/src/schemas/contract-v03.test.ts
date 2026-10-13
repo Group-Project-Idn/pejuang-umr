@@ -85,7 +85,7 @@ describe("kontrak v0.3: field wajib", () => {
   it("PublicGameState.phase wajib dan dibatasi enum; boardRadius selalu 6", () => {
     const state = {
       version: 1, gameId: "g1", boardRadius: 6, calendar: CALENDAR, turnOrder: ["p1"],
-      activePlayerId: "p1", turnDeadline: null, pawns: [],
+      activePlayerId: "p1", turnDeadline: null, revealEndsAt: 1_000, inviteBusyPlayerIds: [], pawns: [],
       openedHexes: [], gold: null, scores: [], rankOneBurden: [],
       eliminated: [], phase: "reveal",
     };
@@ -143,7 +143,7 @@ describe("kontrak v0.3: field wajib", () => {
       game: null,
       me: {
         playerId: "p1", status: null, inviteCard: null, pendingTurn: null,
-        pendingCalendar: null, pendingInvite: null, pendingMonth: null, reflection: null, ...extra,
+        pendingCalendar: null, pendingInvite: null, pendingMonth: null, inviteResults: [], reflection: null, ...extra,
       },
       result: null,
     });
@@ -268,8 +268,11 @@ describe("kontrak v0.3: event baru", () => {
   });
 
   it("round:reveal", () => {
-    const ok = { version: 5, round: 2, step: 2, order: [{ playerId: "p1", hex: { q: 1, r: -1 } }] };
+    const ok = {
+      version: 5, round: 2, step: 2, order: [{ playerId: "p1", hex: { q: 1, r: -1 } }], revealEndsAt: 12_500,
+    };
     expect(RoundRevealPayloadSchema.safeParse(ok).success).toBe(true);
+    expect(RoundRevealPayloadSchema.safeParse({ ...ok, revealEndsAt: undefined }).success).toBe(false);
     expect(RoundRevealPayloadSchema.safeParse({ ...ok, order: [{ playerId: "p1" }] }).success).toBe(false);
   });
 

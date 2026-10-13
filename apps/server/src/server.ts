@@ -139,19 +139,22 @@ export function createPejuangServer(
       if (typeof ack === "function") ack({ ok: false, error: "RATE_LIMITED" });
     });
 
-    socket.on("ping:test", (payload, unsafeAck) => {
-      executeWithAck<{ message: string }>(unsafeAck, (ack) => {
-        const parsed = PingSchema.safeParse(payload);
-        if (!parsed.success) {
-          ack({ ok: false, error: "INVALID_PAYLOAD" });
-          return;
-        }
-        ack({
-          ok: true,
-          message: `Halo ${parsed.data.name}, server menerima pesanmu`,
+    // Keputusan Terbuka #11: ping:test hanya untuk tes server (koneksi, batas laju).
+    if (process.env.NODE_ENV === "test") {
+      socket.on("ping:test", (payload, unsafeAck) => {
+        executeWithAck<{ message: string }>(unsafeAck, (ack) => {
+          const parsed = PingSchema.safeParse(payload);
+          if (!parsed.success) {
+            ack({ ok: false, error: "INVALID_PAYLOAD" });
+            return;
+          }
+          ack({
+            ok: true,
+            message: `Halo ${parsed.data.name}, server menerima pesanmu`,
+          });
         });
       });
-    });
+    }
 
     registerRoomHandlers(io, socket, rooms, games, idempotency, {
       countdownMs: dependencies.countdownMs,

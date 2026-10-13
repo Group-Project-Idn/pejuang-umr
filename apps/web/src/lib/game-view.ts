@@ -75,7 +75,16 @@ export function applyGamePatch(
           phase: "calendar",
           activePlayerId: null,
           turnDeadline: null,
+          revealEndsAt: null,
         };
+      case "phase":
+        return {
+          ...next,
+          phase: operation.phase,
+          revealEndsAt: operation.phase === "reveal" ? next.revealEndsAt : null,
+        };
+      case "inviteBusy":
+        return { ...next, inviteBusyPlayerIds: operation.playerIds };
       default:
         return next;
     }
@@ -106,6 +115,8 @@ export function applyGameStarted(
     turnOrder: payload.turnOrder,
     activePlayerId: null,
     turnDeadline: null,
+    revealEndsAt: null,
+    inviteBusyPlayerIds: [],
     pawns: payload.startPositions.map(({ playerId, hex }) => ({ playerId, hex })),
     openedHexes: [],
     gold: null,
@@ -126,6 +137,7 @@ export function applyTurnStart(
     version: payload.version,
     activePlayerId: payload.playerId,
     turnDeadline: payload.deadline,
+    revealEndsAt: null,
     phase: "turn",
   };
 }
@@ -193,7 +205,11 @@ export function applyRoundReveal(
   payload: RoundReveal,
 ): PublicGameState | null {
   if (isStale(current, payload.version)) return current;
-  return { ...current!, version: payload.version, phase: "reveal", activePlayerId: null, turnDeadline: null };
+  return { ...current!, version: payload.version, phase: "reveal",
+    activePlayerId: null,
+    turnDeadline: null,
+    revealEndsAt: payload.revealEndsAt,
+  };
 }
 
 export function applyGoldSpawned(
@@ -258,6 +274,7 @@ export function applyGameFinished(
     version: payload.version,
     activePlayerId: null,
     turnDeadline: null,
+    revealEndsAt: null,
     phase: "finished",
   };
 }

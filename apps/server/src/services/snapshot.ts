@@ -19,6 +19,7 @@ export function createSnapshot(
       pendingCalendar: session ? session.pendingCalendarFor(playerId) : null,
       pendingInvite: session ? session.pendingInviteFor(playerId) : null,
       pendingMonth: session ? session.pendingMonthFor(playerId) : null,
+      inviteResults: session ? session.inviteResultsFor(playerId) : [],
       reflection: session ? session.reflectionFor(playerId) : null,
     },
     result: session ? session.result : null,

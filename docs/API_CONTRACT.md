@@ -1,10 +1,18 @@
 # API Contract - Pejuang UMR: Jakarta Survival (MVP)
 
-Versi 0.4 · Oktober 2026 · Sumber aturan: GDD v1.13 · Sumber stack: 03_REKOMENDASI
+Versi 0.5 · Oktober 2026 · Sumber aturan: GDD v1.13 · Sumber stack: 03_REKOMENDASI
 
 **Perubahan v0.3 (GDD v1.12):** Realita dibuka di Fase Pembalikan (`round:reveal`), Bayar Hutang lewat `month:pay-debt`, `room:pawn` diganti `room:avatar`, `turn:timer` dan `spectate:enter` dihapus, `reflection:ready` ditambah, skor 0-100, motif Ajakan hanya Tulus/Komisi, papan selalu radius 6, semua nilai 1×.
 
 **Perubahan v0.4 (sesuai kode setelah migrasi G1-G7):** kontrak ini sekarang mencerminkan kode di `packages/shared` apa adanya. Field dan event lama sudah dihapus dari kode, `avatarId` hanya menerima 4 karakter, `invite:send` wajib membawa `turnId`, dan `tile:resolved` tidak lagi membawa `turnId`. Ditambah: aturan host saat game selesai dan Main Lagi (D7), `player:status` setelah Doom, kalender selama jeda Fase Pembalikan, validasi snapshot, dan config Refleksi. Daftar event dikunci oleh tes `packages/shared/src/socket/contract-events.test.ts`.
+**Perubahan v0.5 (penutupan celah kontrak T1):**
+
+1. `round:reveal` membawa `revealEndsAt`, dan `PublicGameState.revealEndsAt` (angka saat `phase` = `"reveal"`, selain itu `null`) agar snapshot saat reconnect tahu kapan animasi selesai.
+2. `PublicGameState.inviteBusyPlayerIds` dan op `game:patch` baru `inviteBusy` (id target yang punya Ajakan belum dijawab, tanpa motif, isi, atau pengirim).
+3. `Snapshot.me.inviteResults`: payload `invite:resolved` milik pemain itu dari Fase Pembalikan terakhir, dikosongkan saat ronde berikutnya dimulai.
+4. Server sekarang mengirim op `game:patch` `phase` setiap `public.phase` berubah (Keputusan Terbuka #12 diputuskan).
+5. `ping:test` hanya didaftarkan saat `NODE_ENV=test` (Keputusan Terbuka #11 diputuskan).
+
 Scope: **Multiplayer 2-4 pemain, 24 langkah, pemain tamu.** Solo, login, dan database tidak ada di kontrak ini.
 
 **Cara membaca.** Setiap endpoint dan event ditulis dengan pola yang sama:
@@ -24,7 +32,7 @@ Kontrak hanya mendefinisikan **bentuk data**. Keputusan aturan (boleh atau tidak
 | Jenis        | Jumlah                  | Keterangan                                                                           |
 | ------------ | ----------------------- | ------------------------------------------------------------------------------------ |
 | REST         | 3                       | `POST /api/v1/guest`, `GET /api/v1/rooms/:code`, `GET /health`                       |
-| Socket.IO    | 46                      | 44 dari 03_REKOMENDASI + 2 tambahan bertanda **[+]** (`room:kicked`, `room:rematch`). Di luar itu ada `ping:test` (C→S) yang hanya dipakai tes server; lihat Keputusan Terbuka #11 |
+| Socket.IO    | 46                      | 44 dari 03_REKOMENDASI + 2 tambahan bertanda **[+]** (`room:kicked`, `room:rematch`). Di luar itu ada `ping:test` (C→S) yang hanya didaftarkan saat `NODE_ENV=test`; lihat Keputusan Terbuka #11 |
 | Server lokal | `http://localhost:3002` | REST dan Socket.IO di port yang sama                                                 |
 | Web lokal    | `http://localhost:3000` | Next.js                                                                              |
 
@@ -100,6 +108,7 @@ Koordinat axial `{ q, r }`, heksa flat-top, pusat papan `{ q: 0, r: 0 }`. Papan 
 | Isi heksa tertutup                                   | Tidak pernah dikirim                                                         |
 | 3 heksa menyala + detail Rencana + risiko            | Hanya pemain aktif (`turn:options`)                                          |
 | Heksa terbuka (Rencana), posisi pion, Skor Sementara | Semua (`tile:opened`, `game:patch`)                                          |
+| Id target yang punya Ajakan belum dijawab            | Semua (`inviteBusyPlayerIds`, op `inviteBusy`); tanpa motif, isi, atau pengirim |
 | Hasil Realita                                        | Semua, di Fase Pembalikan (`tile:resolved`)                                  |
 | Kekayaan, Hutang, Kesehatan, Level Stress            | Hanya pemiliknya (`player:status`)                                           |
 | Motif Ajakan                                         | Pengirim (`invite:card`), lalu target di Fase Pembalikan (`invite:resolved`) |
@@ -258,6 +267,8 @@ type PublicGameState = {
   turnOrder: string[];
   activePlayerId: string | null;
   turnDeadline: number | null;
+  revealEndsAt: number | null; // v0.5: epoch ms animasi Fase Pembalikan selesai; angka hanya saat phase "reveal"
+  inviteBusyPlayerIds: string[]; // v0.5: id target dengan Ajakan belum dijawab (K3)
   pawns: { playerId: string; hex: HexCoord }[];
   openedHexes: OpenedHex[];
   gold: GoldTile | null;
@@ -451,6 +462,7 @@ Ack<{ snapshot: Snapshot }>;
 ```
 
 Error: `ROOM_NOT_FOUND`, `NOT_IN_ROOM`.
+Catatan: `me.inviteResults` berisi payload `invite:resolved` milik pemain ini dari Fase Pembalikan terakhir, supaya hasil yang terlewat saat putus tetap terbaca; isinya dikosongkan saat ronde berikutnya dimulai dan divalidasi dengan skema `invite:resolved`. `game.revealEndsAt` memberi tahu kapan animasi Fase Pembalikan selesai.
 Catatan: server juga mengirim ulang popup yang masih berjalan (popup Ganti Bulan, Event Tanggal, Ajakan masuk, `turn:options`) beserta `deadline`-nya di dalam snapshot, supaya pemain bisa melanjutkan (GDD 9.4 v1.12).
 
 ### `session:snapshot` · S→C (P)
@@ -471,6 +483,7 @@ type Snapshot = {
     inviteCard: InviteCard | null;
     pendingTurn: TurnOptionsPayload | DeadEndPayload | null;
     pendingMonth: MonthSummaryPayload | null; // v1.12: popup Ganti Bulan yang masih terbuka
+    inviteResults: InviteResolvedPayload[]; // v0.5 (K4): hasil Ajakan pemain ini dari Fase Pembalikan terakhir; kosong saat ronde berikutnya dimulai
     pendingCalendar: CalendarEventPayload | null;
     pendingInvite: InviteIncomingPayload | null;
     reflection: Reflection | null; // v1.12
@@ -798,11 +811,12 @@ Catatan:
     | { type: "rankOneBurden"; playerIds: string[] }
     | { type: "calendar"; calendar: CalendarInfo }
     | { type: "phase"; phase: PublicGameState["phase"] }
+    | { type: "inviteBusy"; playerIds: string[] } // v0.5: daftar lengkap target sibuk saat ini
   >;
 }
 ```
 
-Op `phase` sudah ada di tipe, tetapi **server belum mengirimnya**. Klien mengambil fase dari `PublicGameState.phase` (snapshot) dan dari urutan event (`turn:start`, `round:reveal`, `game:finished`). Lihat Keputusan Terbuka #12.
+Server mengirim op `phase` setiap kali `public.phase` berubah (Keputusan Terbuka #12). Op `inviteBusy` dikirim setiap kali daftar target Ajakan sibuk berubah (Ajakan dikirim, dijawab, habis waktu, atau Fase Pembalikan menutupnya) dan selalu berisi daftar lengkap, bukan selisih. Isinya hanya id target: motif, isi Ajakan, dan pengirim tidak pernah ikut.
 
 Aturan pembagian: perubahan yang punya event sendiri (heksa terbuka, Petak Emas, eliminasi) tetap memakai event itu agar klien mudah menjalankan animasi. `game:patch` hanya untuk perubahan yang tidak punya event khusus. Semua event S→R tetap berbagi satu urutan `version`.
 
@@ -1075,6 +1089,7 @@ Efek Rencana langsung berlaku (GDD 4.2 v1.12). Setelah ini server mengirim `play
   round: number;
   step: number;
   order: Array<{ playerId: string; hex: HexCoord }>; // urutan giliran ronde ini
+  revealEndsAt: number; // v0.5: waktu server saat kirim + REVEAL_STEP_MS × order.length
 }
 ```
 
@@ -1446,7 +1461,7 @@ Status mengikuti GDD v1.13. Butir yang sudah diputuskan berlaku sebagai kontrak.
 | 8   | Motif Ajakan dibuka untuk siapa di Fase Pembalikan?                    | Asumsi (GDD 4.8 v1.12): hanya pengirim dan target                                                                                                                                              |
 | 9   | Tampilan skor                                                          | Asumsi (GDD 6.2 v1.12): disimpan desimal, ditampilkan bilangan bulat                                                                                                                           |
 | 10  | Provider dan model LLM untuk Refleksi AI                               | Belum dipilih. Lihat 03_REKOMENDASI Bagian 1                                                                                                                                                   |
-| 11  | `ping:test` di server produksi                                         | Event C→S yang hanya dipakai tes server (koneksi, batas laju). Usulan: hanya didaftarkan saat `NODE_ENV=test`                                                                                  |
-| 12  | Op `phase` di `game:patch`                                             | Ada di tipe, belum dikirim server. Putuskan: server mengirimnya di setiap perubahan fase, atau op ini dihapus dari kontrak                                                                     |
+| 11  | `ping:test` di server produksi                                         | **Diputuskan (v0.5).** Event C→S yang hanya dipakai tes server (koneksi, batas laju); hanya didaftarkan saat `NODE_ENV=test`                                                                   |
+| 12  | Op `phase` di `game:patch`                                             | **Diputuskan (v0.5).** Server mengirimnya setiap `public.phase` berubah                                                                                                                        |
 | 13  | Snapshot divalidasi seperti event                                      | **Diputuskan (G6).** Setiap field popup dan refleksi di `session:snapshot` divalidasi dengan skema event aslinya; yang gagal dikirim `null` dan dicatat di log server tanpa isi payload       |
 | 14  | Config Refleksi                                                        | **Diputuskan (G6).** `REFLECTION_PROVIDER` (`none` default, `fake` hanya di luar production) dan `REFLECTION_TIMEOUT_MS` (default 15000). Maksimal 1 refleksi per pemain per game, 4 panggilan provider bersamaan |

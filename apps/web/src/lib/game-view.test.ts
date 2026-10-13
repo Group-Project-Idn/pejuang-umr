@@ -52,6 +52,8 @@ function snapshot(version: number): Snapshot {
       turnOrder: [],
       activePlayerId: null,
       turnDeadline: null,
+      revealEndsAt: null,
+      inviteBusyPlayerIds: [],
       pawns: [],
       openedHexes: [],
       gold: null,
@@ -68,6 +70,7 @@ function snapshot(version: number): Snapshot {
       pendingCalendar: null,
       pendingInvite: null,
       pendingMonth: null,
+      inviteResults: [],
       reflection: null,
     },
     result: null,
@@ -127,6 +130,29 @@ describe("acceptSnapshot", () => {
     expect(patched?.scores[0]?.provisionalScore).toBe(12);
     expect(patched?.rankOneBurden).toEqual(["p1"]);
     expect(applyGamePatch(patched, { version: 3, ops: [] })).toBe(patched);
+  });
+
+  it("op inviteBusy mengganti daftar target sibuk", () => {
+    const game = snapshot(3).game!;
+    const patched = applyGamePatch(game, {
+      version: 4,
+      ops: [{ type: "inviteBusy", playerIds: ["p2"] }],
+    });
+    expect(patched?.inviteBusyPlayerIds).toEqual(["p2"]);
+    const cleared = applyGamePatch(patched, {
+      version: 5,
+      ops: [{ type: "inviteBusy", playerIds: [] }],
+    });
+    expect(cleared?.inviteBusyPlayerIds).toEqual([]);
+  });
+
+  it("op phase mengganti fase dan membuang revealEndsAt di luar reveal", () => {
+    const game = { ...snapshot(3).game!, phase: "reveal" as const, revealEndsAt: 12_000 };
+    const toTurn = applyGamePatch(game, { version: 4, ops: [{ type: "phase", phase: "turn" }] });
+    expect(toTurn).toMatchObject({ phase: "turn", revealEndsAt: null });
+    const toReveal = applyGamePatch(game, { version: 4, ops: [{ type: "phase", phase: "reveal" }] });
+    expect(toReveal).toMatchObject({ phase: "reveal", revealEndsAt: 12_000 });
+    expect(applyGamePatch(game, { version: 4, ops: [{ type: "phase", phase: "finished" }] })?.phase).toBe("finished");
   });
 });
 
@@ -238,11 +264,15 @@ describe("reducer event publik (B01)", () => {
     expect(chosen.openedHexes[0]?.reality).toBeNull();
     const revealed = applyPublicGameEvent(chosen, {
       type: "round:reveal",
-      payload: { version: 4, round: 1, step: 1, order: [{ playerId: "p1", hex: tileOpened.to }] },
+      payload: { version: 4, round: 1, step: 1, order: [{ playerId: "p1", hex: tileOpened.to }], revealEndsAt: 12_000 },
     })!;
-    expect(revealed).toMatchObject({ version: 4, phase: "reveal", activePlayerId: null, turnDeadline: null });
+    expect(revealed).toMatchObject({
+      version: 4, phase: "reveal", activePlayerId: null, turnDeadline: null, revealEndsAt: 12_000,
+    });
+    const nextTurn = applyTurnStart(revealed, { ...turnStart, version: 6 })!;
+    expect(nextTurn.revealEndsAt).toBeNull();
     expect(revealed.openedHexes[0]?.reality).toBeNull();
-    expect(applyRoundReveal(revealed, { version: 3, round: 1, step: 1, order: [] })).toBe(revealed);
+    expect(applyRoundReveal(revealed, { version: 3, round: 1, step: 1, order: [], revealEndsAt: 12_000 })).toBe(revealed);
 
     const after = applyTileResolved(revealed, { ...resolved, version: 5, round: 1 })!;
     expect(after.openedHexes[0]?.reality).toEqual({

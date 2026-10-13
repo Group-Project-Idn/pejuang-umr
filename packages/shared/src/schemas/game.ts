@@ -14,7 +14,11 @@ import {
   CalendarInfoSchema,
   MonthSummaryPayloadSchema,
 } from "./calendar";
-import { InviteCardSchema, InviteIncomingPayloadSchema } from "./invite";
+import {
+  InviteCardSchema,
+  InviteIncomingPayloadSchema,
+  InviteResolvedPayloadSchema,
+} from "./invite";
 import { RoomStateSchema } from "./room";
 
 export const RevealedRealitySchema = z.object({
@@ -77,6 +81,10 @@ export const PublicGameStateSchema = z.strictObject({
   turnOrder: z.array(z.string().min(1)),
   activePlayerId: z.string().min(1).nullable(),
   turnDeadline: z.number().int().nullable(),
+  /** Waktu server (epoch ms) animasi Fase Pembalikan selesai; angka hanya saat phase "reveal". */
+  revealEndsAt: z.number().int().nullable(),
+  /** Id target yang punya Ajakan belum dijawab (tanpa motif, isi, atau pengirim). */
+  inviteBusyPlayerIds: z.array(z.string().min(1)),
   pawns: z.array(z.object({ playerId: z.string().min(1), hex: HexCoordSchema })),
   openedHexes: z.array(OpenedHexSchema),
   gold: GoldTileSchema.nullable(),
@@ -212,6 +220,8 @@ export const RoundRevealPayloadSchema = z.object({
   order: z.array(
     z.object({ playerId: z.string().min(1), hex: HexCoordSchema }),
   ),
+  /** Waktu server saat kirim + REVEAL_STEP_MS x panjang order. */
+  revealEndsAt: z.number().int(),
 });
 
 export const ReflectionReadyPayloadSchema = z.object({
@@ -243,6 +253,10 @@ export const GamePatchOpSchema = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("calendar"), calendar: CalendarInfoSchema }),
   z.object({ type: z.literal("phase"), phase: PublicGamePhaseSchema }),
+  z.object({
+    type: z.literal("inviteBusy"),
+    playerIds: z.array(z.string().min(1)),
+  }),
 ]);
 
 export const GamePatchPayloadSchema = z.object({
@@ -286,6 +300,7 @@ export const SnapshotSchema = z.object({
     pendingCalendar: CalendarEventPayloadSchema.nullable(),
     pendingInvite: InviteIncomingPayloadSchema.nullable(),
     pendingMonth: MonthSummaryPayloadSchema.nullable(),
+    inviteResults: z.array(InviteResolvedPayloadSchema),
     reflection: ReflectionSchema.nullable(),
   }),
   result: GameFinishedPayloadSchema.nullable(),

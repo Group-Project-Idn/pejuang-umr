@@ -197,6 +197,7 @@ function clearPrivatePending(
         pendingCalendar: null,
         pendingMonth: null,
         pendingInvite: null,
+        inviteResults: [],
       }
     : null;
 }
@@ -259,12 +260,18 @@ export function applySessionGamePatch(
   current: RoomSessionView,
   patch: GamePatch,
 ): SessionTransition {
+  // Ronde berikutnya dimulai (op calendar): hasil Ajakan Fase Pembalikan lalu dikosongkan.
+  const newRound = patch.ops.some((op) => op.type === "calendar");
   return versionTransition(current, patch.version, (state) => ({
     ...state,
     gameView: {
       ...state.gameView,
       game: applyGamePatch(state.gameView.game, patch),
     },
+    me:
+      newRound && state.me && state.me.inviteResults.length > 0
+        ? { ...state.me, inviteResults: [] }
+        : state.me,
   }));
 }
 

@@ -28,6 +28,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check merge markers
+        run: |
+          if grep -rnE '^(<<<<<<<|=======|>>>>>>>)' docs packages apps --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=dist; then
+            echo "Penanda konflik merge ditemukan." >&2
+            exit 1
+          fi
+
       - name: Typecheck
         run: npm run typecheck
 
