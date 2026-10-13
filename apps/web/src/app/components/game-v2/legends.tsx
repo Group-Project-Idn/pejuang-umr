@@ -3,18 +3,26 @@ import { TILE_DETAILS } from "@/data/game";
 import CategoryIcon from "../game/CategoryIcon";
 import Chip from "../ui/Chip";
 
-const RISK_TEXT: Record<Risk, string> = {
-  low: "Rendah ▁",
-  medium: "Sedang ▁▃",
-  high: "Tinggi ▁▃▅",
+const RISK_LABEL: Record<Risk, string> = {
+  low: "Risiko Rendah",
+  medium: "Risiko Sedang",
+  high: "Risiko Tinggi",
 };
+const RISK_BARS: Record<Risk, number> = { low: 1, medium: 2, high: 3 };
 
+/** Meter risiko 3 batang (1/2/3 terisi) + segitiga peringatan untuk Sedang/Tinggi: bentuk, bukan hanya warna. */
 export function RiskIndicator({ risk }: { risk: Risk }) {
+  const filled = RISK_BARS[risk];
   return (
-    <Chip aria-label={`Risiko ${RISK_TEXT[risk]}`}>
-      <span aria-hidden="true">◔</span>
-      <span>{RISK_TEXT[risk]}</span>
-    </Chip>
+    <div className={`risk-meter risk-meter-${risk}`} role="img" aria-label={RISK_LABEL[risk]}>
+      <span className="risk-bars" aria-hidden="true">
+        {[1, 2, 3].map((n) => (
+          <i key={n} className={n <= filled ? "on" : ""} style={{ height: 8 + n * 5 }} />
+        ))}
+      </span>
+      <strong>{RISK_LABEL[risk]}</strong>
+      {risk !== "low" ? <span className="risk-warn" aria-hidden="true">⚠</span> : null}
+    </div>
   );
 }
 

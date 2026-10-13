@@ -25,6 +25,7 @@ export type HexDetailView = {
   source: "lit" | "opened";
   title: string;
   category: Category;
+  icon: string;
   isGold: boolean;
   plan: Effect[];
   risk: Risk | null;
@@ -52,6 +53,8 @@ export function buildLitDetail(option: TileOption): HexDetailView {
     hex: option.hex,
     source: "lit",
     title: option.title,
+    category: option.category,
+    icon: TILE_DETAILS[option.category].icon,
     category: option.isGold ? "gold" : option.category,
     isGold: option.isGold,
     plan: option.plan,
@@ -74,6 +77,7 @@ export function buildOpenedDetail(opened: OpenedHex): HexDetailView {
     source: "opened",
     title: opened.title,
     category: opened.category,
+    icon: TILE_DETAILS[opened.category].icon,
     isGold,
     plan: opened.plan,
     risk: null,

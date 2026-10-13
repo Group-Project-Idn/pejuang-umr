@@ -2,6 +2,7 @@ import type { OpenedHex, TileOption } from "@pejuang/shared";
 import { describe, expect, it } from "vitest";
 import {
   HEX_PANEL_CLASS,
+  HEX_PANEL_MOBILE_MAX_HEIGHT,
   HEX_PANEL_WRAPPER_CLASS,
   isDragGesture,
   litInstanceToKey,
@@ -60,6 +61,14 @@ describe("panel detail non-modal", () => {
     expect(HEX_PANEL_WRAPPER_CLASS).toContain("pointer-events-none");
     expect(HEX_PANEL_WRAPPER_CLASS).not.toMatch(/bg-black|inset-0/);
     expect(HEX_PANEL_CLASS).toContain("pointer-events-auto");
+  });
+  it("desktop menempel di game-shell (kanan), HP lembar bawah maks 70vh", () => {
+    expect(HEX_PANEL_WRAPPER_CLASS).toContain("md:absolute");
+    expect(HEX_PANEL_WRAPPER_CLASS).toContain("md:right-5");
+    expect(HEX_PANEL_WRAPPER_CLASS).toContain("bottom-0");
+    expect(HEX_PANEL_CLASS).toContain("paper-panel");
+    expect(HEX_PANEL_CLASS).toContain(`max-h-[${HEX_PANEL_MOBILE_MAX_HEIGHT}]`);
+    expect(HEX_PANEL_CLASS).toContain("md:max-h-full");
   });
 });
 
