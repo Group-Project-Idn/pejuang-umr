@@ -521,6 +521,10 @@ export function LobbyClient({ code }: { code: string }) {
       <ResultScreen
         result={sessionView.result}
         reflection={sessionView.me?.reflection}
+        selfId={sessionView.me?.playerId ?? playerId}
+        status={sessionView.me?.status ?? null}
+        reasons={game?.eliminationReasons ?? []}
+        calendar={game?.calendar ?? null}
         isHost={canRematch(room, sessionView.me?.playerId ?? playerId)}
         busy={busy || !socket}
         message={message}
