@@ -15,6 +15,8 @@ colors:
   tertiary-container: "#F4B7AE"
   tertiary-soft: "#FAE2DC"
   tertiary-dark: "#7C2A19"
+  progress-stress-pink: "#D6527F"
+  progress-bahaya: "#D9381E"
   on-tertiary-container: "#390803"
   neutral: "#243040"
   surface: "#0A1422"
@@ -150,7 +152,10 @@ components:
     backgroundColor: "{colors.secondary-container}"
     rounded: "{rounded.full}"
   progress-stress:
-    backgroundColor: "{colors.tertiary-soft}"
+    backgroundColor: "{colors.progress-stress-pink}"
+    rounded: "{rounded.full}"
+  progress-bahaya:
+    backgroundColor: "{colors.progress-bahaya}"
     rounded: "{rounded.full}"
   badge-hutang:
     backgroundColor: "{colors.tertiary-dark}"
@@ -203,7 +208,7 @@ Token turunan (surface, container, on-surface, outline) diambil dari skala tonal
 **Aturan penggunaan:**
 
 1. **Dark mode sebagai default.** Light mode ditunda ke versi berikutnya, tapi token dipisah supaya mudah ditambah.
-2. **Warna mengikuti arti.** Satu warna selalu punya satu makna di seluruh game: kuning = uang/hadiah, hijau = sehat/untung, merah = bahaya/rugi. Tiga progress bar (kuning, hijau, pink) dipakai untuk Kekayaan, Kesehatan, dan Level Stress. **Warna indikator [v1.14]:** bar tetap memakai warna identitasnya selama aman. **Level Stress berubah merah mulai 8 ke atas** (bar penuh, disertai ikon peringatan), dan **Kesehatan merah di bawah 4** (juga dengan ikon peringatan). Merah tidak dipakai untuk bar di luar ambang itu, sehingga "merah = bahaya" tetap satu makna.
+2. **Warna mengikuti arti.** Satu warna selalu punya satu makna di seluruh game: kuning = uang/hadiah, hijau = sehat/untung, merah = bahaya/rugi. Tiga progress bar (kuning, hijau, pink) dipakai untuk Kekayaan, Kesehatan, dan Level Stress. **Warna indikator [v1.14]:** bar tetap memakai warna identitasnya selama aman. **Level Stress berubah merah mulai 8 ke atas** (bar penuh, disertai ikon peringatan), dan **Kesehatan merah di bawah 4** (juga dengan ikon peringatan). Merah tidak dipakai untuk bar di luar ambang itu, sehingga "merah = bahaya" tetap satu makna. **Token bar [v1.14]:** `progress-stress` = pink #D6527F (menggantikan #FAE2DC yang hanya 1,01:1 terhadap kertas kuning), `progress-bahaya` = merah-oranye #D9381E untuk Level Stress 8-10 dan Kesehatan 0-3 (di luar itu: pink dan hijau). Kontras terhitung: pink 3,2:1 terhadap kartu #F9E8AD dan 3,5:1 terhadap trek #FFF3BF (minimal 3:1 untuk bar); teks #3B2A12 12,3:1 terhadap trek (minimal 4,5:1). Teks HUD minimal 12px.
 3. **Hutang** tidak memakai bar. Tampilkan sebagai angka dengan badge minus dalam merah tua, supaya tidak tertukar dengan Level Stress.
 4. **Warna kategori petak** mengikuti indikator yang paling dipengaruhi: Keuangan kuning, Kesehatan hijau, Sosial salmon, Kerja biru-abu (netral), Emas kuning dengan glow.
 5. **Musim** memakai nada dari palet yang sama, tanpa warna baru: Hujan biru-abu dingin, Kemarau amber hangat, Pancaroba hijau-abu pucat.

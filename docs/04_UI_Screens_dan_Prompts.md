@@ -44,7 +44,7 @@ Home → Lobby (popup tamu pertama kali) → Room → hitung mundur → Game Boa
 - Ikon pada chip "Kondangan Teman" kosong.
 - "Kamus Petak" (legenda ikon) berguna, tetapi kategori Emas belum masuk daftar.
 - Pion adalah karakter (avatar) pilihan pemain, unik per room, dan juga tampil di Papan Skor (GDD v1.12). Pasangan warna-bentuk pion tidak dipakai lagi.
-- **Satu warna satu makna [v1.14]:** bar Kekayaan kuning, Kesehatan hijau, Level Stress pink. Merah berarti bahaya dan hanya dipakai bar saat Level Stress 8 ke atas atau Kesehatan di bawah 4, selalu dengan ikon peringatan. Gambar lama yang memakai bar Level Stress merah-oranye di semua nilai perlu dibuat ulang (lihat 02_DESIGN).
+- **Satu warna satu makna [v1.14]:** bar Kekayaan kuning, Kesehatan hijau, Level Stress pink #D6527F. Merah berarti bahaya dan hanya dipakai bar saat Level Stress 8 ke atas atau Kesehatan di bawah 4, selalu dengan ikon peringatan. Gambar lama yang memakai bar Level Stress merah-oranye di semua nilai perlu dibuat ulang (lihat 02_DESIGN).
 
 ## 4. Prompt gambar
 
@@ -77,7 +77,7 @@ RIGHT COLUMN:
 - Big green button "MULAI" (enabled).
 - Bottom row: outlined red button "Keluar", an outlined button "? Cara Main", and a small round emote (smiley) button.
 
-Style notes: palette is yellow #F5C542, green #3FB871, coral #E0614A, navy #243040, cream and light blue accents. All text in Bahasa Indonesia and spelled EXACTLY as written above. No real brand logos. No extra text or gibberish.
+Style notes: palette is yellow #F5C542, green #3FB871, coral #E0614A, pink #D6527F (Level Stress bar), navy #243040, cream and light blue accents. All text in Bahasa Indonesia and spelled EXACTLY as written above. No real brand logos. No extra text or gibberish.
 ```
 
 ### 4.2 Room, varian kondisi
@@ -120,7 +120,7 @@ LEFT SIDEBAR: a yellow paper card "KARTU STATUS PRIBADI" with a small lock icon 
 - "Kekayaan" with a coin icon and the amount "Rp8.200.000" and a yellow bar.
 - "Hutang" with a minus icon and a small dark-red badge "Rp0".
 - "Kesehatan" with a heart icon, a green bar, and "7/10".
-- "Level Stress" with a lightning icon, a pink bar, and "4/10".
+- "Level Stress" with a lightning icon, a soft pink bar (#D6527F), and "4/10".
 
 RIGHT SIDEBAR: a yellow paper card "PAPAN SKOR" with the sub-label "Skor Sementara" and four rows (small character portrait, name, score out of 100), ranked:
 1. Raka, a crown icon, "86"
@@ -132,7 +132,7 @@ Under the scoreboard, a small card "Petak Emas" with the line "Hilang dalam 3 ro
 
 BOTTOM BAR (center): a circular countdown timer ring with the number "24", the text "GILIRANMU" in bold and the helper line "Pilih satu heksa yang menyala". On the right of the bar: three round icon buttons: camera, smiley (emote), and a card button "Kartu Ajakan" with a small badge "1". No pause button.
 
-Style notes: palette is yellow #F5C542, green #3FB871, coral #E0614A, navy #243040, cream and light blue accents. Never rely on color alone: status bars always have icons. All text in Bahasa Indonesia, spelled EXACTLY as written above. No real brand logos. No extra text or gibberish.
+Style notes: palette is yellow #F5C542, green #3FB871, coral #E0614A, pink #D6527F (Level Stress bar), navy #243040, cream and light blue accents. Never rely on color alone: status bars always have icons. All text in Bahasa Indonesia, spelled EXACTLY as written above. No real brand logos. No extra text or gibberish.
 ```
 
 ### 4.5 Game Board, varian kondisi
@@ -142,7 +142,7 @@ Using the same "Game Board" screen, create these variants. Change only what is l
 
 A) Opponent's turn: no tiles glow around Michael's pawn. The bottom bar shows "GILIRAN RAKA" with its timer ring, and the helper line "Menunggu giliran..." The left sidebar still shows my private status. Raka's character pawn with the crown has a small highlighted ring, and the "Jalan" tag moves to Raka's row in the scoreboard.
 
-B) High stress state: Level Stress shows "9/10" with the bar turned red, full and shaking, plus a small warning icon (Level Stress turns red from 8 and up), a thin red pulsing vignette on the screen edges, and a small warning chip with a warning icon "Awas Doom Spending". Kesehatan shows "3/10" with its bar turned red and a small warning icon (Kesehatan turns red below 4).
+B) High stress state: Level Stress shows "9/10" with the bar turned red-orange (#D9381E), full and shaking, plus a small warning icon (Level Stress turns red from 8 and up), a thin red pulsing vignette on the screen edges, and a small warning chip with a warning icon "Awas Doom Spending". Kesehatan shows "3/10" with its bar turned red and a small warning icon (Kesehatan turns red below 4).
 
 C) Season variants (same layout): "Musim Hujan" with rain streaks and a cold blue-gray tint, the season icon is a rain cloud and the label "Musim Hujan"; "Musim Kemarau" with a warm amber tint and heat-haze shimmer, the label "Musim Kemarau".
 
@@ -174,7 +174,7 @@ BOTTOM BAR: the circular countdown timer ring "18" with "GILIRANMU" and the help
 
 Keep the left status card (Kekayaan Rp8.200.000, Hutang Rp0, Kesehatan 7/10, Level Stress 4/10) and the calendar bar "15 Mei | Langkah 10/24 | Pancaroba". The scoreboard is hidden while this panel is open.
 
-Style notes: palette is yellow #F5C542, green #3FB871, coral #E0614A, navy #243040, cream and light blue accents. Never rely on color alone. All text in Bahasa Indonesia, spelled EXACTLY as written above. No real brand logos. No extra text or gibberish.
+Style notes: palette is yellow #F5C542, green #3FB871, coral #E0614A, pink #D6527F (Level Stress bar), navy #243040, cream and light blue accents. Never rely on color alone. All text in Bahasa Indonesia, spelled EXACTLY as written above. No real brand logos. No extra text or gibberish.
 ```
 
 ### 4.8 Detail Heksa, varian
