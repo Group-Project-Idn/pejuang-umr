@@ -1,6 +1,6 @@
 "use client";
 
-import { GuestRequestSchema, RoomCodeSchema, type GuestResponse } from "@pejuang/shared";
+import { RoomCodeSchema, type GuestResponse } from "@pejuang/shared";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
@@ -11,12 +11,13 @@ import { createRequestId } from "@/lib/request-id";
 import { readRoomCode, writeRoomCode } from "@/lib/room-session";
 import { connectGameSocket, disconnectSocket } from "@/lib/socket";
 import { getResumableRoomCode } from "@/lib/lobby-resume";
+import { PROFILE_COPY, profileFormDefaults, saveProfile } from "./profile-edit";
 
 export const LOBBY_COPY = {
   title: "RUANG RAPAT",
   playerCount: "Mabar 2-4 pemain",
   identityCardTitle: "Kartu Identitas Pemain",
-  editName: "Ubah nama",
+  editName: "Edit Profile",
   roomCodePlaceholder: "Contoh: UMR-4821",
   resumeTitle: "Lanjutkan permainan",
   gameSummary: "2-4 pemain | 24 langkah | ±30 menit",
@@ -88,25 +89,27 @@ export function LobbyScreen({ initialCode = "", hideHomeButton = false }: { init
   async function submitGuest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setGuestError("");
-    const parsed = GuestRequestSchema.safeParse({ name: guestName, avatarId });
-    if (!parsed.success) {
-      setGuestError("Nama 2–20 karakter, lalu pilih avatar.");
+    setBusy("simpan");
+    const result = await saveProfile({ name: guestName, avatarId }, session, { createOrUpdateGuest, writeGuestSession });
+    setBusy("idle");
+    if (!result.ok) {
+      if (result.code === "UNAUTHORIZED") recoverGuestSession(result.code);
+      setGuestError(result.message);
       return;
     }
-    setBusy("simpan");
-    try {
-      const next = await createOrUpdateGuest(parsed.data, session?.token);
-      writeGuestSession(next);
-      setSession(next);
-      setGuestName(next.name);
-      setAvatarId(next.avatarId);
-      setGuestOpen(false);
-      setMessage(session ? "Nama berhasil diubah." : "Masuk sebagai tamu berhasil.");
-    } catch (error) {
-      setGuestError(toRoomErrorMessage(error instanceof Error ? error.message : "INTERNAL"));
-    } finally {
-      setBusy("idle");
-    }
+    setSession(result.session);
+    setGuestName(result.session.name);
+    setAvatarId(result.session.avatarId);
+    setGuestOpen(false);
+    setMessage(session ? PROFILE_COPY.savedEdit : PROFILE_COPY.savedGuest);
+  }
+
+  function openEditProfile() {
+    const defaults = profileFormDefaults(session, AVATAR_OPTIONS[0]!.id);
+    setGuestName(defaults.name);
+    setAvatarId(defaults.avatarId);
+    setGuestError("");
+    setGuestOpen(true);
   }
 
   async function createRoom() {
@@ -245,7 +248,7 @@ export function LobbyScreen({ initialCode = "", hideHomeButton = false }: { init
                       <h2 className="text-base font-extrabold">{LOBBY_COPY.identityCardTitle}</h2>
                       <p className="truncate text-lg font-bold leading-tight">{session?.name ?? "Belum masuk"}</p>
                       <p className="text-sm">Pegawai Biasa</p>
-                      <button type="button" onClick={() => setGuestOpen(true)} className="lobby-comic-btn mt-1 min-h-9 rounded-lg bg-[#7fb0f5] px-3 py-1.5 text-sm font-bold text-[#1f3f73]">{LOBBY_COPY.editName}</button>
+                      <button type="button" onClick={openEditProfile} className="lobby-comic-btn mt-1 min-h-9 rounded-lg bg-[#7fb0f5] px-3 py-1.5 text-sm font-bold text-[#1f3f73]">{LOBBY_COPY.editName}</button>
                     </div>
                   </div>
                 </div>
@@ -273,7 +276,7 @@ export function LobbyScreen({ initialCode = "", hideHomeButton = false }: { init
       {guestOpen ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" role="presentation" onClick={() => session && setGuestOpen(false)}>
           <section role="dialog" aria-modal="true" aria-labelledby="guest-title" onClick={(e) => e.stopPropagation()} className="lobby-folder grid w-full max-w-md gap-3 rounded-2xl border-2 border-[#3b2a12] p-5">
-            <h2 id="guest-title" className="text-2xl font-black">{session ? LOBBY_COPY.editName : "Masuk sebagai tamu"}</h2>
+            <h2 id="guest-title" className="text-2xl font-black">{session ? PROFILE_COPY.editTitle : PROFILE_COPY.guestTitle}</h2>
             <form onSubmit={submitGuest} className="grid gap-3">
               <label className="grid gap-1 text-sm font-bold">Nama (2-20 karakter)
                 <input value={guestName} onChange={(e) => setGuestName(e.target.value)} maxLength={20} minLength={2} autoComplete="nickname" placeholder="Nama panggilan kamu" className="min-h-12 rounded-lg border-2 border-[#3b2a12]/70 bg-[#fbf3dd] px-3 py-2 text-lg font-semibold" />
