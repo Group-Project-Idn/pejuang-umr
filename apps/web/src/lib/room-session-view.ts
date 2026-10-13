@@ -4,6 +4,7 @@ import type {
   MonthSummaryPayload,
   PrivateStatus,
   PublicGameState,
+  ReflectionReadyPayload,
   RoomState,
   Snapshot,
   TurnOptionsPayload,
@@ -85,6 +86,7 @@ export function applySessionSnapshot(
       ? {
           ...incoming.me,
           status: current.me?.status ?? incoming.me.status,
+          reflection: current.me?.reflection ?? incoming.me.reflection,
           pendingMonth: current.me?.pendingMonth ?? null,
         }
       : incoming.me,
@@ -100,7 +102,31 @@ export function applyRoomState(
   current: RoomSessionView,
   room: RoomState,
 ): RoomSessionView {
+  // Main Lagi: room kembali ke lobi, hasil dan refleksi game lama tidak boleh tersisa.
+  if (room.status === "waiting" || room.status === "countdown") {
+    return {
+      ...current,
+      room,
+      result: null,
+      me: current.me ? { ...current.me, reflection: null } : null,
+    };
+  }
   return { ...current, room };
+}
+
+/** Refleksi AI hanya disimpan untuk pemilik socket dan game yang sedang tampil. */
+export function applyReflectionReady(
+  current: RoomSessionView,
+  payload: ReflectionReadyPayload,
+): RoomSessionView {
+  if (!current.me || current.me.playerId !== payload.playerId) return current;
+  const game = current.gameView.game;
+  if (game && game.gameId !== payload.gameId) return current;
+  return {
+    ...current,
+    me: { ...current.me, reflection: payload.reflection },
+    privateRevision: current.privateRevision + 1,
+  };
 }
 
 export function applyPrivateStatus(
