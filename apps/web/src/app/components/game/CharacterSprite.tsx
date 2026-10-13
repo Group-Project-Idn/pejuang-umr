@@ -5,6 +5,7 @@ import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { HEX_TILE_RADIUS } from "@/data/game";
+import { restoreInviteCursor, showInviteCursor } from "./invite-cursor";
 
 type WorldPosition = readonly [x: number, y: number, z: number];
 
@@ -46,6 +47,8 @@ export default function CharacterSprite({
   const spriteObject = useRef<THREE.Sprite>(null);
   const shadow = useRef<THREE.Mesh>(null);
   const selectionRing = useRef<THREE.Mesh>(null);
+  const hoveredCanvas = useRef<HTMLCanvasElement | null>(null);
+  const cursorOwner = useRef({});
   const [reducedMotion, setReducedMotion] = useState(false);
   const bobTime = useRef(0);
   const [initialPosition] = useState<WorldPosition>(() => [...position]);
@@ -56,6 +59,14 @@ export default function CharacterSprite({
   const image = texture.image as { width: number; height: number };
   const aspectRatio = image.width / image.height;
   const characterWidth = CHARACTER_HEIGHT * aspectRatio;
+  const selectable = Boolean(onSelect);
+
+  useEffect(() => () => {
+    if (hoveredCanvas.current) {
+      restoreInviteCursor(hoveredCanvas.current, cursorOwner.current);
+      hoveredCanvas.current = null;
+    }
+  }, [selectable]);
 
   useEffect(() => {
     const query = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -144,10 +155,15 @@ export default function CharacterSprite({
       } : undefined}
       onPointerOver={onSelect ? (event) => {
         event.stopPropagation();
-        (event.nativeEvent.target as HTMLCanvasElement).style.cursor = "pointer";
+        const canvas = event.nativeEvent.target as HTMLCanvasElement;
+        hoveredCanvas.current = canvas;
+        showInviteCursor(canvas, cursorOwner.current);
       } : undefined}
-      onPointerOut={onSelect ? (event) => {
-        (event.nativeEvent.target as HTMLCanvasElement).style.cursor = "";
+      onPointerOut={onSelect ? () => {
+        if (hoveredCanvas.current) {
+          restoreInviteCursor(hoveredCanvas.current, cursorOwner.current);
+          hoveredCanvas.current = null;
+        }
       } : undefined}
     >
       <mesh

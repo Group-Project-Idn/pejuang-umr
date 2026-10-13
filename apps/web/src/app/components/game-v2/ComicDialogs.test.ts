@@ -1,7 +1,7 @@
 import type { CalendarEventPayload, InviteCard } from "@pejuang/shared";
-import { createElement } from "react";
+import { createElement, isValidElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import CalendarEventView from "./CalendarEventView";
 import { InviteCardSheet, InviteConfirmSheet, InviteIncomingView, InvitePickBanner, InviteResultsView } from "./invites";
 
@@ -10,6 +10,15 @@ const card: InviteCard = {
 };
 
 describe("dialog event dan ajakan bergaya komik", () => {
+  it("tombol Batal menjalankan callback keluar dari mode pilih", () => {
+    const onCancel = vi.fn();
+    const banner = InvitePickBanner({ onCancel });
+    const button = (banner.props as { children: ReactNode[] }).children.find(
+      (child) => isValidElement(child) && child.type === "button",
+    ) as ReactElement<{ onClick: () => void }>;
+    button.props.onClick();
+    expect(onCancel).toHaveBeenCalledOnce();
+  });
   it("memberi petunjuk dua cara memilih target dan tombol batal", () => {
     const markup = renderToStaticMarkup(createElement(InvitePickBanner, { onCancel: () => undefined }));
     expect(markup).toContain("Pilih pemain yang ingin diajak: klik karakternya di papan atau namanya di Papan Skor");

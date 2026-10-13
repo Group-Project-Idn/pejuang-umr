@@ -1,6 +1,7 @@
 import type { PublicGameState, RoomState } from "@pejuang/shared";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { Children, isValidElement, type ReactElement, type ReactNode } from "react";
+import { describe, expect, it, vi } from "vitest";
 import Scoreboard from "./Scoreboard";
 
 const game = {
@@ -17,7 +18,24 @@ const room = { players: [
   { playerId: "p3", name: "Budi", avatarId: "michael" },
 ] } as unknown as RoomState;
 
+function findElements(node: ReactNode, type: string): ReactElement[] {
+  if (!isValidElement<{ children?: ReactNode }>(node)) return [];
+  return [
+    ...(node.type === type ? [node] : []),
+    ...Children.toArray(node.props.children).flatMap((child) => findElements(child, type)),
+  ];
+}
+
 describe("Papan Skor saat memilih target Ajakan", () => {
+  it("klik pada seluruh baris target mengirim ID tepat; baris nonaktif tidak punya handler", () => {
+    const onSelect = vi.fn();
+    const tree = Scoreboard({ game, room, playerId: "p1", pickTarget: { disabledIds: ["p1", "p3"], onSelect } });
+    const buttons = findElements(tree, "button");
+    expect(buttons).toHaveLength(1);
+    (buttons[0].props as { onClick: () => void }).onClick();
+    expect(onSelect).toHaveBeenCalledExactlyOnceWith("p2");
+  });
+
   it("membuat hanya baris target yang boleh dipilih sebagai tombol penuh", () => {
     const markup = renderToStaticMarkup(<Scoreboard game={game} room={room} playerId="p1"
       pickTarget={{ disabledIds: ["p1", "p3"], onSelect: () => undefined }} />);
