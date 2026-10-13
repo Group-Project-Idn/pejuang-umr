@@ -16,6 +16,7 @@ import {
   getDisabledInvitePawnIds,
   getInvitePopup,
   getPlayerName,
+  getSelectableInviteTargetIds,
   INVITE_FLOW_CANCELLED_NOTICE,
   isInviteExpired,
   resolveInviteFlow,
@@ -201,6 +202,7 @@ export default function GameInterface({
     ? {
         disabledIds: getDisabledInvitePawnIds(game, me.playerId),
         onSelect: (targetPlayerId: string) =>
+          getSelectableInviteTargetIds(game, room, me.playerId).includes(targetPlayerId) &&
           setInviteFlow({ step: "confirm", turnId: activeFlow.turnId, cardId: activeFlow.cardId, targetPlayerId }),
       }
     : null;
@@ -256,6 +258,7 @@ export default function GameInterface({
         <div className="game-layout">
           <StatusPanel status={me?.status ?? null} />
           <section className="board-stage">
+            {activeFlow?.step === "pick" ? <InvitePickBanner onCancel={() => setInviteFlow(null)} /> : null}
             {game.phase === "reveal" && !revealPopupOpen ? (
               <button
                 type="button"
@@ -304,7 +307,7 @@ export default function GameInterface({
             ) : null}
             {eventMessage ? <div className="event-toast" role="status">{eventMessage}</div> : null}
           </section>
-          <Scoreboard game={game} room={room} playerId={me?.playerId ?? ""} />
+          <Scoreboard game={game} room={room} playerId={me?.playerId ?? ""} pickTarget={inviteTargeting} />
         </div>
         <footer className="bottom-hud">
           <div className="turn-display">
@@ -343,7 +346,6 @@ export default function GameInterface({
         }}
         onClose={() => setSelectedHexKey(null)}
       />
-      {activeFlow?.step === "pick" ? <InvitePickBanner onCancel={() => setInviteFlow(null)} /> : null}
       {flowCancelled ? (
         <p className="game-action-message" role="status">
           {INVITE_FLOW_CANCELLED_NOTICE}{" "}

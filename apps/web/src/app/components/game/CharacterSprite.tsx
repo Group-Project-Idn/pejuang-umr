@@ -5,6 +5,7 @@ import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { HEX_TILE_RADIUS } from "@/data/game";
+import { restoreInviteCursor, showInviteCursor } from "./invite-cursor";
 
 type WorldPosition = readonly [x: number, y: number, z: number];
 
@@ -45,6 +46,10 @@ export default function CharacterSprite({
   const group = useRef<THREE.Group>(null);
   const spriteObject = useRef<THREE.Sprite>(null);
   const shadow = useRef<THREE.Mesh>(null);
+  const selectionRing = useRef<THREE.Mesh>(null);
+  const hoveredCanvas = useRef<HTMLCanvasElement | null>(null);
+  const cursorOwner = useRef({});
+  const [reducedMotion, setReducedMotion] = useState(false);
   const bobTime = useRef(0);
   const [initialPosition] = useState<WorldPosition>(() => [...position]);
   const target = useMemo(
@@ -54,6 +59,22 @@ export default function CharacterSprite({
   const image = texture.image as { width: number; height: number };
   const aspectRatio = image.width / image.height;
   const characterWidth = CHARACTER_HEIGHT * aspectRatio;
+  const selectable = Boolean(onSelect);
+
+  useEffect(() => () => {
+    if (hoveredCanvas.current) {
+      restoreInviteCursor(hoveredCanvas.current, cursorOwner.current);
+      hoveredCanvas.current = null;
+    }
+  }, [selectable]);
+
+  useEffect(() => {
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReducedMotion(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
 
   useEffect(
     () => () => {
@@ -62,7 +83,7 @@ export default function CharacterSprite({
     [characterTexture],
   );
 
-  useFrame((_, delta) => {
+  useFrame(({ clock }, delta) => {
     const character = group.current;
     const characterImage = spriteObject.current;
     const characterShadow = shadow.current;
@@ -117,6 +138,11 @@ export default function CharacterSprite({
       12,
       delta,
     );
+    const ring = selectionRing.current;
+    if (ring) {
+      const pulse = !reducedMotion ? 1 + 0.07 * Math.sin(clock.elapsedTime * 2.5) : 1;
+      ring.scale.set(pulse, pulse, 1);
+    }
   });
 
   return (
@@ -127,9 +153,22 @@ export default function CharacterSprite({
         event.stopPropagation();
         onSelect();
       } : undefined}
+      onPointerOver={onSelect ? (event) => {
+        event.stopPropagation();
+        const canvas = event.nativeEvent.target as HTMLCanvasElement;
+        hoveredCanvas.current = canvas;
+        showInviteCursor(canvas, cursorOwner.current);
+      } : undefined}
+      onPointerOut={onSelect ? () => {
+        if (hoveredCanvas.current) {
+          restoreInviteCursor(hoveredCanvas.current, cursorOwner.current);
+          hoveredCanvas.current = null;
+        }
+      } : undefined}
     >
       <mesh
         ref={shadow}
+        raycast={noRaycast}
         position={[0, 0.008, 0]}
         rotation={[-Math.PI / 2, 0, 0]}
         renderOrder={1}
@@ -144,6 +183,16 @@ export default function CharacterSprite({
           polygonOffsetFactor={-1}
         />
       </mesh>
+      {onSelect ? <>
+        <mesh ref={selectionRing} raycast={noRaycast} position={[0, 0.018, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[HEX_TILE_RADIUS * 0.54, HEX_TILE_RADIUS * 0.66, 40]} />
+          <meshBasicMaterial color="#ffe067" side={THREE.DoubleSide} depthWrite={false} />
+        </mesh>
+        <mesh position={[0, CHARACTER_HEIGHT / 2, 0]}>
+          <cylinderGeometry args={[HEX_TILE_RADIUS * 0.9, HEX_TILE_RADIUS * 0.9, CHARACTER_HEIGHT, 24]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        </mesh>
+      </> : null}
       <sprite
         ref={spriteObject}
         raycast={onSelect ? undefined : noRaycast}

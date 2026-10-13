@@ -417,6 +417,17 @@ button { font: inherit; }
 @media (max-width:760px) { .turn-options { bottom: 36px; width: calc(100% - 16px); }.turn-options > div { grid-template-columns: 1fr; }.turn-options button { min-height: 44px; grid-template-columns: 1fr auto; }.game-action-message { position: fixed; } }
 .board-unsupported { margin: auto; padding: 24px; max-width: 360px; text-align: center; color: #f8e5b8; font-size: 14px; }
 .eliminated-score { opacity: .55; }
+.scoreboard li.invite-score-disabled { opacity: .45; }
+.scoreboard li.invite-score-selectable { display: block; padding: 0; border: 2px dashed #b97612; animation: invite-score-pulse 2.4s ease-in-out infinite; }
+.scoreboard .invite-score-button { display: grid; grid-template-columns: 20px 28px minmax(0,1fr) auto; align-items: center; gap: 2px; width: 100%; min-height: 48px; padding: 4px 5px; border: 0; border-radius: 6px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.scoreboard .score-info { min-width: 0; display: grid; }
+.invite-score-chip { padding: 3px 5px; border-radius: 4px; background: #ffe067; font-size: 9px; font-weight: 900; }
+.invite-score-button:hover, .invite-score-button:focus-visible { background: #fff2b6; outline: 3px solid #7c5715; outline-offset: 2px; }
+@keyframes invite-score-pulse { 50% { border-color: #ffe067; box-shadow: 0 0 10px #ffd84d; } }
+@media (prefers-reduced-motion: reduce) { .scoreboard li.invite-score-selectable { animation: none; } }
+.invite-pick-banner { position: absolute; top: 8px; left: 50%; z-index: 8; transform: translateX(-50%); width: min(92%, 560px); display: flex; align-items: center; gap: 12px; padding: 10px 14px; font-size: 12px; font-weight: 800; }
+.invite-pick-banner .comic-btn-secondary { flex: none; min-height: 44px; padding: 5px 10px; cursor: pointer; }
+@media (max-width: 760px) { .invite-pick-banner { flex-wrap: wrap; justify-content: center; text-align: center; } }
 .board-canvas-empty { display: grid; place-items: center; background: #2a2024; }
 .season-hint { grid-column: 1 / -1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 4px; padding-top: 4px; font-size: 10px; line-height: 1.25; text-wrap: balance; overflow-wrap: anywhere; border-top: 1px dashed #b8a98e; }
 .gold-notice { position: absolute; top: 8px; left: 50%; z-index: 9; transform: translateX(-50%); padding: 8px 14px; border: 2px solid #7c5715; border-radius: 999px; background: #ffe067; color: #59400f; font-size: 12px; font-weight: 900; box-shadow: 0 0 18px #ffd84d; }

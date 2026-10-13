@@ -125,6 +125,18 @@ export function getDisabledInvitePawnIds(
     .filter((playerId) => !isInviteTargetSelectable(game, myPlayerId, playerId));
 }
 
+/** Target Ajakan yang ada di room sekaligus di papan, mengikuti aturan seleksi yang sama. */
+export function getSelectableInviteTargetIds(
+  game: Pick<PublicGameState, "pawns" | "eliminated" | "inviteBusyPlayerIds">,
+  room: Pick<RoomState, "players">,
+  myPlayerId: string,
+): string[] {
+  const pawnIds = new Set(game.pawns.map((pawn) => pawn.playerId));
+  return room.players
+    .map((player) => player.playerId)
+    .filter((playerId) => pawnIds.has(playerId) && isInviteTargetSelectable(game, myPlayerId, playerId));
+}
+
 export function buildInviteConfirmText(targetName: string, plan: InvitePlan): string {
   return `Ajak ${targetName} untuk ${PLAN_LABEL[plan]}?`;
 }
