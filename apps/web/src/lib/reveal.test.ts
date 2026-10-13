@@ -6,6 +6,7 @@ import {
   getRevealOrder,
   getRevealProgress,
   maskUnrevealed,
+  REVEAL_FLIP_MS,
 } from "./reveal";
 
 const order = [
@@ -65,6 +66,24 @@ describe("jadwal animasi Fase Pembalikan", () => {
     expect(progress.done).toBe(false);
   });
 
+  it("satu milidetik sebelum fase berakhir semua heksa sudah terbuka, termasuk yang terakhir", () => {
+    const schedule = buildRevealSchedule(order, ENDS, REVEAL_STEP_MS);
+    const flippedAt = schedule.steps[2].startsAt + REVEAL_FLIP_MS;
+    expect(flippedAt).toBeLessThan(ENDS);
+    const progress = getRevealProgress(schedule, ENDS - 1);
+    expect(progress.done).toBe(false);
+    expect(progress.activeKey).toBeNull();
+    expect([...progress.flippedKeys]).toEqual(schedule.steps.map((step) => step.key));
+  });
+
+  it("100 ms setelah jendela mulai, heksa pertama aktif dan belum terbuka", () => {
+    const schedule = buildRevealSchedule(order, ENDS, REVEAL_STEP_MS);
+    const progress = getRevealProgress(schedule, START + 100);
+    expect(progress.flippedKeys.size).toBe(0);
+    expect(progress.activeKey).toBe(schedule.steps[0].key);
+    expect(progress.done).toBe(false);
+  });
+
   it("revealEndsAt sudah lewat langsung ke keadaan akhir", () => {
     const schedule = buildRevealSchedule(order, ENDS, REVEAL_STEP_MS);
     const progress = getRevealProgress(schedule, ENDS + 1);
@@ -98,6 +117,26 @@ describe("jadwal animasi Fase Pembalikan", () => {
     expect(byPlayer("p3").reality).toBeNull();
     expect(masked.openedHexes.find((o) => o.step === 4)?.reality).not.toBeNull();
     expect(maskUnrevealed(game, schedule, getRevealProgress(schedule, ENDS))).toBe(game);
+  });
+
+  it("maskUnrevealed mengikuti aturan baru: heksa lewat jendela flip tampil, yang aktif disembunyikan", () => {
+    const game = makeGame();
+    const order2 = [
+      { playerId: "p1", hex: { q: 0, r: 1 } },
+      { playerId: "p2", hex: { q: 1, r: 0 } },
+    ];
+    const endsAt = 10_000;
+    const stepMs = 1_000;
+    const schedule = buildRevealSchedule(order2, endsAt, stepMs);
+    const first = schedule.steps[0];
+    // Tepat setelah jendela flip heksa pertama (400 ms): p1 tampil, p2 (menunggu) disembunyikan.
+    const progress = getRevealProgress(schedule, first.startsAt + stepMs * 0.4);
+    expect(progress.flippedKeys.has(first.key)).toBe(true);
+    const masked = maskUnrevealed(game, schedule, progress);
+    const byPlayer = (id: string) =>
+      masked.openedHexes.find((o) => o.byPlayerId === id && o.step === 5 && o.category !== "gold")!;
+    expect(byPlayer("p1").reality?.outcome).toBe("zonk");
+    expect(byPlayer("p2").reality).toBeNull();
   });
 });
 

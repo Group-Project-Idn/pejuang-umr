@@ -23,6 +23,15 @@ export const OUTCOME_LABEL = {
   lucky: "Hoki",
 } as const;
 
+export const REVEAL_FLIP_MS = 700;
+
+/**
+ * Durasi animasi balik satu heksa (ms). Heksa berstatus aktif dari `startsAt`
+ * sampai `startsAt + min(REVEAL_FLIP_MS, stepMs * 0.4)`, lalu masuk `flippedKeys`
+ * dan tetap terbuka sampai fase berakhir. Batas 0.4 × stepMs menjaga jendela
+ * aktif tidak pernah tumpang tindih dengan heksa berikutnya.
+ */
+
 /** Waktu dibagi rata: heksa ke-i mulai di endsAt - (n - i) × stepMs (stepMs dari server). */
 export function buildRevealSchedule(
   order: readonly RevealOrderItem[],
@@ -65,9 +74,12 @@ export type RevealProgress = {
 };
 
 /**
- * Posisi animasi pada waktu server `serverNow`. Heksa dihitung terbalik begitu
- * jendelanya mulai, jadi reconnect di tengah langsung ke posisi yang benar dan
- * tidak mengulang yang sudah lewat. Tanpa animasi (reduced motion), semua langsung terbuka.
+ * Posisi animasi pada waktu server `serverNow`. Heksa berstatus aktif selama
+ * jendela animasi balik, lalu dianggap terbuka (flipped) dan tetap terbuka
+ * sampai fase berakhir. Karena itu heksa terakhir masuk `flippedKeys` jauh
+ * sebelum `endsAt`, jadi sempat tampil sebelum popup Fase Pembalikan menutup.
+ * Reconnect di tengah langsung ke posisi yang benar dan tidak mengulang yang
+ * sudah lewat. Tanpa animasi (reduced motion), semua langsung terbuka.
  */
 export function getRevealProgress(
   schedule: RevealSchedule,
@@ -81,10 +93,13 @@ export function getRevealProgress(
       done: true,
     };
   }
+  // Jendela aktif dibatasi 0.4 × stepMs agar tidak tumpang tindih dengan
+  // heksa berikutnya walaupun stepMs kecil (mis. konfigurasi server rendah).
+  const flipMs = Math.min(REVEAL_FLIP_MS, schedule.stepMs * 0.4);
   const flipped = new Set<string>();
   let activeKey: string | null = null;
   for (const step of schedule.steps) {
-    if (serverNow >= step.startsAt + schedule.stepMs) flipped.add(step.key);
+    if (serverNow >= step.startsAt + flipMs) flipped.add(step.key);
     else if (serverNow >= step.startsAt) activeKey = step.key;
   }
   return { flippedKeys: flipped, activeKey, done: false };
