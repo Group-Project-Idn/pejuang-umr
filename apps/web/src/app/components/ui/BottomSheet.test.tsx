@@ -8,9 +8,9 @@ describe("dialog map komik", () => {
       <BottomSheet open title="Ganti Bulan" onClose={() => undefined}>Isi nota</BottomSheet>,
     );
     expect(markup).toContain('role="dialog" aria-modal="true" aria-label="Ganti Bulan"');
-    expect(markup).toContain("paper-panel comic-dialog-card");
-    expect(markup).toContain("hex-card-clip");
-    expect(markup).toContain("hex-card-title");
+    expect(markup).toContain("ui-folder ui-popup comic-dialog-card");
+    expect(markup).toContain("ui-clip");
+    expect(markup).toContain("ui-popup-title");
     expect(markup).toContain("Isi nota");
   });
 

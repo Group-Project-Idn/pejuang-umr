@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
+import PopupFrame from "./PopupFrame";
 
 export type BottomSheetProps = {
   open: boolean;
@@ -34,21 +35,15 @@ export default function BottomSheet({ open, title, onClose, children }: BottomSh
       role="presentation"
       onClick={onClose}
     >
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className="paper-panel comic-dialog-card"
+      <PopupFrame
+        modal
+        title={title}
+        titleRef={titleRef}
+        className="comic-dialog-card"
         onClick={(event) => event.stopPropagation()}
       >
-        <span aria-hidden="true" className="hex-card-clip" />
-        <div className="comic-dialog-scroll">
-          <h2 ref={titleRef} tabIndex={-1} className="hex-card-title focus:outline-none">
-            {title}
-          </h2>
-          <div className="comic-dialog-body">{children}</div>
-        </div>
-      </section>
+        {children}
+      </PopupFrame>
     </div>
   );
 }

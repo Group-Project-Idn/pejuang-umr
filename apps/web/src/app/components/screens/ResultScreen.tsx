@@ -53,7 +53,7 @@ function Podium({ top }: { top: Rank[] }) {
 
 function RankRow({ rank }: { rank: Rank }) {
   return (
-    <li className="rounded-md border border-garis bg-kartu p-3">
+    <li className="ui-note p-3">
       <details>
         <summary className="flex min-h-11 cursor-pointer items-center gap-3">
           <span className="w-6 text-title tabular-nums">{rank.rank}</span>
@@ -61,7 +61,7 @@ function RankRow({ rank }: { rank: Rank }) {
           <span className="grid flex-1">
             <span className="font-medium">{rank.name}</span>
             {rank.eliminated ? (
-              <span className="text-label text-bahaya-lembut">
+              <span className="text-label text-bahaya">
                 {RESULT_COPY.eliminated}
                 {rank.eliminatedAtStep ? ` · Langkah ${rank.eliminatedAtStep}` : ""}
               </span>
@@ -102,7 +102,8 @@ export default function ResultScreen({
 }) {
   const ranking = result ? [...result.ranking].sort((a, b) => a.rank - b.rank) : [];
   return (
-    <main className="mx-auto grid w-full max-w-md gap-4 bg-latar px-4 py-6 text-teks-utama">
+    <div className="lobby-desk min-h-dvh text-[#fbe6b1]">
+    <main className="mx-auto grid w-full max-w-md gap-4 px-4 py-6">
       <h1 className="text-headline">{RESULT_COPY.title}</h1>
       {result ? (
         <>
@@ -115,17 +116,18 @@ export default function ResultScreen({
         <Card><p role="status" className="text-body-sm">Menyusun hasil akhir...</p></Card>
       )}
       <ReflectionCard reflection={reflection} />
-      {message ? <p role="status" className="text-body-sm text-teks-sekunder">{message}</p> : null}
+      {message ? <p role="status" className="text-body-sm">{message}</p> : null}
       <div className="grid gap-2">
         {isHost ? (
           <Button onClick={onRematch} disabled={busy}>{RESULT_COPY.rematch}</Button>
         ) : (
-          <p role="status" className="text-center text-body-sm text-teks-sekunder">
+          <p role="status" className="text-center text-body-sm">
             {REMATCH_COPY.waitingHost}
           </p>
         )}
         <Button variant="secondary" onClick={onLeave} disabled={busy}>{RESULT_COPY.leave}</Button>
       </div>
     </main>
+    </div>
   );
 }

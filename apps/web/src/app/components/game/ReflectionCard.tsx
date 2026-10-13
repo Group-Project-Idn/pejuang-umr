@@ -27,7 +27,7 @@ export default function ReflectionCard({
           <p>{reflection.summary}</p>
           <ul className="grid gap-2">
             {reflection.insights.slice(0, 3).map((insight) => (
-              <li key={insight.title} className="rounded-md bg-kartu-tinggi p-3">
+              <li key={insight.title} className="ui-note p-3">
                 <p className="font-medium">{insight.title}</p>
                 <p className="text-teks-sekunder">{insight.body}</p>
                 {insight.reference ? (

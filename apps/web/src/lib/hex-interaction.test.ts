@@ -66,7 +66,7 @@ describe("panel detail non-modal", () => {
     expect(HEX_PANEL_WRAPPER_CLASS).toContain("md:absolute");
     expect(HEX_PANEL_WRAPPER_CLASS).toContain("md:right-5");
     expect(HEX_PANEL_WRAPPER_CLASS).toContain("bottom-0");
-    expect(HEX_PANEL_CLASS).toContain("paper-panel");
+    expect(HEX_PANEL_CLASS).toContain("hex-card");
     expect(HEX_PANEL_CLASS).toContain(`max-h-[${HEX_PANEL_MOBILE_MAX_HEIGHT}]`);
     expect(HEX_PANEL_CLASS).toContain("md:max-h-full");
   });

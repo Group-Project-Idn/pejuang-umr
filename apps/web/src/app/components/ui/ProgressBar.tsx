@@ -21,10 +21,12 @@ export type ProgressBarProps = {
   /** Ikon selalu menyertai warna (buta warna). */
   icon: string;
   max?: number;
+  /** Teks nilai di kanan label (mis. "7/10"). */
+  valueText?: string;
 };
 
 /** Bar indikator + ikon. Kekayaan relatif ke max; Kesehatan/Stres skala 0-10. */
-export default function ProgressBar({ kind, value, icon, max = 100 }: ProgressBarProps) {
+export default function ProgressBar({ kind, value, icon, max = 100, valueText }: ProgressBarProps) {
   const percent =
     kind === "kekayaan"
       ? Math.max(0, Math.min(100, (value / Math.max(1, max)) * 100))
@@ -32,9 +34,10 @@ export default function ProgressBar({ kind, value, icon, max = 100 }: ProgressBa
   const label = KIND_LABEL[kind];
   return (
     <div className="grid gap-1">
-      <p className="flex items-center gap-1 text-label text-teks-sekunder">
+      <p className="flex items-center gap-1 text-label font-bold text-teks-utama">
         <span aria-hidden="true">{icon}</span>
         <span>{label}</span>
+        {valueText ? <b className="ml-auto tabular-nums">{valueText}</b> : null}
       </p>
       <div
         role="progressbar"
@@ -42,9 +45,9 @@ export default function ProgressBar({ kind, value, icon, max = 100 }: ProgressBa
         aria-valuemin={0}
         aria-valuemax={kind === "kekayaan" ? max : 10}
         aria-valuenow={Math.round(kind === "kekayaan" ? value : Math.max(0, Math.min(10, value)))}
-        className="h-3 overflow-hidden rounded-full bg-kartu-tinggi"
+        className="ui-meter"
       >
-        <div className={`h-full rounded-full ${FILL_CLASSES[kind]}`} style={{ width: `${percent}%` }} />
+        <div className={FILL_CLASSES[kind]} style={{ width: `${percent}%` }} />
       </div>
     </div>
   );

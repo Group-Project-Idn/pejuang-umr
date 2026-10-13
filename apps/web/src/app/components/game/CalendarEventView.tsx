@@ -25,7 +25,7 @@ export default function CalendarEventView({ event, pending, onAnswer }: Calendar
             if (choice) onAnswer(event.eventId, choice.id);
           }}
         >
-          <p className="comic-stamp">EVENT TANGGAL</p>
+          <p className="ui-stamp">EVENT TANGGAL</p>
           <p className="comic-event-date">{event.dateLabel}</p>
           <fieldset className="grid gap-2">
             <legend className="text-label">Pilih jawabanmu</legend>
@@ -40,7 +40,7 @@ export default function CalendarEventView({ event, pending, onAnswer }: Calendar
               </label>
             ))}
           </fieldset>
-          <Button variant="primary" className="comic-btn-primary" type="submit" disabled={pending}>
+          <Button variant="primary" type="submit" disabled={pending}>
             {pending ? "Mengirim..." : "Kirim jawaban"}
           </Button>
         </form>

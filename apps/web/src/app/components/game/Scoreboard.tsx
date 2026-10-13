@@ -4,6 +4,7 @@ import type { PublicGameState, RoomState } from "@pejuang/shared";
 import Image from "next/image";
 import { getAvatarSrc } from "@/lib/avatars";
 import { buildScoreRows } from "@/lib/board-hud";
+import Card from "../ui/Card";
 
 export default function Scoreboard({
   game,
@@ -19,8 +20,7 @@ export default function Scoreboard({
   const rows = buildScoreRows(game.scores, game.activePlayerId);
 
   return (
-    <aside className="paper-panel scoreboard">
-      <p className="panel-kicker">Papan skor</p>
+    <Card as="aside" className="scoreboard" title="Papan skor">
       <p className="score-subtitle">Skor sementara</p>
       <ol>
         {rows.map((score) => {
@@ -68,11 +68,11 @@ export default function Scoreboard({
         Beban peringkat 1: peluang zonk +15%
       </p>
       {game.gold ? (
-        <div className="gold-note">
+        <div className="gold-note ui-note">
           <strong>{game.gold.title}</strong>
           <span>Hangus pada langkah {game.gold.expiresAtStep}</span>
         </div>
       ) : null}
-    </aside>
+    </Card>
   );
 }

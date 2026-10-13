@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import { formatEffects } from "@/lib/invites";
 import type { CalendarResultPayload, DoomTriggeredPayload } from "@pejuang/shared";
 import type { TransientNotice } from "@/lib/room-session-view";
+import Button from "../ui/Button";
 
 export const NOTICE_AUTO_DISMISS_MS = 4_000;
 export const DOOM_HEADLINE = "Checkout dulu, nyesel belakangan.";
@@ -57,12 +58,12 @@ function DoomOverlay({ id, payload, onDismiss }: {
       role="alertdialog"
       aria-label="Doom Spending"
     >
-      <section className="grid w-full max-w-md gap-3 rounded-lg border border-garis bg-kartu p-4 text-center text-teks-utama">
-        <h2 className="text-title">{headline}</h2>
+      <section className="ui-folder grid w-full max-w-md gap-3 p-4 text-center">
+        <h2 className="ui-popup-title text-center">{headline}</h2>
         {rest.map((line) => <p key={line} className="text-body-sm">{line}</p>)}
-        <button type="button" className="min-h-11 rounded-sm border border-garis bg-kartu-tinggi px-3" onClick={() => onDismiss(id)}>
+        <Button variant="outlined" onClick={() => onDismiss(id)}>
           Tutup
-        </button>
+        </Button>
       </section>
     </div>
   );
@@ -75,7 +76,7 @@ function CalendarResultToast({ id, payload, onDismiss }: {
 }) {
   useAutoDismiss(id, onDismiss);
   return (
-    <div role="status" className="rounded-lg border border-garis bg-kartu p-3 text-body-sm text-teks-utama">
+    <div role="status" className="ui-note p-3 text-body-sm">
       {getCalendarResultLines(payload).map((line) => <p key={line}>{line}</p>)}
     </div>
   );

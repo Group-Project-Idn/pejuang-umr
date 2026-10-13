@@ -12,7 +12,7 @@ describe("safe area dialog mobile", () => {
   it("menambah padding bawah pada area scroll di bawah breakpoint mobile", () => {
     const css = readFileSync(resolve("src/app/globals.css"), "utf8");
     const mobile = css.match(/@media \(max-width: 639px\) \{[^\n]+\}/)?.[0];
-    expect(mobile).toMatch(/\.comic-dialog-scroll\s*\{\s*padding-bottom:\s*calc\(20px \+ env\(safe-area-inset-bottom, 0px\)\)/);
+    expect(mobile).toMatch(/\.comic-dialog-card \.ui-popup-scroll\s*\{\s*padding-bottom:\s*calc\(20px \+ env\(safe-area-inset-bottom, 0px\)\)/);
   });
 });
 

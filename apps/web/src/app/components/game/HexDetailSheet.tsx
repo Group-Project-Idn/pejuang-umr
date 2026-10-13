@@ -4,6 +4,7 @@ import { TILE_DETAILS } from "@/data/game";
 import type { HexDetailView } from "@/lib/hex-detail";
 import { OUTCOME_LABEL } from "@/lib/reveal";
 import Button from "../ui/Button";
+import Chip from "../ui/Chip";
 import SidePanel from "../ui/SidePanel";
 import CategoryIcon from "./HexCategoryIcon";
 import { RiskIndicator } from "./legends";
@@ -74,10 +75,10 @@ export default function HexDetailSheet({ detail, pending, onChoose, onClose }: H
                 <p className="hex-hint">Klik heksa menyala lain untuk ganti pilihan</p>
               </>
             ) : null}
-            <span className="hex-category-chip">
+            <Chip className="hex-category-chip">
               <CategoryIcon category={detail.category} />
               {TILE_DETAILS[detail.category].label}
-            </span>
+            </Chip>
           </>
         ) : null
       }
@@ -124,14 +125,13 @@ export default function HexDetailSheet({ detail, pending, onChoose, onClose }: H
           {detail.canChoose ? (
             <Button
               variant="primary"
-              className="hex-choose"
               disabled={pending}
               onClick={() => onChoose(detail.hex)}
             >
               {pending ? "Mengirim..." : detail.chooseLabel}
             </Button>
           ) : null}
-          <Button variant="outlined" className="hex-close" onClick={onClose}>
+          <Button variant="outlined" onClick={onClose}>
             Tutup
           </Button>
         </>
