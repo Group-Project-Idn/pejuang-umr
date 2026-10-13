@@ -23,6 +23,13 @@ const MONTH_ABBR = [
   "Des",
 ] as const;
 
+/** GDD 3.2: petunjuk HUD untuk musim; dikirim di season:changed dan CalendarInfo. */
+export const SEASON_HINT: Record<Season, string> = {
+  rainy: "Hujan: petak Kerja lebih rawan",
+  dry: "Kemarau: petak Keuangan dan Sosial lebih rawan",
+  transition: "Pancaroba: petak Kesehatan lebih rawan",
+};
+
 function seasonOfStep(step: number): Season {
   return SEASON_BY_MONTH[monthOfStep(step) as MonthNumber];
 }
@@ -36,13 +43,15 @@ function dateLabelOfStep(step: number): string {
 export function getCalendarInfo(step: number): CalendarInfo {
   const month = monthOfStep(step);
   const next = CALENDAR_EVENTS.find((event) => event.multiplayerStep > step);
+  const season = seasonOfStep(step);
   return {
     step,
     totalSteps: TOTAL_STEPS,
     round: step,
     month,
     dateLabel: dateLabelOfStep(step),
-    season: seasonOfStep(step),
+    season,
+    seasonHint: SEASON_HINT[season],
     nextEvent: next
       ? { name: next.name, stepsLeft: next.multiplayerStep - step }
       : null,

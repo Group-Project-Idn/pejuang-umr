@@ -1,9 +1,6 @@
 import { hexKey } from "@pejuang/shared";
 import type { HexCoord, PublicGameState } from "@pejuang/shared";
 
-/** Durasi per pemain di Fase Pembalikan (API_CONTRACT 11a): revealEndsAt = kirim + ini × order.length. */
-export const REVEAL_STEP_MS = 2_500;
-
 export type RevealStep = {
   playerId: string;
   hex: HexCoord;
@@ -26,11 +23,11 @@ export const OUTCOME_LABEL = {
   lucky: "Hoki",
 } as const;
 
-/** Waktu dibagi rata: heksa ke-i mulai di endsAt - (n - i) × stepMs. */
+/** Waktu dibagi rata: heksa ke-i mulai di endsAt - (n - i) × stepMs (stepMs dari server). */
 export function buildRevealSchedule(
   order: readonly RevealOrderItem[],
   revealEndsAt: number,
-  stepMs: number = REVEAL_STEP_MS,
+  stepMs: number,
 ): RevealSchedule {
   const start = revealEndsAt - order.length * stepMs;
   return {
@@ -46,18 +43,16 @@ export function buildRevealSchedule(
 }
 
 /**
- * Urutan Fase Pembalikan dari snapshot: heksa yang dibuka di langkah ronde ini
- * (Petak Emas tidak dibalik), diurutkan menurut urutan giliran.
+ * Urutan Fase Pembalikan dari server (game.revealOrder, urutan giliran ronde ini),
+ * dipasangkan dengan heksa yang dibuka tiap pemain di langkah ini.
  */
-export function deriveRevealOrder(game: PublicGameState): RevealOrderItem[] {
-  const rank = (playerId: string) => {
-    const index = game.turnOrder.indexOf(playerId);
-    return index === -1 ? game.turnOrder.length : index;
-  };
-  return game.openedHexes
-    .filter((opened) => opened.step === game.calendar.step && opened.category !== "gold")
-    .map((opened) => ({ playerId: opened.byPlayerId, hex: opened.hex }))
-    .sort((a, b) => rank(a.playerId) - rank(b.playerId));
+export function getRevealOrder(game: PublicGameState): RevealOrderItem[] {
+  return game.revealOrder.flatMap((playerId) => {
+    const opened = game.openedHexes.find(
+      (entry) => entry.step === game.calendar.step && entry.byPlayerId === playerId,
+    );
+    return opened ? [{ playerId, hex: opened.hex }] : [];
+  });
 }
 
 export type RevealProgress = {

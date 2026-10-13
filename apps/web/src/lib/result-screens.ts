@@ -1,7 +1,7 @@
 import type {
   Ack,
+  EliminationReason,
   GameFinishedPayload,
-  PrivateStatus,
   PublicGameState,
   RoomState,
   Snapshot,
@@ -29,14 +29,13 @@ export function selectRoomScreen(input: {
   return "game";
 }
 
-export type EliminationReason = "bankrupt" | "burnout";
-
-/** Alasan diturunkan dari status privat terakhir (snapshot tidak membawa alasan). */
+/** Alasan eliminasi pemain dari state publik (eliminationReasons dari server). */
 export function getEliminationReason(
-  status: PrivateStatus | null,
+  game: PublicGameState | null,
+  playerId: string | null,
 ): EliminationReason | null {
-  if (!status) return null;
-  return status.debt > status.debtLimit ? "bankrupt" : "burnout";
+  if (!game || !playerId) return null;
+  return game.eliminationReasons.find((entry) => entry.playerId === playerId)?.reason ?? null;
 }
 
 export const ELIMINATION_REASON_LABEL: Record<EliminationReason, string> = {

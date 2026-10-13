@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   buildScoreRows,
-  getSeasonHint,
   isWebGLAvailable,
   NO_WEBGL_MESSAGE,
 } from "./board-hud";
@@ -25,14 +24,6 @@ describe("papan skor", () => {
     const rows = buildScoreRows(scores, "a");
     expect(rows.filter((r) => r.isTurn).map((r) => r.playerId)).toEqual(["a"]);
     expect(buildScoreRows(scores, null).some((r) => r.isTurn)).toBe(false);
-  });
-});
-
-describe("keterangan musim", () => {
-  it("memakai hint server, cadangan bila belum ada", () => {
-    expect(getSeasonHint("transition", "Pancaroba: petak Kesehatan lebih rawan"))
-      .toBe("Pancaroba: petak Kesehatan lebih rawan");
-    expect(getSeasonHint("transition", null)).toBe("Pancaroba: petak Kesehatan lebih rawan");
   });
 });
 

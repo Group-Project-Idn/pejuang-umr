@@ -28,7 +28,7 @@ const STATUS = { wealth: 1_000_000, debt: 0, debtLimit: 25_000_000, health: 8, s
 const REALITY = { outcome: "zonk", text: "Macet parah di jalan", effects: [EFFECT], seasonal: false };
 const CALENDAR = {
   step: 1, totalSteps: 24, round: 1, month: 1, dateLabel: "Januari · Pekan 1",
-  season: "rainy", nextEvent: null,
+  season: "rainy", seasonHint: "Hujan: petak Kerja lebih rawan", nextEvent: null,
 };
 
 describe("kontrak v0.3: skema dasar", () => {
@@ -85,11 +85,17 @@ describe("kontrak v0.3: field wajib", () => {
   it("PublicGameState.phase wajib dan dibatasi enum; boardRadius selalu 6", () => {
     const state = {
       version: 1, gameId: "g1", boardRadius: 6, calendar: CALENDAR, turnOrder: ["p1"],
-      activePlayerId: "p1", turnDeadline: null, revealEndsAt: 1_000, inviteBusyPlayerIds: [], pawns: [],
+      activePlayerId: "p1", turnDeadline: null, revealEndsAt: 1_000, revealOrder: ["p1"], revealStepMs: 2_500,
+      eliminationReasons: [{ playerId: "p2", reason: "bankrupt" }], inviteBusyPlayerIds: [], pawns: [],
       openedHexes: [], gold: null, scores: [], rankOneBurden: [],
       eliminated: [], phase: "reveal",
     };
     expect(PublicGameStateSchema.safeParse(state).success).toBe(true);
+    for (const field of ["revealOrder", "revealStepMs", "eliminationReasons"] as const) {
+      expect(PublicGameStateSchema.safeParse({ ...state, [field]: undefined }).success).toBe(false);
+    }
+    expect(PublicGameStateSchema.safeParse({ ...state, eliminationReasons: [{ playerId: "p2", reason: "quit" }] }).success).toBe(false);
+    expect(PublicGameStateSchema.safeParse({ ...state, calendar: { ...CALENDAR, seasonHint: undefined } }).success).toBe(false);
     expect(PublicGameStateSchema.safeParse({ ...state, phase: undefined }).success).toBe(false);
     expect(PublicGameStateSchema.safeParse({ ...state, phase: "lain" }).success).toBe(false);
     expect(PublicGameStateSchema.safeParse({ ...state, boardRadius: 5 }).success).toBe(false);
@@ -269,10 +275,11 @@ describe("kontrak v0.3: event baru", () => {
 
   it("round:reveal", () => {
     const ok = {
-      version: 5, round: 2, step: 2, order: [{ playerId: "p1", hex: { q: 1, r: -1 } }], revealEndsAt: 12_500,
+      version: 5, round: 2, step: 2, order: [{ playerId: "p1", hex: { q: 1, r: -1 } }], revealEndsAt: 12_500, revealStepMs: 2_500,
     };
     expect(RoundRevealPayloadSchema.safeParse(ok).success).toBe(true);
     expect(RoundRevealPayloadSchema.safeParse({ ...ok, revealEndsAt: undefined }).success).toBe(false);
+    expect(RoundRevealPayloadSchema.safeParse({ ...ok, revealStepMs: undefined }).success).toBe(false);
     expect(RoundRevealPayloadSchema.safeParse({ ...ok, order: [{ playerId: "p1" }] }).success).toBe(false);
   });
 

@@ -305,3 +305,82 @@ describe("kontrak v0.5: revealEndsAt, op phase, inviteBusy, inviteResults", () =
     expect(ctx.session.inviteResultsFor(sender)).toEqual([]);
   });
 });
+
+describe("kontrak v0.6: revealOrder, revealStepMs, eliminationReasons, seasonHint", () => {
+  function playRound(ctx: Ctx) {
+    skipCalendar(ctx);
+    while (ctx.session.state.phase === "turn") expect(move(ctx)).toEqual({ ok: true });
+  }
+
+  const patchOps = <T extends string>(ctx: Ctx, type: T) =>
+    ctx.ofType("game:patch").flatMap((event) => event.payload.ops.filter((op) => op.type === type));
+
+  it("snapshot di tengah Fase Pembalikan memuat revealOrder dan revealStepMs; kosong di luar reveal", () => {
+    const ctx = setup();
+    expect(ctx.session.publicState()).toMatchObject({ revealOrder: [], revealStepMs: REVEAL_STEP_MS });
+    playRound(ctx);
+    const reveal = ctx.ofType("round:reveal").at(-1)!.payload;
+    expect(reveal.revealStepMs).toBe(REVEAL_STEP_MS);
+    const snapshotGame = ctx.session.publicState();
+    expect(snapshotGame.phase).toBe("reveal");
+    expect(snapshotGame.revealOrder).toEqual(reveal.order.map((item) => item.playerId));
+    expect(snapshotGame.revealOrder).toEqual(snapshotGame.turnOrder.filter((id) => snapshotGame.revealOrder.includes(id)));
+    expect(snapshotGame.revealStepMs).toBe(REVEAL_STEP_MS);
+    expect(PublicGameStateSchema.safeParse(snapshotGame).success).toBe(true);
+
+    expect(patchOps(ctx, "revealOrder")).toEqual([{ type: "revealOrder", playerIds: snapshotGame.revealOrder }]);
+    ctx.clock.advance(REVEAL_STEP_MS * IDS.length);
+    expect(ctx.session.publicState().revealOrder).toEqual([]);
+    expect(patchOps(ctx, "revealOrder").at(-1)).toEqual({ type: "revealOrder", playerIds: [] });
+  });
+
+  it("alasan eliminasi bertahan di snapshot (reconnect) dan dikirim lewat game:patch", () => {
+    const ctx = setup();
+    skipCalendar(ctx);
+    const victim = IDS[1]!;
+    const player = ctx.session.state.players[victim]!;
+    ctx.session.state = {
+      ...ctx.session.state,
+      players: { ...ctx.session.state.players, [victim]: { ...player, status: { ...player.status, debt: 40_000_000 } } },
+    };
+    while (ctx.session.state.phase === "turn") expect(move(ctx)).toEqual({ ok: true });
+    const expected = [{ playerId: victim, reason: "bankrupt" }];
+    expect(ctx.ofType("player:eliminated").map((event) => event.payload)).toMatchObject([
+      { playerId: victim, reason: "bankrupt" },
+    ]);
+    expect(patchOps(ctx, "eliminationReasons")).toEqual([{ type: "eliminationReasons", reasons: expected }]);
+
+    // Ronde berikutnya mulai: snapshot baru tetap memuat alasan yang sama.
+    ctx.clock.advance(REVEAL_STEP_MS * IDS.length);
+    const game = ctx.session.publicState();
+    expect(game.eliminated).toEqual([victim]);
+    expect(game.eliminationReasons).toEqual(expected);
+    expect(PublicGameStateSchema.safeParse(game).success).toBe(true);
+    expect(patchOps(ctx, "eliminationReasons")).toHaveLength(1);
+  });
+
+  it("seasonHint ada di snapshot dan sama dengan hint season:changed", () => {
+    const ctx = setup();
+    const game = ctx.session.publicState();
+    const hint = ctx.ofType("season:changed").at(-1)!.payload.hint;
+    expect(game.calendar.seasonHint).toBe(hint);
+    expect(game.calendar.seasonHint.length).toBeGreaterThan(0);
+  });
+
+  it("state publik tidak membocorkan Realita atau motif", () => {
+    const ctx = setup();
+    const turn = (skipCalendar(ctx), pending(ctx));
+    const sender = turn.playerId;
+    const target = IDS.find((id) => id !== sender)!;
+    const ack = ctx.session.sendInvite(sender, giveCard(ctx, sender, "commission"), target, turn.turnId);
+    if (!ack.ok) throw new Error("sendInvite gagal");
+    expect(ctx.session.respondInvite(target, ack.inviteId, "join")).toEqual({ ok: true });
+    while (ctx.session.state.phase === "turn") move(ctx);
+    const json = JSON.stringify(ctx.session.publicState());
+    expect(json).not.toContain("commission");
+    expect(json).not.toContain("motive");
+    for (const realityText of ctx.session.state.pendingRealities.map((entry) => JSON.stringify(entry))) {
+      expect(json).not.toContain(realityText);
+    }
+  });
+});

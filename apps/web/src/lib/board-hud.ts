@@ -1,18 +1,5 @@
-import type { Season } from "@pejuang/shared";
-
 export const NO_WEBGL_MESSAGE =
   "Perangkatmu belum mendukung papan 3D. Coba buka di komputer atau browser lain.";
-
-/** Cadangan bila hint server belum diterima (mis. setelah snapshot); teks mengikuti kontrak. */
-const FALLBACK_SEASON_HINT: Record<Season, string> = {
-  rainy: "Musim hujan: petak Kerja lebih rawan",
-  dry: "Kemarau: petak Keuangan dan Sosial lebih rawan",
-  transition: "Pancaroba: petak Kesehatan lebih rawan",
-};
-
-export function getSeasonHint(season: Season, hint: string | null): string {
-  return hint && hint.length > 0 ? hint : FALLBACK_SEASON_HINT[season];
-}
 
 /** WebGL tersedia bila konteks bisa dibuat; error apa pun dianggap tidak tersedia. */
 export function isWebGLAvailable(

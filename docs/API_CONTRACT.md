@@ -1,6 +1,13 @@
 # API Contract - Pejuang UMR: Jakarta Survival (MVP)
 
-Versi 0.5 · Oktober 2026 · Sumber aturan: GDD v1.13 · Sumber stack: 03_REKOMENDASI
+Versi 0.6 · Oktober 2026 · Sumber aturan: GDD v1.13 · Sumber stack: 03_REKOMENDASI
+
+**Perubahan v0.6 (penutupan celah snapshot T11):** semua field baru wajib, divalidasi skema Zod, diisi server, dan ikut `game:patch` bila berubah.
+
+1. `PublicGameState.revealOrder` (id pemain menurut urutan giliran ronde ini; `[]` di luar `phase` = `"reveal"`) dan `PublicGameState.revealStepMs` (durasi pembalikan per heksa dari konfigurasi server). `round:reveal` dan `game:started` juga membawa `revealStepMs`. Web tidak lagi menurunkan urutan sendiri dan tidak memakai konstanta 2.500 ms. Op `game:patch` baru: `revealOrder`.
+2. `PublicGameState.eliminationReasons`: daftar `{ playerId, reason }` untuk pemain yang tereliminasi (alasan sudah publik lewat `player:eliminated`). Layar Eliminasi memakainya. Op `game:patch` baru: `eliminationReasons` (daftar lengkap).
+3. `CalendarInfo.seasonHint` (string): keterangan musim tetap ada setelah snapshot; op `calendar` otomatis membawanya. `season:changed` tetap membawa `hint` dengan teks yang sama.
+4. `packages/shared` mengekspor tipe `DoomTriggeredPayload`, `CalendarResultPayload`, `EliminationReason`, dan `EliminationReasonEntry`; web memakainya.
 
 **Perubahan v0.3 (GDD v1.12):** Realita dibuka di Fase Pembalikan (`round:reveal`), Bayar Hutang lewat `month:pay-debt`, `room:pawn` diganti `room:avatar`, `turn:timer` dan `spectate:enter` dihapus, `reflection:ready` ditambah, skor 0-100, motif Ajakan hanya Tulus/Komisi, papan selalu radius 6, semua nilai 1×.
 
@@ -255,6 +262,7 @@ type CalendarInfo = {
   month: number; // 1-12
   dateLabel: string; // "15 Mei"
   season: Season;
+  seasonHint: string; // v0.6: "Pancaroba: petak Kesehatan lebih rawan"; sama dengan season:changed.hint
   nextEvent: { name: string; stepsLeft: number } | null; // "Kondangan Teman - 2 langkah lagi"
 };
 
@@ -268,6 +276,9 @@ type PublicGameState = {
   activePlayerId: string | null;
   turnDeadline: number | null;
   revealEndsAt: number | null; // v0.5: epoch ms animasi Fase Pembalikan selesai; angka hanya saat phase "reveal"
+  revealOrder: string[]; // v0.6: playerId menurut urutan giliran ronde ini; [] di luar phase "reveal"
+  revealStepMs: number; // v0.6: durasi pembalikan per heksa (ms), dari konfigurasi server
+  eliminationReasons: { playerId: string; reason: "bankrupt" | "burnout" }[]; // v0.6
   inviteBusyPlayerIds: string[]; // v0.5: id target dengan Ajakan belum dijawab (K3)
   pawns: { playerId: string; hex: HexCoord }[];
   openedHexes: OpenedHex[];
@@ -753,6 +764,7 @@ Error: `NOT_HOST`, `NOT_ENOUGH_PLAYERS`, `PLAYERS_NOT_READY`.
   gameId: string;
   boardRadius: 6;                   // v1.12: selalu 127 heksa
   turnSeconds: TurnSeconds;
+  revealStepMs: number;             // v0.6: durasi pembalikan per heksa (ms)
   turnOrder: string[];
   startPositions: { playerId: string; hex: HexCoord }[];  // 4 pemain: cincin radius 2; 2-3 pemain: cincin radius 3
   calendar: CalendarInfo;
@@ -812,11 +824,15 @@ Catatan:
     | { type: "calendar"; calendar: CalendarInfo }
     | { type: "phase"; phase: PublicGameState["phase"] }
     | { type: "inviteBusy"; playerIds: string[] } // v0.5: daftar lengkap target sibuk saat ini
+    | { type: "revealOrder"; playerIds: string[] } // v0.6: urutan Fase Pembalikan; [] saat fase berakhir
+    | { type: "eliminationReasons"; reasons: { playerId: string; reason: "bankrupt" | "burnout" }[] } // v0.6: daftar lengkap
   >;
 }
 ```
 
 Server mengirim op `phase` setiap kali `public.phase` berubah (Keputusan Terbuka #12). Op `inviteBusy` dikirim setiap kali daftar target Ajakan sibuk berubah (Ajakan dikirim, dijawab, habis waktu, atau Fase Pembalikan menutupnya) dan selalu berisi daftar lengkap, bukan selisih. Isinya hanya id target: motif, isi Ajakan, dan pengirim tidak pernah ikut.
+
+Op `revealOrder` dikirim setiap kali daftar urutan berubah (terisi saat Fase Pembalikan mulai, `[]` saat berakhir). Op `eliminationReasons` dikirim setiap kali ada pemain baru tereliminasi dan berisi daftar lengkap. Op `calendar` kini membawa `seasonHint` di dalam `CalendarInfo`.
 
 Aturan pembagian: perubahan yang punya event sendiri (heksa terbuka, Petak Emas, eliminasi) tetap memakai event itu agar klien mudah menjalankan animasi. `game:patch` hanya untuk perubahan yang tidak punya event khusus. Semua event S→R tetap berbagi satu urutan `version`.
 
@@ -904,7 +920,7 @@ Error: `EVENT_CLOSED` (waktu habis), `INVALID_PAYLOAD`. Waktu habis = otomatis `
 | Aksi  | Awal ronde saat musim berganti (Mar, Jun, Sep, Des) dan saat `game:started` |
 
 ```ts
-{ version: number; season: Season; vulnerableCategories: Category[]; zonkFocus: "floodRain" | "heatPollution" | "sick"; hint: string } // hint: "Pancaroba: petak Kesehatan lebih rawan"
+{ version: number; season: Season; vulnerableCategories: Category[]; zonkFocus: "floodRain" | "heatPollution" | "sick"; hint: string } // hint: "Pancaroba: petak Kesehatan lebih rawan"; v0.6: teks sama ada di CalendarInfo.seasonHint (snapshot)
 ```
 
 Hujan: rawan `work`. Kemarau: `finance`, `social`. Pancaroba: `health` (pemain dengan Kesehatan ≥ 8 kebal, dihitung per pemain di `turn:options`).
@@ -1089,7 +1105,8 @@ Efek Rencana langsung berlaku (GDD 4.2 v1.12). Setelah ini server mengirim `play
   round: number;
   step: number;
   order: Array<{ playerId: string; hex: HexCoord }>; // urutan giliran ronde ini
-  revealEndsAt: number; // v0.5: waktu server saat kirim + REVEAL_STEP_MS × order.length
+  revealEndsAt: number; // v0.5: waktu server saat kirim + revealStepMs × order.length
+  revealStepMs: number; // v0.6: durasi pembalikan per heksa (ms), dari konfigurasi server
 }
 ```
 
@@ -1124,7 +1141,7 @@ Urutan lengkap Fase Pembalikan (GDD 4.2 v1.12):
 
 Klien boleh mempercepat animasi, tetapi urutan event tidak berubah.
 
-**Jeda dan kalender (D1):** setelah urutan di atas, server menunggu `REVEAL_STEP_MS` (2.500 ms) × panjang `order` sebelum ronde berikutnya. Selama jeda, `phase` tetap `"reveal"` dan `calendar.step` masih langkah ronde yang baru selesai. Langkah baru baru terlihat lewat `game:patch` (`calendar`) di awal ronde berikutnya.
+**Jeda dan kalender (D1):** setelah urutan di atas, server menunggu `revealStepMs` (default 2.500 ms, env `REVEAL_STEP_MS`) × panjang `order` sebelum ronde berikutnya. Selama jeda, `phase` tetap `"reveal"` dan `calendar.step` masih langkah ronde yang baru selesai. Langkah baru baru terlihat lewat `game:patch` (`calendar`) di awal ronde berikutnya.
 
 **Ajakan terbuka (D6):** jika semua pemain sudah melangkah tetapi masih ada Ajakan yang belum dijawab, Fase Pembalikan menunggu sampai Ajakan itu dijawab atau habis waktu.
 
@@ -1201,7 +1218,9 @@ Heksa kembali ke petak aslinya dan bisa menyala lagi (GDD 4.7 v1.12); **bukan He
 }
 ```
 
-Pion tetap di papan dan heksanya tetap terisi. Pemain ini dilewati di urutan giliran. Layar Eliminasi berisi ringkasan pribadi (dari `player:status` terakhir) dan Refleksi AI (`reflection:ready`), lalu tombol Kembali ke Lobby (`room:leave`). Tidak ada mode penonton (GDD 9.4 v1.12).
+Alasan eliminasi tiap pemain juga tersimpan di `PublicGameState.eliminationReasons` (v0.6) sehingga Layar Eliminasi tetap benar setelah reconnect.
+
+Pion tetap di papan dan heksanya tetap terisi. Pemain ini dilewati di urutan giliran. Layar Eliminasi berisi alasan (dari `eliminationReasons`), ringkasan pribadi (dari `player:status` terakhir) dan Refleksi AI (`reflection:ready`), lalu tombol Kembali ke Lobby (`room:leave`). Tidak ada mode penonton (GDD 9.4 v1.12).
 
 ### `reflection:ready` · S→C (P) **(v1.12)**
 

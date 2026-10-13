@@ -44,7 +44,7 @@ describe("EliminationScreen", () => {
   it("menampilkan judul, alasan, ringkasan pribadi, dan tombol keluar", () => {
     const html = renderToStaticMarkup(createElement(EliminationScreen, {
       status: { wealth: 1_000_000, debt: 26_000_000, debtLimit: 25_000_000, health: 4, stress: 6 },
-      reflection: null, busy: false, message: "", onLeave: noop,
+      reason: "bankrupt", reflection: null, busy: false, message: "", onLeave: noop,
     }));
     expect(html).toContain("Hari ini kamu perlu istirahat.");
     expect(html).toContain("Bangkrut");

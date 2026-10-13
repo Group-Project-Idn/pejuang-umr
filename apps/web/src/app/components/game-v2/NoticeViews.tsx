@@ -3,7 +3,8 @@
 import { formatRupiah } from "@pejuang/shared";
 import { useEffect, useRef } from "react";
 import { formatEffects } from "@/lib/invites";
-import type { CalendarResultPayload, DoomTriggeredPayload, TransientNotice } from "@/lib/room-session-view";
+import type { CalendarResultPayload, DoomTriggeredPayload } from "@pejuang/shared";
+import type { TransientNotice } from "@/lib/room-session-view";
 
 export const NOTICE_AUTO_DISMISS_MS = 4_000;
 export const DOOM_HEADLINE = "Checkout dulu, nyesel belakangan.";

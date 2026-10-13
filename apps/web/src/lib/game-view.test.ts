@@ -47,12 +47,16 @@ function snapshot(version: number): Snapshot {
         month: 1,
         dateLabel: "Januari · Pekan 1",
         season: "rainy",
+        seasonHint: "Hujan: petak Kerja lebih rawan",
         nextEvent: null,
       },
       turnOrder: [],
       activePlayerId: null,
       turnDeadline: null,
       revealEndsAt: null,
+      revealOrder: [],
+      revealStepMs: 2_500,
+      eliminationReasons: [],
       inviteBusyPlayerIds: [],
       pawns: [],
       openedHexes: [],
@@ -156,6 +160,27 @@ describe("acceptSnapshot", () => {
   });
 });
 
+describe("game:patch revealOrder dan eliminationReasons", () => {
+  it("menerapkan op revealOrder dan eliminationReasons; calendar op mengosongkan revealOrder", () => {
+    const game = snapshot(3).game!;
+    const patched = applyGamePatch(game, {
+      version: game.version + 1,
+      ops: [
+        { type: "revealOrder", playerIds: ["p2", "p1"] },
+        { type: "eliminationReasons", reasons: [{ playerId: "p1", reason: "burnout" }] },
+      ],
+    })!;
+    expect(patched.revealOrder).toEqual(["p2", "p1"]);
+    expect(patched.eliminationReasons).toEqual([{ playerId: "p1", reason: "burnout" }]);
+    const next = applyGamePatch(patched, {
+      version: patched.version + 1,
+      ops: [{ type: "calendar", calendar: { ...patched.calendar, seasonHint: "Kemarau: petak Keuangan dan Sosial lebih rawan" } }],
+    })!;
+    expect(next.revealOrder).toEqual([]);
+    expect(next.calendar.seasonHint).toBe("Kemarau: petak Keuangan dan Sosial lebih rawan");
+  });
+});
+
 describe("reducer event publik (B01)", () => {
   const started: GameStarted = {
     version: 1,
@@ -163,6 +188,7 @@ describe("reducer event publik (B01)", () => {
     gameId: "game-1",
     boardRadius: 6,
     turnSeconds: 30,
+    revealStepMs: 2_500,
     turnOrder: ["p1", "p2"],
     startPositions: [
       { playerId: "p1", hex: { q: 0, r: 0 } },
@@ -175,6 +201,7 @@ describe("reducer event publik (B01)", () => {
       month: 1,
       dateLabel: "Januari · Pekan 1",
       season: "rainy",
+      seasonHint: "Hujan: petak Kerja lebih rawan",
       nextEvent: null,
     },
   };
@@ -264,15 +291,16 @@ describe("reducer event publik (B01)", () => {
     expect(chosen.openedHexes[0]?.reality).toBeNull();
     const revealed = applyPublicGameEvent(chosen, {
       type: "round:reveal",
-      payload: { version: 4, round: 1, step: 1, order: [{ playerId: "p1", hex: tileOpened.to }], revealEndsAt: 12_000 },
+      payload: { version: 4, round: 1, step: 1, order: [{ playerId: "p1", hex: tileOpened.to }], revealEndsAt: 12_000, revealStepMs: 1_500 },
     })!;
     expect(revealed).toMatchObject({
       version: 4, phase: "reveal", activePlayerId: null, turnDeadline: null, revealEndsAt: 12_000,
+      revealOrder: ["p1"], revealStepMs: 1_500,
     });
     const nextTurn = applyTurnStart(revealed, { ...turnStart, version: 6 })!;
     expect(nextTurn.revealEndsAt).toBeNull();
     expect(revealed.openedHexes[0]?.reality).toBeNull();
-    expect(applyRoundReveal(revealed, { version: 3, round: 1, step: 1, order: [], revealEndsAt: 12_000 })).toBe(revealed);
+    expect(applyRoundReveal(revealed, { version: 3, round: 1, step: 1, order: [], revealEndsAt: 12_000, revealStepMs: 1_500 })).toBe(revealed);
 
     const after = applyTileResolved(revealed, { ...resolved, version: 5, round: 1 })!;
     expect(after.openedHexes[0]?.reality).toEqual({
@@ -350,6 +378,7 @@ describe("reducer event publik (B01)", () => {
       frozenScore: 40,
     } satisfies PlayerEliminated)!;
     expect(game.eliminated).toEqual(["p1"]);
+    expect(game.eliminationReasons).toEqual([{ playerId: "p1", reason: "bankrupt" }]);
     expect(game.scores[0]?.eliminated).toBe(true);
     expect(game.activePlayerId).toBeNull();
     expect(game.turnDeadline).toBeNull();

@@ -44,6 +44,7 @@ const CALENDAR_INFO = {
   month: 1,
   dateLabel: "Januari · Pekan 1",
   season: "rainy",
+  seasonHint: "Hujan: petak Kerja lebih rawan",
   nextEvent: null,
 } as const;
 
@@ -284,6 +285,8 @@ describe("bentuk payload S->C", () => {
           { type: "rankOneBurden", playerIds: ["p1"] },
           { type: "calendar", calendar: CALENDAR_INFO },
           { type: "phase", phase: "reveal" },
+          { type: "revealOrder", playerIds: ["p1", "p2"] },
+          { type: "eliminationReasons", reasons: [{ playerId: "p2", reason: "burnout" }] },
         ],
       }).success,
     ).toBe(true);
@@ -297,6 +300,7 @@ describe("bentuk payload S->C", () => {
         gameId: "game-1",
         boardRadius: 6,
         turnSeconds: 30,
+        revealStepMs: 2_500,
         turnOrder: ["p1", "p2"],
         startPositions: [
           { playerId: "p1", hex: { q: 3, r: -3 } },
@@ -307,7 +311,7 @@ describe("bentuk payload S->C", () => {
     ).toBe(true);
     expect(GameStartedPayloadSchema.safeParse({
       version: 1, serverTime: 1_000, gameId: "game-1", boardRadius: 4,
-      turnSeconds: 30, turnOrder: ["p1", "p2"], startPositions: [], calendar: CALENDAR_INFO,
+      turnSeconds: 30, revealStepMs: 2_500, turnOrder: ["p1", "p2"], startPositions: [], calendar: CALENDAR_INFO,
     }).success).toBe(false);
   });
 

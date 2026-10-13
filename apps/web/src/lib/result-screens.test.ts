@@ -50,10 +50,14 @@ describe("skor dan alasan eliminasi", () => {
     expect(formatScore(88.4)).toBe(88);
     expect(formatScore(55.5)).toBe(56);
   });
-  it("menurunkan alasan dari status terakhir", () => {
-    const base = { wealth: 0, debt: 0, debtLimit: 25_000_000 as const, health: 0, stress: 10 };
-    expect(getEliminationReason({ ...base, debt: 25_000_001 })).toBe("bankrupt");
-    expect(getEliminationReason(base)).toBe("burnout");
-    expect(getEliminationReason(null)).toBeNull();
+  it("membaca alasan dari eliminationReasons publik", () => {
+    const game = {
+      eliminationReasons: [{ playerId: "p1", reason: "bankrupt" }, { playerId: "p2", reason: "burnout" }],
+    } as PublicGameState;
+    expect(getEliminationReason(game, "p1")).toBe("bankrupt");
+    expect(getEliminationReason(game, "p2")).toBe("burnout");
+    expect(getEliminationReason(game, "p3")).toBeNull();
+    expect(getEliminationReason(null, "p1")).toBeNull();
+    expect(getEliminationReason(game, null)).toBeNull();
   });
 });

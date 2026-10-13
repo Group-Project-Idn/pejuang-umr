@@ -368,6 +368,7 @@ export function registerRoomHandlers(
             gameId: game.gameId,
             boardRadius: 6,
             turnSeconds: playingRoom.turnSeconds,
+            revealStepMs: session.publicState().revealStepMs,
             turnOrder: game.turnOrder,
             startPositions: game.pawns,
             calendar: game.calendar,

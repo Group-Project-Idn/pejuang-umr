@@ -154,6 +154,8 @@ export class GameSession {
   /** Nilai terakhir yang sudah dikirim lewat game:patch, untuk mendeteksi perubahan. */
   private publishedPhase: PublicGameState["phase"];
   private publishedBusy: string[] = [];
+  private publishedRevealOrder: string[] = [];
+  private publishedEliminationReasons: PublicGameState["eliminationReasons"] = [];
 
   /** Memulai ronde pertama. */
   start(): void {
@@ -565,7 +567,10 @@ export class GameSession {
         if (event.type === "round:reveal") {
           const revealEndsAt = now + this.timing.revealStepMs * event.payload.order.length;
           this.revealEndsAt = revealEndsAt;
-          return { ...event, payload: { ...event.payload, revealEndsAt } };
+          return {
+            ...event,
+            payload: { ...event.payload, revealEndsAt, revealStepMs: this.timing.revealStepMs },
+          };
         }
         if (event.type === "turn:start") {
           return {
@@ -591,11 +596,18 @@ export class GameSession {
       .map((invite) => invite.targetId);
   }
 
-  /** Mengirim game:patch phase dan inviteBusy bila nilainya berubah sejak pengiriman terakhir. */
+  /** Urutan Fase Pembalikan ronde ini; kosong di luar phase "reveal". */
+  private revealOrderIds(): string[] {
+    return this.state.public.phase === "reveal" ? [...this.state.public.revealOrder] : [];
+  }
+
+  /** Mengirim game:patch phase, inviteBusy, revealOrder, dan eliminationReasons bila nilainya berubah sejak pengiriman terakhir. */
   private syncPublic(): void {
     const ops: Array<
       | { type: "phase"; phase: PublicGameState["phase"] }
       | { type: "inviteBusy"; playerIds: string[] }
+      | { type: "revealOrder"; playerIds: string[] }
+      | { type: "eliminationReasons"; reasons: PublicGameState["eliminationReasons"] }
     > = [];
     const phase = this.state.public.phase;
     if (phase !== this.publishedPhase) {
@@ -606,6 +618,16 @@ export class GameSession {
     if (busy.join("|") !== this.publishedBusy.join("|")) {
       this.publishedBusy = busy;
       ops.push({ type: "inviteBusy", playerIds: busy });
+    }
+    const revealOrder = this.revealOrderIds();
+    if (revealOrder.join("|") !== this.publishedRevealOrder.join("|")) {
+      this.publishedRevealOrder = revealOrder;
+      ops.push({ type: "revealOrder", playerIds: revealOrder });
+    }
+    const reasons = this.state.public.eliminationReasons;
+    if (JSON.stringify(reasons) !== JSON.stringify(this.publishedEliminationReasons)) {
+      this.publishedEliminationReasons = structuredClone(reasons);
+      ops.push({ type: "eliminationReasons", reasons: structuredClone(reasons) });
     }
     if (ops.length === 0) return;
     this.runtime.send([
@@ -647,6 +669,8 @@ export class GameSession {
       version: this.version,
       turnDeadline: this.turnDeadline,
       revealEndsAt: this.state.public.phase === "reveal" ? this.revealEndsAt : null,
+      revealOrder: this.revealOrderIds(),
+      revealStepMs: this.timing.revealStepMs,
       inviteBusyPlayerIds: this.inviteBusyIds(),
     });
   }
