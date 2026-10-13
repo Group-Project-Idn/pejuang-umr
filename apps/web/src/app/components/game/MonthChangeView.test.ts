@@ -92,3 +92,23 @@ describe("pesan pembayaran hutang", () => {
     expect(render(debtSummary(100_000), "Ada yang salah. Coba lagi.")).toContain("Ada yang salah. Coba lagi.");
   });
 });
+
+describe("nota Ganti Bulan bergaya komik", () => {
+  it("mempertahankan rincian, tanda nominal, timer dan satu tombol utama", () => {
+    const markup = render({ ...debtSummary(120_000), interestAddedToDebt: 30_000 });
+    for (const text of ["Ganti Bulan", "Bulan 2", "Gaji masuk", "Biaya hidup wajib", "Bunga hutang", "Bunga menjadi hutang", "Kekayaan baru", "Hutang baru", "Bayar hutang:", "Waktu tersisa:", "Konfirmasi pembayaran"]) {
+      expect(markup).toContain(text);
+    }
+    expect(markup).toContain("comic-receipt-total");
+    expect(markup).toContain("comic-amount-positive\">+Rp");
+    expect(markup).toContain("comic-amount-negative\">−Rp");
+    expect(markup).toContain('class="comic-debt-slider"');
+    expect(markup.match(/comic-btn-primary/g)).toHaveLength(1);
+  });
+
+  it("menampilkan galat dalam kotak koral tanpa mengubah pesannya", () => {
+    const markup = render(debtSummary(120_000), "Ada yang salah. Coba lagi.");
+    expect(markup).toContain('role="alert" class="comic-error"');
+    expect(markup).toContain("Ada yang salah. Coba lagi.");
+  });
+});

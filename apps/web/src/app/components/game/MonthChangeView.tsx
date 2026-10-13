@@ -54,17 +54,17 @@ export default function MonthChangeView({ summary, pending, serverClockOffsetMs,
   return (
     <BottomSheet open={summary !== null} title="Ganti Bulan" onClose={() => undefined}>
       {summary ? (
-        <div className="grid gap-3 text-body-sm">
-          <p>Bulan {summary.month}</p>
-          <dl className="grid grid-cols-2 gap-2">
-            <dt>Gaji masuk</dt><dd className="text-right">+{formatRupiah(summary.salary)}</dd>
-            <dt>Biaya hidup wajib</dt><dd className="text-right">-{formatRupiah(summary.livingCost)}</dd>
-            <dt>Bunga hutang</dt><dd className="text-right">-{formatRupiah(summary.interest)}</dd>
+        <div className="comic-month grid gap-3 text-body-sm">
+          <p className="comic-stamp">Bulan {summary.month}</p>
+          <dl className="comic-receipt">
+            <div className="comic-receipt-row"><dt>Gaji masuk</dt><dd className="comic-amount-positive">+{formatRupiah(summary.salary)}</dd></div>
+            <div className="comic-receipt-row"><dt>Biaya hidup wajib</dt><dd className="comic-amount-negative">−{formatRupiah(summary.livingCost)}</dd></div>
+            <div className="comic-receipt-row"><dt>Bunga hutang</dt><dd className="comic-amount-negative">−{formatRupiah(summary.interest)}</dd></div>
             {summary.interestAddedToDebt > 0 ? (
-              <><dt>Bunga menjadi hutang</dt><dd className="text-right">{formatRupiah(summary.interestAddedToDebt)}</dd></>
+              <div className="comic-receipt-row"><dt>Bunga menjadi hutang</dt><dd className="comic-amount-negative">+{formatRupiah(summary.interestAddedToDebt)}</dd></div>
             ) : null}
-            <dt>Kekayaan baru</dt><dd className="text-right">{formatRupiah(summary.after.wealth)}</dd>
-            <dt>Hutang baru</dt><dd className="text-right">{formatRupiah(summary.after.debt)}</dd>
+            <div className="comic-receipt-row comic-receipt-total"><dt>Kekayaan baru</dt><dd className={summary.after.wealth < 0 ? "comic-amount-negative" : "comic-amount-positive"}>{summary.after.wealth >= 0 ? "+" : "−"}{formatRupiah(Math.abs(summary.after.wealth))}</dd></div>
+            <div className="comic-receipt-row comic-receipt-total"><dt>Hutang baru</dt><dd className="comic-amount-negative">+{formatRupiah(summary.after.debt)}</dd></div>
           </dl>
           {summary.payDebt ? (
             <MonthDebtPayment
@@ -105,19 +105,20 @@ function MonthDebtPayment({
   const cannotAfford = max === 0;
 
   return (
-    <form className="grid gap-3" onSubmit={(event) => {
+    <form className="comic-payment grid gap-3" onSubmit={(event) => {
       event.preventDefault();
       if (seconds > 0 && !pending) onPayDebt(month, amount);
     }}>
-      <label htmlFor="month-debt-amount">Bayar hutang: {formatRupiah(amount)}</label>
+      <label htmlFor="month-debt-amount">Bayar hutang: <strong className="comic-payment-amount">{formatRupiah(amount)}</strong></label>
       <input id="month-debt-amount" type="range" min={0} max={positions} step={1}
+        className="comic-debt-slider"
         value={Math.min(position, positions)}
         onChange={(event) => setPosition(Number(event.target.value))}
         disabled={pending || seconds === 0 || cannotAfford} />
       {cannotAfford ? <p>{DEBT_UNAFFORDABLE_TEXT}</p> : null}
-      <p>Waktu tersisa: {seconds} detik</p>
-      {error ? <p role="alert" className="text-body-sm">{error}</p> : null}
-      <Button variant="primary" type="submit" disabled={pending || seconds === 0}>
+      <p className="comic-timer" role="timer"><span aria-hidden="true">◷</span> Waktu tersisa: {seconds} detik</p>
+      {error ? <p role="alert" className="comic-error"><span aria-hidden="true">⚠</span> {error}</p> : null}
+      <Button variant="primary" className="comic-btn-primary" type="submit" disabled={pending || seconds === 0}>
         {pending ? "Mengirim..." : cannotAfford ? "Lewati" : "Konfirmasi pembayaran"}
       </Button>
     </form>

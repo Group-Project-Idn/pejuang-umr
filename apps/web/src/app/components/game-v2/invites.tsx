@@ -29,14 +29,14 @@ export function InviteCardSheet({
     <BottomSheet open={open && view !== null} title="Kartu Ajakan" onClose={onClose}>
       {view && card ? (
         <div className="grid gap-3">
-          <p className="text-body text-teks-utama"><strong>{view.plan}</strong></p>
-          <p className="text-body-sm text-teks-utama">Efek jika target ikut: {view.effects}</p>
-          <p className="text-body-sm text-teks-sekunder">
+          <p className="comic-invite-plan"><strong>{view.plan}</strong></p>
+          <p className="comic-effect">Efek jika target ikut: {view.effects}</p>
+          <p className="comic-invite-detail">
             Motif: {view.motive} (hanya kamu yang tahu). Berlaku sampai bulan {card.expiresAtMonth}.
           </p>
           <div className="grid grid-cols-2 gap-2">
-            <Button variant="primary" onClick={onPickTarget}>Pilih target</Button>
-            <Button variant="secondary" onClick={onClose}>Tutup</Button>
+            <Button variant="primary" className="comic-btn-primary" onClick={onPickTarget}>Pilih target</Button>
+            <Button variant="secondary" className="comic-btn-secondary" onClick={onClose}>Tutup</Button>
           </div>
         </div>
       ) : null}
@@ -74,12 +74,12 @@ export function InviteConfirmSheet({
     <BottomSheet open={open} title="Konfirmasi Ajakan" onClose={onCancel}>
       {plan ? (
         <div className="grid gap-3">
-          <p className="text-body text-teks-utama">{buildInviteConfirmText(targetName, plan)}</p>
+          <p className="comic-invite-plan">{buildInviteConfirmText(targetName, plan)}</p>
           <div className="grid grid-cols-2 gap-2">
-            <Button variant="primary" disabled={pending} onClick={onConfirm}>
+            <Button variant="primary" className="comic-btn-primary" disabled={pending} onClick={onConfirm}>
               {pending ? "Mengirim..." : "Ajak"}
             </Button>
-            <Button variant="secondary" disabled={pending} onClick={onCancel}>Batal</Button>
+            <Button variant="secondary" className="comic-btn-secondary" disabled={pending} onClick={onCancel}>Batal</Button>
           </div>
         </div>
       ) : null}
@@ -115,16 +115,16 @@ export function InviteIncomingView({
   const { invite, secondsLeft, compact } = popup;
   const body = (
     <div className="grid gap-3">
-      <p className="text-body text-teks-utama">
+      <p className="comic-invite-plan">
         <strong>{invite.fromName}</strong> mengajakmu: {PLAN_LABEL[invite.plan]}
       </p>
-      <p className="text-body-sm text-teks-utama">Efek jika ikut: {formatEffects(invite.planEffects)}</p>
-      <p className="text-body-sm text-teks-sekunder" role="timer">Sisa waktu menjawab: {secondsLeft} detik</p>
+      <p className="comic-effect">Efek jika ikut: {formatEffects(invite.planEffects)}</p>
+      <p className="comic-timer" role="timer"><span aria-hidden="true">◷</span> Sisa waktu menjawab: {secondsLeft} detik</p>
       <div className="grid grid-cols-2 gap-2">
-        <Button variant="primary" disabled={pending} onClick={() => onRespond(invite.inviteId, "join")}>
+        <Button variant="primary" className="comic-btn-primary" disabled={pending} onClick={() => onRespond(invite.inviteId, "join")}>
           {pending ? "..." : "Ikut"}
         </Button>
-        <Button variant="secondary" disabled={pending} onClick={() => onRespond(invite.inviteId, "decline")}>
+        <Button variant="secondary" className="comic-btn-secondary" disabled={pending} onClick={() => onRespond(invite.inviteId, "decline")}>
           {pending ? "..." : "Tolak"}
         </Button>
       </div>
@@ -135,8 +135,10 @@ export function InviteIncomingView({
       <section
         role="dialog"
         aria-label="Ada ajakan buat kamu"
-        className="fixed right-4 top-4 z-30 w-72 rounded-lg border border-garis bg-kartu p-4 text-teks-utama"
+        className="paper-panel comic-dialog-compact"
       >
+        <span aria-hidden="true" className="hex-card-clip" />
+        <h2 className="hex-card-title">Ada ajakan buat kamu</h2>
         {body}
       </section>
     );
@@ -161,11 +163,11 @@ export function InviteResultsView({
     <BottomSheet open={first !== undefined} title="Hasil Ajakan" onClose={() => first && onDismiss(first.inviteId)}>
       {first ? (
         <div className="grid gap-3">
-          <p className="text-body text-teks-utama"><strong>{first.title}</strong></p>
-          <p className="text-body-sm text-teks-utama">{first.answerText}</p>
-          <p className="text-body-sm text-teks-utama">{first.motiveText}</p>
-          <p className="text-body-sm text-teks-utama">Efek untukmu: {first.effectsText}</p>
-          <Button variant="primary" onClick={() => onDismiss(first.inviteId)}>
+          <p className="comic-invite-plan"><strong>{first.title}</strong></p>
+          <p className="comic-invite-detail">{first.answerText}</p>
+          <p className="comic-invite-detail">{first.motiveText}</p>
+          <p className="comic-effect">Efek untukmu: {first.effectsText}</p>
+          <Button variant="primary" className="comic-btn-primary" onClick={() => onDismiss(first.inviteId)}>
             {results.length > 1 ? `Lanjut (${results.length - 1} lagi)` : "Tutup"}
           </Button>
         </div>

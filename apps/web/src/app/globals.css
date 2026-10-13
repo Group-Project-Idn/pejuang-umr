@@ -471,6 +471,52 @@ button { font: inherit; }
 .hex-card .hex-choose { background: #3fb871; color: #10351f; border: 3px solid #483629; box-shadow: 0 4px 0 rgba(45,27,17,.35); font-weight: 900; min-height: 52px; font-size: 15px; letter-spacing: .03em; }
 .hex-card .hex-choose:hover:not(:disabled) { background: #52c982; }
 .hex-card .hex-close { background: transparent; color: #382b22; border: 2px solid #483629; }
+
+/* Dialog map komik: warna dan garis mengikuti kartu Detail Heksa. */
+.comic-dialog-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 24px; background: rgba(32,20,14,.6); }
+.comic-dialog-card { align-self: center; width: min(100%, 460px); max-height: min(85dvh, 760px); display: flex; flex-direction: column; transform: rotate(.4deg); box-shadow: 6px 8px 0 rgba(45,27,17,.3), inset 0 0 24px rgba(136,82,23,.13); }
+.comic-dialog-scroll { position: relative; z-index: 1; min-height: 0; overflow-y: auto; padding: 26px 20px 20px; }
+.comic-dialog-body { display: grid; gap: 12px; margin-top: 12px; }
+.comic-dialog-card:has(.comic-event-date) .hex-card-title { padding-top: 28px; }
+.comic-dialog-card:has(.comic-event-date) .comic-stamp { position: absolute; left: 20px; top: 16px; }
+.comic-btn-primary, .comic-dialog-card .comic-btn-primary, .comic-dialog-compact .comic-btn-primary { min-height: 52px; border: 3px solid #483629; border-radius: 8px; background: #3fb871; color: #10351f; box-shadow: 0 4px 0 rgba(45,27,17,.35); font-size: 14px; font-weight: 900; letter-spacing: .03em; }
+.comic-btn-primary:hover:not(:disabled) { background: #52c982; }
+.comic-btn-secondary, .comic-dialog-card .comic-btn-secondary, .comic-dialog-compact .comic-btn-secondary { min-height: 48px; border: 2px solid #483629; border-radius: 8px; background: transparent; color: #382b22; font-weight: 800; }
+.comic-btn-primary:focus-visible, .comic-btn-secondary:focus-visible, .comic-choice:focus-within, .comic-debt-slider:focus-visible { outline: 3px solid #276947; outline-offset: 3px; }
+.comic-stamp { justify-self: start; width: fit-content; margin: 0; padding: 2px 8px; border: 2px solid #994c38; border-radius: 4px; color: #994c38; font-family: Georgia, serif; font-size: 11px; font-weight: 900; letter-spacing: .06em; transform: rotate(-3deg); }
+.comic-receipt { display: grid; gap: 6px; padding: 12px; border: 2px solid #483629; border-radius: 8px; background: #fff6d8; }
+.comic-receipt-row { display: flex; align-items: baseline; gap: 4px; min-width: 0; font-size: 12px; }
+.comic-receipt-row::before { content: ""; order: 1; flex: 1; min-width: 6px; border-bottom: 2px dotted #a38d69; }
+.comic-receipt-row dt { flex: 0 1 auto; }
+.comic-receipt-row dd { order: 2; margin: 0; text-align: right; font-weight: 800; white-space: nowrap; }
+.comic-amount-positive { color: #205d37; }
+.comic-amount-negative { color: #a43c2e; }
+.comic-receipt-total { font-weight: 900; border-top: 3px double #483629; padding-top: 6px; }
+.comic-payment { border-top: 2px dashed #8c7154; padding-top: 12px; }
+.comic-payment label { display: grid; gap: 4px; font-weight: 800; }
+.comic-payment-amount { font-family: Georgia, serif; font-size: 22px; }
+.comic-debt-slider { width: 100%; min-height: 32px; accent-color: #9b6726; cursor: pointer; }
+.comic-debt-slider::-webkit-slider-thumb { width: 28px; height: 28px; border: 3px solid #483629; border-radius: 50%; background: #f5c542; box-shadow: 0 2px 0 #483629; appearance: none; }
+.comic-debt-slider::-moz-range-thumb { width: 28px; height: 28px; border: 3px solid #483629; border-radius: 50%; background: #f5c542; box-shadow: 0 2px 0 #483629; }
+.comic-debt-slider { appearance: none; background: transparent; }
+.comic-debt-slider::-webkit-slider-runnable-track { height: 10px; border: 2px solid #483629; border-radius: 999px; background: #fff6d8; }
+.comic-debt-slider::-moz-range-track { height: 10px; border: 2px solid #483629; border-radius: 999px; background: #fff6d8; }
+.comic-timer { justify-self: start; width: fit-content; margin: 0; padding: 6px 10px; border: 2px solid #483629; border-radius: 999px; background: #fff3bf; color: #382b22; font-size: 12px; font-weight: 800; }
+.comic-timer span { font-size: 16px; vertical-align: -1px; }
+.comic-error { margin: 0; padding: 10px; border: 2px solid #a43c2e; border-radius: 8px; background: #f4b7ae; color: #571f15; font-weight: 800; }
+.comic-event-date { margin: 0; color: #6b4c35; font-size: 12px; font-weight: 800; }
+.comic-choice { display: flex; align-items: center; gap: 10px; min-height: 54px; margin-top: 8px; padding: 10px; border: 2px solid #483629; border-radius: 8px; background: #fff6d8; color: #382b22; cursor: pointer; }
+.comic-choice:has(.comic-choice-radio:checked) { border-width: 3px; background: #ffe067; }
+.comic-choice-radio { flex: none; width: 24px; height: 24px; accent-color: #483629; cursor: pointer; }
+.comic-choice-text { display: grid; gap: 2px; flex: 1; min-width: 0; font-weight: 800; }
+.comic-choice-note { color: #6b4c35; font-size: 11px; font-weight: 600; }
+.comic-choice-check { display: none; font-size: 22px; font-weight: 900; }
+.comic-choice:has(.comic-choice-radio:checked) .comic-choice-check { display: inline; }
+.comic-invite-plan { margin: 0; font-size: 16px; font-weight: 800; }
+.comic-effect { width: fit-content; margin: 0; padding: 6px 10px; border: 2px solid #483629; border-radius: 8px; background: #f5c542; font-size: 12px; font-weight: 800; }
+.comic-invite-detail { margin: 0; font-size: 12px; line-height: 1.5; }
+.comic-dialog-compact { position: fixed; top: 16px; right: 16px; z-index: 40; display: grid; gap: 12px; width: min(320px, calc(100vw - 32px)); max-height: 85dvh; overflow-y: auto; padding: 26px 16px 16px; transform: rotate(.4deg); box-shadow: 6px 8px 0 rgba(45,27,17,.3); }
+@media (max-width: 639px) { .comic-dialog-backdrop { align-items: end; padding: 0; }.comic-dialog-card { align-self: end; width: 100%; max-height: 85dvh; border-radius: 12px 12px 0 0; }.comic-dialog-scroll { padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }.comic-dialog-compact { top: 12px; right: 12px; } }
 .reveal-popup-wrap { position: absolute; inset: 0; z-index: 20; display: grid; place-items: center; padding: 12px; pointer-events: none; }
 .reveal-popup { pointer-events: auto; align-self: auto; display: flex; flex-direction: column; width: min(420px, 100%); max-height: 100%; transform: rotate(-.5deg); box-shadow: 6px 8px 0 rgba(45,27,17,.3), inset 0 0 24px rgba(136,82,23,.13); }
 .reveal-popup-scroll { display: grid; align-content: start; gap: 8px; min-height: 0; overflow-y: auto; padding: 20px 16px 14px; position: relative; z-index: 1; }

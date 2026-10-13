@@ -9,13 +9,17 @@ export type BottomSheetProps = {
   children: ReactNode;
 };
 
-/** Bottom sheet mobile-first: Esc menutup, fokus ke judul saat dibuka. */
+/** Dialog map komik: Esc menutup, fokus ke judul saat dibuka. */
 export default function BottomSheet({ open, title, onClose, children }: BottomSheetProps) {
   const titleRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
     if (!open) return;
     titleRef.current?.focus();
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
     };
@@ -26,7 +30,7 @@ export default function BottomSheet({ open, title, onClose, children }: BottomSh
   if (!open) return null;
   return (
     <div
-      className="fixed inset-0 z-50 grid items-end justify-items-center bg-black/60 p-4"
+      className="comic-dialog-backdrop"
       role="presentation"
       onClick={onClose}
     >
@@ -34,13 +38,16 @@ export default function BottomSheet({ open, title, onClose, children }: BottomSh
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="w-full max-w-md rounded-lg border border-garis bg-kartu p-4 text-teks-utama"
+        className="paper-panel comic-dialog-card"
         onClick={(event) => event.stopPropagation()}
       >
-        <h2 ref={titleRef} tabIndex={-1} className="text-title focus:outline-none">
-          {title}
-        </h2>
-        <div className="mt-3 grid gap-3">{children}</div>
+        <span aria-hidden="true" className="hex-card-clip" />
+        <div className="comic-dialog-scroll">
+          <h2 ref={titleRef} tabIndex={-1} className="hex-card-title focus:outline-none">
+            {title}
+          </h2>
+          <div className="comic-dialog-body">{children}</div>
+        </div>
       </section>
     </div>
   );
