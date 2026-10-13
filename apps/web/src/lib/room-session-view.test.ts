@@ -2,6 +2,7 @@ import type {
   CalendarEventPayload,
   MonthSummaryPayload,
   PrivateStatus,
+  ReflectionReadyPayload,
   Snapshot,
   TurnOptionsPayload,
 } from "@pejuang/shared";
@@ -13,6 +14,7 @@ import {
   applySessionMonthSummary,
   applySessionPlayerConnection,
   applySessionPublicEvent,
+  applySessionReflectionReady,
   applySessionSnapshot,
   applySessionTurnOptions,
   clearAcceptedPrivateAction,
@@ -90,6 +92,31 @@ const newerStatus: PrivateStatus = {
 };
 
 describe("room session recovery", () => {
+  it("menyimpan refleksi hanya untuk pemain dan game pemiliknya", () => {
+    const initial = applySessionSnapshot(createRoomSessionView(), snapshot(3), 10_000);
+    const payload: ReflectionReadyPayload = {
+      gameId: "game-1",
+      playerId: "p1",
+      reflection: {
+        source: "rules",
+        summary: "Kamu berhasil menjaga Kesehatan.",
+        insights: [{ title: "Jaga ritme", body: "Sisakan waktu untuk beristirahat." }],
+      },
+    };
+    const updated = applySessionReflectionReady(initial, payload);
+
+    expect(updated.me?.reflection).toEqual(payload.reflection);
+    expect(updated.privateRevision).toBe(initial.privateRevision + 1);
+    expect(applySessionReflectionReady(updated, {
+      ...payload,
+      playerId: "p2",
+    })).toBe(updated);
+    expect(applySessionReflectionReady(updated, {
+      ...payload,
+      gameId: "old-game",
+    })).toBe(updated);
+  });
+
   it.each([null, { max: 1_000_000, deadline: 25_000 }])(
     "menerima ringkasan bulan setelah pembalikan dan patch kalender tanpa reconnect (payDebt: %j)",
     (payDebt) => {

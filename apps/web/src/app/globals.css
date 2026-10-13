@@ -415,3 +415,117 @@ button { font: inherit; }
 .turn-options button small { font-size: 9px; font-weight: 700; }
 .game-action-message { position: absolute; top: 8px; right: 12px; z-index: 20; max-width: min(420px,80vw); margin: 0; padding: 8px 12px; border-radius: 8px; background: #211e23; color: #f8e5b8; font-size: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.3); }
 @media (max-width:760px) { .turn-options { bottom: 36px; width: calc(100% - 16px); }.turn-options > div { grid-template-columns: 1fr; }.turn-options button { min-height: 44px; grid-template-columns: 1fr auto; }.game-action-message { position: fixed; } }
+
+.final-results-page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  padding: clamp(12px, 3vw, 40px);
+  background:
+    linear-gradient(180deg, rgba(13, 20, 27, .12), rgba(8, 13, 20, .72)),
+    repeating-linear-gradient(90deg, transparent 0 18%, rgba(10, 18, 28, .22) 18% 18.5%, transparent 18.5% 36%),
+    linear-gradient(180deg, #66727a 0 28%, #344a50 63%, #4c3028 100%);
+}
+.final-results-office {
+  position: relative;
+  width: min(1200px, 100%);
+  padding: clamp(12px, 3vw, 32px);
+  border: 3px solid #28221f;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #435963, #263b43);
+  box-shadow: 0 24px 60px rgba(0,0,0,.48), 0 0 0 8px rgba(242,239,231,.72);
+}
+.final-results-ceiling {
+  position: absolute;
+  inset: 8px 5% auto;
+  display: flex;
+  justify-content: space-around;
+  opacity: .3;
+}
+.final-results-ceiling span { width: 17%; height: 20px; border: 4px solid #20272d; background: #c5c6bd; }
+.final-results-folder {
+  position: relative;
+  z-index: 1;
+  padding: clamp(16px, 3vw, 30px);
+  border: 3px solid #4e371d;
+  border-radius: 14px 18px 12px 16px;
+  color: #382b22;
+  background:
+    radial-gradient(circle at 92% 8%, rgba(255,255,255,.3), transparent 20%),
+    repeating-linear-gradient(3deg, transparent 0 34px, rgba(132,86,20,.025) 35px 36px),
+    linear-gradient(135deg, #f8da68, #f2c64e 72%, #e5b33b);
+  box-shadow: 10px 12px 0 #d69c31, inset 0 2px rgba(255,255,255,.58);
+}
+.final-results-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+  padding-bottom: 13px;
+  border-bottom: 2px dashed rgba(89,58,19,.38);
+}
+.final-results-date { display: inline-block; margin: 0 0 8px; padding: 5px 8px; border: 1px solid #594832; background: #fff5d4; font-size: 12px; font-weight: 800; }
+.final-results-heading h1 { margin: 0; font-family: Georgia,serif; font-size: clamp(2rem, 4vw, 3.3rem); line-height: 1; text-transform: uppercase; }
+.final-results-subtitle { margin: 5px 0 0; font-size: 14px; }
+.final-results-stamp { flex: 0 0 auto; padding: 7px 13px; border: 4px double #bd4032; color: #bd4032; font-size: clamp(14px, 2vw, 22px); font-weight: 1000; letter-spacing: .08em; transform: rotate(-8deg); }
+.final-results-content { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(310px, .8fr); gap: clamp(14px, 3vw, 32px); align-items: stretch; }
+.final-podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: minmax(170px, 1fr) auto auto; gap: 9px; align-items: end; min-height: 360px; padding: 12px; border: 2px solid rgba(78,55,29,.62); border-radius: 10px; background: rgba(255,245,206,.3); }
+.final-podium-card { position: relative; display: grid; justify-items: center; align-content: end; gap: 5px; min-width: 0; padding: 10px 7px; border: 2px solid #5d4931; border-radius: 9px 9px 2px 2px; background: linear-gradient(#fff1bd, #e9bd55); text-align: center; box-shadow: 3px 4px 0 rgba(69,45,20,.2); }
+.final-podium-rank-1 { grid-column: 2; grid-row: 1; min-height: 220px; background: linear-gradient(#fff6ce, #f3cf58); }
+.final-podium-rank-2 { grid-column: 1; grid-row: 1; min-height: 174px; }
+.final-podium-rank-3 { grid-column: 3; grid-row: 1; min-height: 145px; }
+.final-podium-medal { position: absolute; top: -13px; left: 50%; display: grid; place-items: center; width: 30px; height: 30px; border: 2px solid #49372a; border-radius: 50%; background: #fff0a3; font-weight: 1000; transform: translateX(-50%); }
+.final-podium-avatar { width: clamp(42px, 6vw, 64px); height: clamp(42px, 6vw, 64px); object-fit: contain; }
+.final-podium-card strong { max-width: 100%; overflow-wrap: anywhere; font-family: Georgia,serif; font-size: clamp(11px, 1.3vw, 15px); }
+.final-podium-score { padding: 3px 6px; border-radius: 4px; background: #f9e8b2; font-size: 12px; font-weight: 900; }
+.final-podium-net-worth { font-size: 10px; }
+.final-eliminated-card { grid-column: 1 / -1; display: flex; align-items: center; gap: 9px; padding: 7px 10px; border: 1px solid #665d54; border-radius: 6px; background: #d0c8b9; }
+.final-eliminated-avatar { flex: 0 0 auto; object-fit: contain; }
+.final-eliminated-card > span { display: grid; flex: 1; min-width: 0; }
+.final-eliminated-card strong { font-size: 12px; }
+.final-eliminated-card small { font-size: 10px; }
+.final-eliminated-card > b { font-family: Georgia,serif; }
+.final-insight-area { grid-column: 1 / -1; display: grid; justify-items: center; gap: 3px; }
+.final-insight-button { min-width: 190px; border: 2px solid #3e3325; background: #273d4d; color: #fff4d1; font-weight: 900; }
+.final-insight-area p { margin: 0; font-size: 10px; font-weight: 800; }
+.final-ranking { align-self: stretch; padding: 13px; border: 2px solid #594329; border-radius: 8px; background: linear-gradient(140deg, #fff3c7, #e5c56b); box-shadow: 4px 6px 0 rgba(64,42,18,.22); }
+.final-ranking h2 { margin: 0; font-family: Georgia,serif; font-size: 22px; text-align: center; text-transform: uppercase; }
+.final-ranking-caption { margin: 1px 0 10px; font-size: 11px; text-align: center; }
+.final-ranking ol { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; }
+.final-ranking li { display: grid; grid-template-columns: 20px 34px minmax(0,1fr) auto; gap: 7px; align-items: center; min-width: 0; padding: 6px; border: 1px solid rgba(91,70,40,.2); border-radius: 6px; background: rgba(255,250,226,.6); }
+.final-ranking-rank { font-family: Georgia,serif; font-weight: 1000; text-align: center; }
+.final-ranking-avatar { object-fit: contain; }
+.final-ranking-player { display: grid; min-width: 0; }
+.final-ranking-player strong { overflow-wrap: anywhere; font-size: 11px; }
+.final-ranking-player span { font-size: 9px; }
+.final-score-details { position: relative; font-size: 9px; }
+.final-score-details summary { cursor: pointer; font-weight: 800; }
+.final-score-details dl { position: absolute; z-index: 2; right: 0; top: 100%; width: 140px; margin: 4px 0 0; padding: 7px; border: 1px solid #594329; border-radius: 5px; background: #fff8df; box-shadow: 0 4px 12px rgba(0,0,0,.2); }
+.final-score-details dl div { display: flex; justify-content: space-between; gap: 8px; }
+.final-score-details dd { margin: 0; font-weight: 900; }
+.final-ranking-footnote { margin: 9px 0 0; font-size: 9px; line-height: 1.4; }
+.final-reflection { margin-top: 14px; padding: 12px 15px; border: 2px solid #594329; border-radius: 7px; background: #fff1bb; }
+.final-reflection h2 { margin: 0 0 6px; font-family: Georgia,serif; font-size: 18px; }
+.final-reflection p { margin: 5px 0; font-size: 13px; line-height: 1.5; }
+.final-reflection ul { display: grid; gap: 8px; margin: 8px 0; padding-left: 20px; }
+.final-reflection li { display: grid; gap: 2px; font-size: 12px; }
+.final-reflection li small,.final-reflection > small { color: #6c5636; font-size: 10px; }
+.final-results-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 9px; margin-top: 17px; padding-top: 13px; border-top: 2px dashed rgba(89,58,19,.38); }
+.final-results-actions button { border: 2px solid #35291d; border-radius: 7px; font-weight: 900; box-shadow: 0 3px 0 rgba(45,27,17,.28); }
+.final-results-actions .final-rematch-button { background: #38a66b; color: #102f20; }
+.final-results-actions .btn-outlined { background: #e9e7df; color: #302b25; }
+.final-results-actions .btn-secondary:not(.final-insight-button) { background: #f4c95c; color: #382b22; }
+.final-results-feedback { flex-basis: 100%; min-height: 16px; text-align: center; font-size: 12px; font-weight: 800; }
+.final-host-note { margin: 0; font-size: 12px; font-weight: 800; }
+@media (max-width: 760px) {
+  .final-results-page { display: block; padding: 12px; }
+  .final-results-office { padding: 10px; }
+  .final-results-folder { padding: 14px; }
+  .final-results-content { grid-template-columns: 1fr; }
+  .final-podium { min-height: 310px; }
+  .final-ranking li { grid-template-columns: 20px 34px minmax(0,1fr) auto; }
+  .final-results-actions { align-items: stretch; }
+  .final-results-actions button { flex: 1 1 145px; }
+}

@@ -4,6 +4,7 @@ import type {
   MonthSummaryPayload,
   PrivateStatus,
   PublicGameState,
+  ReflectionReadyPayload,
   RoomState,
   Snapshot,
   TurnOptionsPayload,
@@ -111,6 +112,24 @@ export function applyPrivateStatus(
   return {
     ...current,
     me: { ...current.me, status },
+    privateRevision: current.privateRevision + 1,
+  };
+}
+
+export function applySessionReflectionReady(
+  current: RoomSessionView,
+  payload: ReflectionReadyPayload,
+): RoomSessionView {
+  if (
+    !current.me ||
+    current.me.playerId !== payload.playerId ||
+    current.gameView.game?.gameId !== payload.gameId
+  ) {
+    return current;
+  }
+  return {
+    ...current,
+    me: { ...current.me, reflection: payload.reflection },
     privateRevision: current.privateRevision + 1,
   };
 }

@@ -7,6 +7,7 @@ import type {
   HexCoord,
   MonthSummaryPayload,
   PrivateStatus,
+  ReflectionReadyPayload,
   RoomState,
   Snapshot,
   TurnOptionsPayload,
@@ -15,6 +16,7 @@ import { CharacterIdSchema } from "@pejuang/shared";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import GameInterface from "@/app/components/game/GameInterface";
+import FinalResultsView from "@/app/components/game/FinalResultsView";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { clearGuestSession, readGuestSession } from "@/lib/guest-session";
 import {
@@ -42,6 +44,7 @@ import {
   applySessionGamePatch,
   applySessionPlayerConnection,
   applySessionPublicEvent,
+  applySessionReflectionReady,
   applySessionSnapshot,
   applySessionTurnOptions,
   clearAcceptedPrivateAction,
@@ -159,6 +162,9 @@ export function LobbyClient({ code }: { code: string }) {
     const onPlayerStatus = (nextStatus: PrivateStatus) => {
       commitSession((current) => applyPrivateStatus(current, nextStatus));
     };
+    const onReflectionReady = (payload: ReflectionReadyPayload) => {
+      commitSession((current) => applySessionReflectionReady(current, payload));
+    };
     const onPublicGameEvent = (event: PublicGameEvent) => {
       commitTransition((current) => applySessionPublicEvent(current, event));
     };
@@ -238,6 +244,7 @@ export function LobbyClient({ code }: { code: string }) {
       ["season:changed", onSeasonChanged],
       ["player:eliminated", onPlayerEliminated],
       ["game:finished", onGameFinished],
+      ["reflection:ready", onReflectionReady],
       ["room:kicked", onKicked],
     ]);
     if (gameSocket.connected) resume();
@@ -267,6 +274,27 @@ export function LobbyClient({ code }: { code: string }) {
           router.replace("/lobby");
         }
         handleResponse("Keluar room", response);
+      },
+    );
+  }
+
+  function rematch() {
+    if (!socket || pending || !playerId || room?.hostId !== playerId) return;
+    setPending("rematch");
+    socket.timeout(3_000).emit(
+      "room:rematch",
+      { requestId: createRequestId() },
+      (error, response) => {
+        if (error) {
+          handleResponse("Main Lagi", { ok: false, error: "INTERNAL" });
+          return;
+        }
+        if (response.ok) {
+          const next = applyRoomState(sessionViewRef.current, response.room);
+          sessionViewRef.current = next;
+          setSessionView(next);
+        }
+        handleResponse("Main Lagi", response);
       },
     );
   }
@@ -352,6 +380,24 @@ export function LobbyClient({ code }: { code: string }) {
     (player) => player.playerId === playerId,
   );
   const busy = pending !== null;
+
+  if (room?.status === "finished" && sessionView.result && playerId) {
+    return (
+      <FinalResultsView
+        result={sessionView.result}
+        reflection={sessionView.me?.reflection ?? null}
+        room={room}
+        playerId={playerId}
+        dateLabel={game?.calendar.dateLabel ?? "Permainan selesai"}
+        step={game?.calendar.step ?? 24}
+        pending={pending === "rematch" || pending === "leave"}
+        message={message}
+        onRematch={rematch}
+        onLeave={leaveRoom}
+        onMessage={setMessage}
+      />
+    );
+  }
 
   if (room?.status === "playing" && game) {
     return (
