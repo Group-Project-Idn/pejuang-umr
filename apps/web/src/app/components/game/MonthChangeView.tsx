@@ -15,11 +15,7 @@ export default function MonthChangeView({ summary, pending, serverClockOffsetMs,
   serverClockOffsetMs: number;
   onPayDebt: (month: number, amount: number) => void;
 }) {
-  const [amount, setAmount] = useState(0);
   const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    setAmount(0);
-  }, [summary?.month]);
   useEffect(() => {
     if (!summary?.payDebt) return;
     const timer = window.setInterval(() => setNow(Date.now()), 250);
@@ -46,23 +42,51 @@ export default function MonthChangeView({ summary, pending, serverClockOffsetMs,
             <dt>Hutang baru</dt><dd className="text-right">{formatRupiah(summary.after.debt)}</dd>
           </dl>
           {summary.payDebt ? (
-            <form className="grid gap-3" onSubmit={(event) => {
-              event.preventDefault();
-              if (seconds > 0 && !pending) onPayDebt(summary.month, amount);
-            }}>
-              <label htmlFor="month-debt-amount">Bayar hutang: {formatRupiah(amount)}</label>
-              <input id="month-debt-amount" type="range" min={0} max={summary.payDebt.max} step={1}
-                value={Math.min(amount, summary.payDebt.max)}
-                onChange={(event) => setAmount(Number(event.target.value))}
-                disabled={pending || seconds === 0 || summary.payDebt.max === 0} />
-              <p>Waktu tersisa: {seconds} detik</p>
-              <Button variant="primary" type="submit" disabled={pending || seconds === 0}>
-                {pending ? "Mengirim..." : "Konfirmasi pembayaran"}
-              </Button>
-            </form>
-          ) : <p>Tidak ada hutang. Menunggu giliran dimulai...</p>}
+            <MonthDebtPayment
+              key={summary.month}
+              month={summary.month}
+              max={summary.payDebt.max}
+              seconds={seconds}
+              pending={pending}
+              onPayDebt={onPayDebt}
+            />
+          ) : <p>Menunggu proses Ganti Bulan selesai. Kamu tidak perlu mengirim pembayaran lagi.</p>}
         </div>
       ) : null}
     </BottomSheet>
+  );
+}
+
+
+function MonthDebtPayment({
+  month,
+  max,
+  seconds,
+  pending,
+  onPayDebt,
+}: {
+  month: number;
+  max: number;
+  seconds: number;
+  pending: boolean;
+  onPayDebt: (month: number, amount: number) => void;
+}) {
+  const [amount, setAmount] = useState(0);
+
+  return (
+    <form className="grid gap-3" onSubmit={(event) => {
+      event.preventDefault();
+      if (seconds > 0 && !pending) onPayDebt(month, amount);
+    }}>
+      <label htmlFor="month-debt-amount">Bayar hutang: {formatRupiah(amount)}</label>
+      <input id="month-debt-amount" type="range" min={0} max={max} step={1}
+        value={Math.min(amount, max)}
+        onChange={(event) => setAmount(Number(event.target.value))}
+        disabled={pending || seconds === 0 || max === 0} />
+      <p>Waktu tersisa: {seconds} detik</p>
+      <Button variant="primary" type="submit" disabled={pending || seconds === 0}>
+        {pending ? "Mengirim..." : "Konfirmasi pembayaran"}
+      </Button>
+    </form>
   );
 }

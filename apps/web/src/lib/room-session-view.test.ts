@@ -90,6 +90,44 @@ const newerStatus: PrivateStatus = {
 };
 
 describe("room session recovery", () => {
+  it.each([null, { max: 1_000_000, deadline: 25_000 }])(
+    "menerima ringkasan bulan setelah pembalikan dan patch kalender tanpa reconnect (payDebt: %j)",
+    (payDebt) => {
+      const initial = applySessionSnapshot(createRoomSessionView(), snapshot(3), 10_000);
+      const revealed = applySessionPublicEvent(initial, {
+        type: "round:reveal",
+        payload: { version: 4, round: 1, step: 1, order: [] },
+      });
+      const calendarPatch = {
+        version: 5,
+        ops: [{ type: "calendar" as const, calendar: {
+          ...initial.gameView.game!.calendar, month: 2, step: 3, round: 3,
+        } }],
+      };
+      const updated = applySessionGamePatch(revealed.state, calendarPatch);
+      expect(updated.needsResume).toBe(false);
+      expect(updated.state.gameView.game?.phase).toBe("calendar");
+      expect(updated.state.gameView.game?.activePlayerId).toBeNull();
+      expect(updated.state.gameView.game?.turnDeadline).toBeNull();
+      const summary: MonthSummaryPayload = {
+        month: 2, salary: 5_730_000, livingCost: 4_600_000,
+        interest: 30_000, interestAddedToDebt: 0,
+        before: { ...newerStatus, debt: 1_000_000 },
+        after: { ...newerStatus, debt: 1_000_000 }, payDebt,
+      };
+      const shown = applySessionMonthSummary(updated.state, summary);
+      expect(shown.me?.pendingMonth).toEqual(summary);
+      expect(applySessionMonthSummary(shown, { ...summary, month: 1 })).toBe(shown);
+      const started = applySessionPublicEvent(shown, {
+        type: "turn:start",
+        payload: { version: 6, turnId: "next-turn", playerId: "p1", deadline: 40_000, turnSeconds: 30 },
+      }).state;
+      expect(started.me?.pendingMonth).toBeNull();
+      expect(applySessionGamePatch(started, calendarPatch).state).toBe(started);
+      expect(applySessionMonthSummary(started, summary)).toBe(started);
+    },
+  );
+
   it("menyimpan ringkasan bulan privat, mengabaikan bulan lama, dan membersihkan pembayaran setelah ack", () => {
     const initial = applySessionSnapshot(createRoomSessionView(), snapshot(3), 10_000);
     const ready = applySessionGamePatch({ ...initial, gameView: { ...initial.gameView, game: { ...initial.gameView.game!, phase: "calendar" } } }, {
