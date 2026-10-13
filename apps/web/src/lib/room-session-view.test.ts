@@ -7,6 +7,8 @@ import type {
 } from "@pejuang/shared";
 import { describe, expect, it } from "vitest";
 import {
+  applyCalendarResult,
+  applyDoomTriggered,
   applyPrivateStatus,
   applyReflectionReady,
   applyRoomState,
@@ -18,6 +20,7 @@ import {
   applySessionSnapshot,
   applySessionTurnOptions,
   clearAcceptedPrivateAction,
+  dismissNotice,
   createRoomSessionView,
   createSingleFlightGate,
 } from "./room-session-view";
@@ -628,5 +631,27 @@ describe("hint musim dan notifikasi Petak Emas", () => {
     }).state;
     expect(expired.goldNotice?.text).toBe("Petak Emas hangus");
     expect(expired.goldNotice!.id).toBeGreaterThan(spawned.goldNotice!.id);
+  });
+});
+
+describe("pemberitahuan sementara", () => {
+  const doom = { amount: 750_000, round: 3, stressAfter: 8 };
+  const result = { eventId: "e1", choice: "skip" as const, autoChosen: true, effects: [] };
+
+  it("menyimpan doom:triggered dan calendar:result dengan id unik", () => {
+    const next = applyCalendarResult(applyDoomTriggered(createRoomSessionView(), doom), result);
+    expect(next.notices).toEqual([
+      { id: 1, kind: "doom", payload: doom },
+      { id: 2, kind: "calendarResult", payload: result },
+    ]);
+  });
+
+  it("menghapus pemberitahuan tanpa memakai ulang id", () => {
+    const two = applyCalendarResult(applyDoomTriggered(createRoomSessionView(), doom), result);
+    const one = dismissNotice(two, 1);
+    expect(one.notices.map((notice) => notice.id)).toEqual([2]);
+    expect(dismissNotice(one, 99)).toBe(one);
+    const none = dismissNotice(one, 2);
+    expect(applyDoomTriggered(none, doom).notices[0]!.id).toBe(3);
   });
 });

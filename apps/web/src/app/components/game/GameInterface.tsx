@@ -24,6 +24,7 @@ import {
   type InviteFlow,
 } from "@/lib/invites";
 import CalendarEventView from "../game-v2/CalendarEventView";
+import NoticeViews from "../game-v2/NoticeViews";
 import HexDetailSheet from "../game-v2/HexDetailSheet";
 import {
   InviteCardSheet,
@@ -35,6 +36,7 @@ import {
 import GameBoard from "./GameBoard";
 import Scoreboard from "./Scoreboard";
 import MonthChangeView from "./MonthChangeView";
+import type { TransientNotice } from "@/lib/room-session-view";
 import StatusPanel from "./StatusPanel";
 
 const SEASON_LABEL = {
@@ -59,6 +61,9 @@ export default function GameInterface({
   actionPending,
   seasonHint,
   goldNotice,
+  notices,
+  monthError,
+  onDismissNotice,
   onAnswerCalendar,
   onPayDebt,
   onChooseHex,
@@ -75,6 +80,9 @@ export default function GameInterface({
   actionPending: boolean;
   seasonHint: string | null;
   goldNotice: { id: number; text: string } | null;
+  notices: readonly TransientNotice[];
+  monthError?: string;
+  onDismissNotice: (id: number) => void;
   onAnswerCalendar: (
     eventId: string,
     choice: CalendarEventPayload["choices"][number]["id"],
@@ -317,8 +325,10 @@ export default function GameInterface({
         summary={me?.pendingMonth ?? null}
         pending={actionPending}
         serverClockOffsetMs={serverClockOffsetMs}
+        error={monthError}
         onPayDebt={onPayDebt}
       />
+      <NoticeViews notices={notices} onDismiss={onDismissNotice} />
     </main>
   );
 }
