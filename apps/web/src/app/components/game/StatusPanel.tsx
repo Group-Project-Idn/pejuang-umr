@@ -1,6 +1,7 @@
 "use client";
 
 import { formatRupiah, type PrivateStatus } from "@pejuang/shared";
+import CategoryIcon from "./CategoryIcon";
 
 function Meter({
   value,
@@ -52,10 +53,10 @@ export default function StatusPanel({
       )}
       <div className="tile-legend">
         <p>Kamus petak</p>
-        <span><b>▣</b> Kerja (Karier)</span>
-        <span><b>●●●</b> Sosial</span>
-        <span><b>♥</b> Kesehatan</span>
-        <span><b>●</b> Keuangan / Rezeki</span>
+        <span><b><CategoryIcon category="work" size={16} /></b> Kerja (Karier)</span>
+        <span><b><CategoryIcon category="social" size={16} /></b> Sosial</span>
+        <span><b><CategoryIcon category="health" size={16} /></b> Kesehatan</span>
+        <span><b><CategoryIcon category="finance" size={16} /></b> Keuangan / Rezeki</span>
       </div>
     </aside>
   );

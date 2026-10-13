@@ -6,7 +6,6 @@ import type {
   RiskTag,
   TileOption,
 } from "@pejuang/shared";
-import { TILE_DETAILS } from "@/data/game";
 
 export const REALITY_LOCKED_TEXT = "Terungkap di akhir ronde";
 
@@ -56,6 +55,7 @@ export function buildLitDetail(option: TileOption): HexDetailView {
     title: option.title,
     category: option.category,
     icon: TILE_DETAILS[option.category].icon,
+    category: option.isGold ? "gold" : option.category,
     isGold: option.isGold,
     plan: option.plan,
     risk: option.risk,

@@ -63,6 +63,7 @@ export default function HexDetailSheet({ detail, pending, onChoose, onClose }: H
     <SidePanel
       open={detail !== null}
       title={detail?.title ?? "Detail Heksa"}
+      title={detail ? detail.title : "Detail heksa"}
       onClose={onClose}
       className={detail?.isGold ? "hex-card-gold" : ""}
       header={

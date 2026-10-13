@@ -4,13 +4,13 @@ export const HEX_TILE_RADIUS = 0.88;
 
 export const TILE_DETAILS: Record<
   Category,
-  { label: string; icon: string; color: string }
+  { label: string; color: string }
 > = {
-  work: { label: "Kerja", icon: "▣", color: "#f2e8cf" },
-  social: { label: "Sosial", icon: "●●●", color: "#f7efd9" },
-  health: { label: "Kesehatan", icon: "♥", color: "#f6e7d3" },
-  finance: { label: "Keuangan", icon: "●", color: "#eed9a6" },
-  gold: { label: "Petak Emas", icon: "✦", color: "#f4c64f" },
+  work: { label: "Kerja", color: "#f2e8cf" },
+  social: { label: "Sosial", color: "#f7efd9" },
+  health: { label: "Kesehatan", color: "#f6e7d3" },
+  finance: { label: "Keuangan", color: "#eed9a6" },
+  gold: { label: "Petak Emas", color: "#f4c64f" },
 };
 
 export function hexToWorld(q: number, r: number) {

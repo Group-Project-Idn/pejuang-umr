@@ -63,6 +63,14 @@ describe("klik heksa", () => {
   });
 });
 
+describe("kategori ikon", () => {
+  it("menyimpan kategori; heksa menyala emas memakai gold", () => {
+    expect(buildLitDetail(lit(1, 0)).category).toBe("work");
+    expect(buildLitDetail(lit(1, 0, { isGold: true })).category).toBe("gold");
+    expect(buildOpenedDetail(opened()).category).toBe("health");
+  });
+});
+
 describe("Realita terkunci dan Petak Emas", () => {
   it("heksa menyala biasa menulis 'Terungkap di akhir ronde'", () => {
     expect(buildLitDetail(lit(1, 0)).reality).toEqual({

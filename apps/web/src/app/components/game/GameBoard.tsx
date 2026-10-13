@@ -19,6 +19,8 @@ import {
   shouldShowHexFallback,
 } from "@/lib/hex-interaction";
 import { OUTCOME_LABEL } from "@/lib/reveal";
+import { canZoomBoard, stepBoardDistance, type BoardZoomDirection } from "@/lib/board-camera";
+import CategoryIcon from "./CategoryIcon";
 import GameCharacters from "./GameCharacters";
 
 const tempObject = new THREE.Object3D();
@@ -253,8 +255,8 @@ function HexTiles({
             pointerEvents="none"
             style={{ pointerEvents: "none" }}
           >
-            <span className="tile-plan-label">
-              {option.isGold ? "✦ " : ""}{option.title}
+            <span className="tile-icon tile-icon-lit">
+              <CategoryIcon category={option.isGold ? "gold" : option.category} size={34} />
             </span>
           </Html>
         );
@@ -271,8 +273,8 @@ function HexTiles({
             pointerEvents="none"
             style={{ pointerEvents: "none" }}
           >
-            <span className={`tile-symbol tile-symbol-${tile.category}`}>
-              {TILE_DETAILS[tile.category].icon}
+            <span className="tile-icon tile-icon-open">
+              <CategoryIcon category={tile.category} size={30} />
             </span>
             {reveal && tile.reality && reveal.flippedKeys.has(hexKey(tile.hex)) ? (
               <span className={`tile-outcome tile-outcome-${tile.reality.outcome}`}>
@@ -286,6 +288,8 @@ function HexTiles({
   );
 }
 
+type OrbitControlsImpl = NonNullable<ComponentProps<typeof OrbitControls>["ref"] extends infer R ? R extends { current: infer C } ? C : never : never>;
+
 function DeskScene({
   game,
   room,
@@ -295,11 +299,15 @@ function DeskScene({
   inviteTargeting,
   pointerDown,
   onLitRendered,
+  controlsRef,
+  onDistanceChange,
 }: {
   game: PublicGameState;
   room: RoomState;
   lit: readonly TileOption[];
   reveal: BoardReveal | null;
+  controlsRef: MutableRefObject<OrbitControlsImpl | null>;
+  onDistanceChange: (distance: number) => void;
   onSelectHex: (key: string) => void;
   pointerDown: MutableRefObject<{ x: number; y: number } | null>;
   onLitRendered: (count: number) => void;
@@ -348,7 +356,14 @@ function DeskScene({
         />
       </Suspense>
       <OrbitControls
+        ref={controlsRef}
         enablePan={false}
+        enableZoom={false}
+        enableDamping={false}
+        onChange={() => {
+          const controls = controlsRef.current;
+          if (controls) onDistanceChange(controls.getDistance());
+        }}
         minPolarAngle={0.45}
         maxPolarAngle={1.15}
         minDistance={10}
@@ -413,6 +428,17 @@ export default function GameBoard({
   const [renderedLitCount, setRenderedLitCount] = useState(0);
   const [boardReady, setBoardReady] = useState(false);
   const [boardFailed, setBoardFailed] = useState(false);
+  const controlsRef = useRef<OrbitControlsImpl | null>(null);
+  const [distance, setDistance] = useState<number | null>(null);
+  const zoomBoard = (direction: BoardZoomDirection) => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+    const next = stepBoardDistance(controls.getDistance(), direction);
+    const offset = controls.object.position.clone().sub(controls.target);
+    controls.object.position.copy(offset.setLength(next).add(controls.target));
+    controls.update();
+    setDistance(next);
+  };
   if (webgl === false) return <BoardUnsupported />;
   if (webgl === null) return <div className="board-canvas" aria-busy="true" />;
   const showFallback = shouldShowHexFallback({
@@ -448,9 +474,29 @@ export default function GameBoard({
               inviteTargeting={inviteTargeting}
               pointerDown={pointerDown}
               onLitRendered={setRenderedLitCount}
+              controlsRef={controlsRef}
+              onDistanceChange={setDistance}
             />
           </Canvas>
         </BoardErrorBoundary>
+      </div>
+      <div className="board-zoom">
+        <button
+          type="button"
+          aria-label="Perbesar papan"
+          disabled={distance !== null && !canZoomBoard(distance, "in")}
+          onClick={() => zoomBoard("in")}
+        >
+          +
+        </button>
+        <button
+          type="button"
+          aria-label="Perkecil papan"
+          disabled={distance !== null && !canZoomBoard(distance, "out")}
+          onClick={() => zoomBoard("out")}
+        >
+          −
+        </button>
       </div>
       {showFallback ? (
         <ul className="hex-fallback" aria-label="Daftar heksa menyala">
