@@ -23,6 +23,7 @@ import {
   expireInvite,
   finishGame,
   hasOpenInvites,
+  playRandomFrom,
   respondInvite,
   sendInvite,
   startRound,
@@ -160,6 +161,28 @@ export class GameSession {
   /** Memulai ronde pertama. */
   start(): void {
     this.runRound();
+  }
+
+  /**
+   * Alat dev (GDD v1.14): menjalankan sisa langkah dengan jawaban acak untuk semua pemain, tanpa
+   * menunggu timer dan tanpa menyiarkan event per langkah, lalu menutup game lewat finish() yang
+   * sama dengan game biasa (game:finished dan Refleksi).
+   */
+  fastForwardToFinish(): void {
+    if (this.finished) return;
+    this.clearTimers();
+    this.openInvites.clear();
+    this.awaitingInvites = false;
+    const played = playRandomFrom(this.state, {
+      engineRandom: this.random,
+      playerRandom: this.random,
+      inviteRandom: this.random,
+      playerIds: Object.keys(this.state.players),
+      payment: "random",
+      label: `room ${this.roomCode}`,
+    });
+    this.state = played.state;
+    this.finish();
   }
 
   /** Refleksi siap per pemain, maksimal satu per game (GDD 6.5). */

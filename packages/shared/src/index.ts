@@ -13,6 +13,7 @@ export * from "./schemas/invite";
 export * from "./schemas/room";
 export * from "./schemas/room-actions";
 export * from "./socket/client-event-schemas";
+export * from "./socket/dev-events";
 export * from "./socket/events";
 export * from "./socket/ping";
 export * from "./types/calendar";

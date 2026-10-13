@@ -1,6 +1,7 @@
 import { randomInt } from "node:crypto";
 import {
   CharacterIdSchema,
+  DEV_ROOM_CODE,
   type CharacterId,
   type ErrorCode,
   type RoomPlayer,
@@ -16,7 +17,11 @@ type RoomMutationResult =
 type RoomCodeFactory = () => string;
 
 function defaultRoomCodeFactory(): string {
-  return `UMR-${randomInt(0, 10_000).toString().padStart(4, "0")}`;
+  let code: string;
+  do {
+    code = `UMR-${randomInt(0, 10_000).toString().padStart(4, "0")}`;
+  } while (code === DEV_ROOM_CODE);
+  return code;
 }
 
 function cloneRoom(room: RoomState): RoomState {
@@ -60,19 +65,38 @@ export class RoomRepository {
   private readonly rooms = new Map<string, RoomState>();
   private readonly playerRooms = new Map<string, string>();
 
+  /** Room uji UMR-0099 (GDD v1.14): dibuat otomatis saat pemain pertama masuk. */
+  private devRoomEnabled = false;
+
   constructor(private readonly createCode: RoomCodeFactory = defaultRoomCodeFactory) {}
+
+  /** Mengaktifkan room uji (hanya bila DEV_TOOLS=true). */
+  enableDevRoom(): void {
+    this.devRoomEnabled = true;
+  }
+
+  isDevRoomEnabled(): boolean {
+    return this.devRoomEnabled;
+  }
 
   create(identity: SocketData, now = Date.now()): RoomMutationResult {
     if (this.playerRooms.has(identity.playerId)) {
       return { ok: false, error: "ALREADY_IN_ROOM" };
     }
 
+    // Kode UMR-0099 dicadangkan: tidak pernah dipakai room biasa.
+    const unavailable = (candidate: string) =>
+      this.rooms.has(candidate) || candidate === DEV_ROOM_CODE;
     let code = this.createCode();
-    for (let attempt = 0; this.rooms.has(code) && attempt < 20; attempt += 1) {
+    for (let attempt = 0; unavailable(code) && attempt < 20; attempt += 1) {
       code = this.createCode();
     }
-    if (this.rooms.has(code)) return { ok: false, error: "INTERNAL" };
+    if (unavailable(code)) return { ok: false, error: "INTERNAL" };
 
+    return { ok: true, room: cloneRoom(this.openRoom(code, identity, now)) };
+  }
+
+  private openRoom(code: string, identity: SocketData, now: number): RoomState {
     const room = withDerivedState({
       code,
       status: "waiting",
@@ -85,7 +109,7 @@ export class RoomRepository {
     });
     this.rooms.set(code, room);
     this.playerRooms.set(identity.playerId, code);
-    return { ok: true, room: cloneRoom(room) };
+    return room;
   }
 
   join(code: string, identity: SocketData, now = Date.now()): RoomMutationResult {
@@ -101,6 +125,10 @@ export class RoomRepository {
     }
 
     const room = this.rooms.get(code);
+    // Room uji dibuat saat pemain pertama masuk; ia menjadi host.
+    if (!room && this.devRoomEnabled && code === DEV_ROOM_CODE) {
+      return { ok: true, room: cloneRoom(this.openRoom(code, identity, now)) };
+    }
     if (!room) return { ok: false, error: "ROOM_NOT_FOUND" };
     if (room.status !== "waiting") return { ok: false, error: "ROOM_LOCKED" };
     if (room.players.length >= room.maxPlayers) {

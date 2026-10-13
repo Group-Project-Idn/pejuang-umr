@@ -78,6 +78,26 @@ function isFinished(state: GameState): boolean {
 
 export type Observer = (state: GameState, events: readonly DomainEvent[]) => void;
 
+export interface RandomPlayOptions {
+  engineRandom: RandomSource;
+  /** Jawaban pilihan heksa, Event Tanggal, dan Bayar Hutang. */
+  playerRandom: RandomSource;
+  /** Keputusan Ajakan (kirim, target, habis waktu). */
+  inviteRandom: RandomSource;
+  playerIds: readonly string[];
+  /** Bayar Hutang bot: "half" (default, separuh batas slider) atau "random" (acak sampai batas). */
+  payment?: "half" | "random";
+  observe?: Observer;
+  /** Nama untuk pesan galat iterasi berlebih. */
+  label?: string;
+}
+
+export interface RandomPlayResult {
+  state: GameState;
+  events: DomainEvent[];
+  inviteLog: InviteLogEntry[];
+}
+
 /** Memainkan satu game penuh dengan keputusan acak, sampai phase "finished". */
 export function playRandomGame(
   playerCount: number,
@@ -85,21 +105,71 @@ export function playRandomGame(
   observe?: Observer,
 ): SimulationResult {
   const engineRandom = new SeededRandom(seed);
-  const playerRandom = new SeededRandom(seed + PLAYER_RANDOM_OFFSET);
-  const inviteRandom = new SeededRandom(seed + INVITE_RANDOM_OFFSET);
-  const inviteLog: InviteLogEntry[] = [];
   const playerIds = Array.from({ length: playerCount }, (_, index) => `p${index + 1}`);
 
   const created = createGame(playerIds, `sim-${seed}`, engineRandom);
-  let state = created.state;
-  const events: DomainEvent[] = [...created.events];
-  const initialUsedHexKeys = [...state.board.usedHexKeys];
-  observe?.(state, created.events);
+  const initialUsedHexKeys = [...created.state.board.usedHexKeys];
+  observe?.(created.state, created.events);
+
+  const played = playRandomFrom(created.state, {
+    engineRandom,
+    playerRandom: new SeededRandom(seed + PLAYER_RANDOM_OFFSET),
+    inviteRandom: new SeededRandom(seed + INVITE_RANDOM_OFFSET),
+    playerIds,
+    observe,
+    label: `seed ${seed}`,
+  });
+  return {
+    state: played.state,
+    events: [...created.events, ...played.events],
+    initialUsedHexKeys,
+    playerIds,
+    inviteLog: played.inviteLog,
+  };
+}
+
+/**
+ * Melanjutkan game dari state mana pun sampai phase "finished" dengan keputusan acak.
+ * Ajakan yang masih terbuka dijawab dulu; jawaban yang sudah masuk (Event Tanggal, Bayar Hutang)
+ * dilewati. Dipakai simulasi dan alat dev server.
+ */
+export function playRandomFrom(initial: GameState, options: RandomPlayOptions): RandomPlayResult {
+  const { engineRandom, playerRandom, inviteRandom, playerIds, observe } = options;
+  const label = options.label ?? "simulasi";
+  const inviteLog: InviteLogEntry[] = [];
+  let state = initial;
+  const events: DomainEvent[] = [];
 
   const record = (next: GameState, produced: readonly DomainEvent[]) => {
     state = next;
     events.push(...produced);
     observe?.(state, produced);
+  };
+
+  /** Target menjawab dengan aturan tetap; `autoDeclined` berarti habis waktu tanpa jawaban. */
+  const answerInvite = (invite: GameState["roundInvites"][number], autoDeclined: boolean) => {
+    const { targetId } = invite;
+    const wealthCost = invite.planEffects
+      .filter((effect) => effect.stat === "wealth")
+      .reduce((sum, effect) => sum + effect.delta, 0);
+    const targetStatus = state.players[targetId]!.status;
+    const answer =
+      wealthCost >= 0 || (targetStatus.debt === 0 && targetStatus.wealth >= INVITE_JOIN_MIN_WEALTH)
+        ? "join"
+        : "decline";
+    const recorded = autoDeclined
+      ? expireInvite(state, invite.inviteId)
+      : respondInvite(state, targetId, invite.inviteId, answer);
+    if (!recorded.ok) throw new Error(`${recorded.code}: ${recorded.message}`);
+    record(recorded.state, []);
+    inviteLog.push({
+      step: state.public.calendar.step,
+      senderId: invite.senderId,
+      targetId,
+      inviteId: invite.inviteId,
+      answer: autoDeclined ? "decline" : answer,
+      autoDeclined,
+    });
   };
 
   /**
@@ -123,33 +193,17 @@ export function playRandomGame(
     if (!sent.ok) throw new Error(`${sent.code}: ${sent.message}`);
     record(sent.state, sent.events);
     const invite = state.roundInvites[state.roundInvites.length - 1]!;
-    const autoDeclined = inviteRandom.chance(INVITE_EXPIRE_PCT);
-    const wealthCost = invite.planEffects
-      .filter((effect) => effect.stat === "wealth")
-      .reduce((sum, effect) => sum + effect.delta, 0);
-    const targetStatus = state.players[targetId]!.status;
-    const answer =
-      wealthCost >= 0 || (targetStatus.debt === 0 && targetStatus.wealth >= INVITE_JOIN_MIN_WEALTH)
-        ? "join"
-        : "decline";
-    const recorded = autoDeclined
-      ? expireInvite(state, invite.inviteId)
-      : respondInvite(state, targetId, invite.inviteId, answer);
-    if (!recorded.ok) throw new Error(`${recorded.code}: ${recorded.message}`);
-    record(recorded.state, []);
-    inviteLog.push({
-      step: state.public.calendar.step,
-      senderId,
-      targetId,
-      inviteId: invite.inviteId,
-      answer: autoDeclined ? "decline" : answer,
-      autoDeclined,
-    });
+    answerInvite(invite, inviteRandom.chance(INVITE_EXPIRE_PCT));
   };
+
+  // Ajakan yang sudah terbuka saat dilanjutkan (mis. dari server) dijawab lebih dulu.
+  for (const open of state.roundInvites.filter((invite) => invite.answer === null)) {
+    answerInvite(open, false);
+  }
 
   for (let iteration = 0; state.phase !== "finished"; iteration += 1) {
     if (iteration >= MAX_ITERATIONS) {
-      throw new Error(`Simulasi seed ${seed} melewati ${MAX_ITERATIONS} iterasi.`);
+      throw new Error(`Simulasi ${label} melewati ${MAX_ITERATIONS} iterasi.`);
     }
 
     if (state.phase === "roundStart") {
@@ -161,9 +215,13 @@ export function playRandomGame(
     if (state.phase === "monthChange") {
       const pending = state.pendingMonth!;
       for (const playerId of pending.debtorIds) {
+        if (playerId in pending.answers) continue;
         const status = state.players[playerId]!.status;
         const max = Math.min(status.wealth, status.debt);
-        const amount = Math.floor(max / 2 / BOT_PAYMENT_ROUNDING) * BOT_PAYMENT_ROUNDING;
+        const amount =
+          options.payment === "random"
+            ? playerRandom.integer(0, Math.floor(max / BOT_PAYMENT_ROUNDING)) * BOT_PAYMENT_ROUNDING
+            : Math.floor(max / 2 / BOT_PAYMENT_ROUNDING) * BOT_PAYMENT_ROUNDING;
         const answered = answerMonthPayment(state, playerId, pending.month, amount);
         if (!answered.ok) throw new Error(`${answered.code}: ${answered.message}`);
         record(answered.state, answered.events);
@@ -179,6 +237,7 @@ export function playRandomGame(
         (id) => def.choices[id],
       );
       for (const playerId of state.public.turnOrder) {
+        if (playerId in state.pendingCalendarEvent!.answers) continue;
         if (playerRandom.chance(SKIP_ANSWER_PCT)) continue; // waktu habis -> skip otomatis
         const choice: CalendarChoiceId = playerRandom.pick(choices);
         const answered = answerCalendarEvent(state, playerId, def.id, choice);
@@ -222,5 +281,5 @@ export function playRandomGame(
     }
   }
 
-  return { state, events, initialUsedHexKeys, playerIds, inviteLog };
+  return { state, events, inviteLog };
 }

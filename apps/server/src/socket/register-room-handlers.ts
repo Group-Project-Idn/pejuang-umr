@@ -25,6 +25,7 @@ import {
 import { randomUUID } from "node:crypto";
 import type { Server, Socket } from "socket.io";
 import { broadcastConnection } from "../services/connection";
+import { resetAbandonedDevRoom } from "../services/dev-room";
 import { systemClock, type Clock } from "../game/clock";
 import { dispatch } from "../game/event-dispatcher";
 import { GameSession, identitiesFromRoom, type SessionTiming } from "../game/game-session";
@@ -170,6 +171,7 @@ export function registerRoomHandlers(
         // Room selesai yang kosong ditutup bersama sesi game-nya.
         else if (wasFinished || leavingEliminated) closeGame(roomBefore.code);
       }
+      resetAbandonedDevRoom(rooms, games);
     }
     ack(result.response);
   }));
@@ -356,6 +358,7 @@ export function registerRoomHandlers(
                     .map((row) => row.playerId);
                   const finished = rooms.markFinished(room.code, survivors);
                   if (finished.ok) emitRoomState(io, finished.room);
+                  resetAbandonedDevRoom(rooms, games);
                 },
               },
             ),

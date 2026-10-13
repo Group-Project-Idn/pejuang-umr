@@ -77,4 +77,17 @@ describe("readServerConfig", () => {
     expect(() => readServerConfig({ REFLECTION_PROVIDER: "openai" })).toThrow(/REFLECTION_PROVIDER/);
     expect(() => readServerConfig({ REFLECTION_TIMEOUT_MS: "0" })).toThrow(/REFLECTION_TIMEOUT_MS/);
   });
+
+  it("DEV_TOOLS default false, true hanya di luar production, nilai lain ditolak", () => {
+    expect(readServerConfig({ GUEST_TOKEN_SECRET: "change-me" }).devTools).toBe(false);
+    expect(readServerConfig({ DEV_TOOLS: "false" }).devTools).toBe(false);
+    expect(readServerConfig({ DEV_TOOLS: "true" }).devTools).toBe(true);
+    expect(() =>
+      readServerConfig({ NODE_ENV: "production", GUEST_TOKEN_SECRET: "a".repeat(40), DEV_TOOLS: "true" }),
+    ).toThrow(/DEV_TOOLS/);
+    expect(
+      readServerConfig({ NODE_ENV: "production", GUEST_TOKEN_SECRET: "a".repeat(40) }).devTools,
+    ).toBe(false);
+    expect(() => readServerConfig({ DEV_TOOLS: "yes" })).toThrow(/DEV_TOOLS/);
+  });
 });

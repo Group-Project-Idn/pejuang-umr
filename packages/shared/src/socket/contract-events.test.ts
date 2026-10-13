@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { RoomCodeSchema } from "../schemas/common";
 import { ClientEventSchemas } from "./client-event-schemas";
+import { DEV_EVENTS, DEV_ROOM_CODE, DevEventSchemas } from "./dev-events";
 import type { ClientToServerEvents, ServerToClientEvents } from "./events";
 
 // Daftar event API_CONTRACT v0.3 Bagian 0 (46 event: 44 dari 03_REKOMENDASI
@@ -77,5 +79,18 @@ describe("daftar event sama dengan API_CONTRACT Bagian 0", () => {
     expect(
       Object.keys(CONTRACT_CLIENT_EVENTS).length + Object.keys(CONTRACT_SERVER_EVENTS).length,
     ).toBe(46);
+  });
+});
+
+describe("event dev terpisah dari 46 event produksi", () => {
+  it("DEV_EVENTS tidak ada di skema klien produksi dan punya skema sendiri", () => {
+    expect([...DEV_EVENTS]).toEqual(["dev:finish-game"]);
+    expect(Object.keys(DevEventSchemas).sort()).toEqual([...DEV_EVENTS].sort());
+    for (const event of DEV_EVENTS) expect(Object.keys(ClientEventSchemas)).not.toContain(event);
+  });
+
+  it("kode room dev lolos RoomCodeSchema", () => {
+    expect(DEV_ROOM_CODE).toBe("UMR-0099");
+    expect(RoomCodeSchema.safeParse(DEV_ROOM_CODE).success).toBe(true);
   });
 });

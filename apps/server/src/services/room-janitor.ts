@@ -43,6 +43,8 @@ export class RoomJanitor {
     private readonly clock: Clock,
     private readonly idleMs: number,
     private readonly emptyMs: number,
+    /** Kode room yang tidak pernah ditutup janitor (room uji UMR-0099). */
+    private readonly exemptCodes: ReadonlySet<string> = new Set(),
   ) {
     this.intervalMs = Math.max(1, Math.floor(Math.min(idleMs, emptyMs) / 4));
   }
@@ -50,7 +52,7 @@ export class RoomJanitor {
   /** Mencatat aktivitas dari anggota room (event C->S yang valid). */
   touch(playerId: string): void {
     const room = this.rooms.getByPlayer(playerId);
-    if (!room) return;
+    if (!room || this.exemptCodes.has(room.code)) return;
     this.entryFor(room.code, room.status).lastActivity = this.clock.now();
     this.ensureTimer();
   }
@@ -70,7 +72,7 @@ export class RoomJanitor {
     }
     for (const code of codes) {
       const room = this.rooms.get(code);
-      if (!room) continue;
+      if (!room || this.exemptCodes.has(code)) continue;
       const entry = this.entryFor(code, room.status);
       if (entry.status !== room.status) {
         entry.status = room.status;
