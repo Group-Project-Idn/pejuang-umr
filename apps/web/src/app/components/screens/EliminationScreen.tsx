@@ -1,8 +1,5 @@
-import { formatRupiah, type PrivateStatus, type Reflection } from "@pejuang/shared";
-import {
-  ELIMINATION_REASON_LABEL,
-  getEliminationReason,
-} from "@/lib/result-screens";
+import { formatRupiah, type EliminationReason, type PrivateStatus, type Reflection } from "@pejuang/shared";
+import { ELIMINATION_REASON_LABEL } from "@/lib/result-screens";
 import ReflectionCard from "../game/ReflectionCard";
 import Button from "../ui/Button";
 import Card from "../ui/Card";
@@ -15,18 +12,20 @@ export const ELIMINATION_COPY = {
 
 export default function EliminationScreen({
   status,
+  reason,
   reflection,
   busy,
   message,
   onLeave,
 }: {
   status: PrivateStatus | null;
+  /** Alasan dari game.eliminationReasons; null bila belum diketahui. */
+  reason: EliminationReason | null;
   reflection: Reflection | null | undefined;
   busy: boolean;
   message: string;
   onLeave: () => void;
 }) {
-  const reason = getEliminationReason(status);
   return (
     <main className="mx-auto grid w-full max-w-md gap-4 bg-latar px-4 py-6 text-teks-utama">
       <header className="grid gap-1">

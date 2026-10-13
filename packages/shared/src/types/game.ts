@@ -2,6 +2,9 @@ import type { z } from "zod";
 import { CategorySchema, HexCoordSchema, OutcomeSchema, RiskSchema } from "../schemas/common";
 import {
   DeadEndPayloadSchema,
+  DoomTriggeredPayloadSchema,
+  EliminationReasonEntrySchema,
+  EliminationReasonSchema,
   GameFinishedPayloadSchema,
   GoldTileSchema,
   OpenedHexSchema,
@@ -46,3 +49,9 @@ export type RevealedReality = z.infer<typeof RevealedRealitySchema>;
 export type Reflection = z.infer<typeof ReflectionSchema>;
 
 export type ReflectionReadyPayload = z.infer<typeof ReflectionReadyPayloadSchema>;
+
+export type DoomTriggeredPayload = z.infer<typeof DoomTriggeredPayloadSchema>;
+
+export type EliminationReason = z.infer<typeof EliminationReasonSchema>;
+
+export type EliminationReasonEntry = z.infer<typeof EliminationReasonEntrySchema>;

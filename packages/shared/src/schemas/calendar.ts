@@ -8,6 +8,8 @@ export const CalendarInfoSchema = z.object({
   month: z.number().int().min(1).max(12),
   dateLabel: z.string().min(1),
   season: SeasonSchema,
+  /** Keterangan musim untuk HUD; sama dengan hint season:changed, jadi tetap ada setelah snapshot. */
+  seasonHint: z.string().min(1),
   nextEvent: z
     .object({ name: z.string().min(1), stepsLeft: z.number().int().nonnegative() })
     .nullable(),

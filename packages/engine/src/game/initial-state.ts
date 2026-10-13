@@ -70,6 +70,10 @@ export function createGameSetup(
     activePlayerId: null,
     turnDeadline: null,
     revealEndsAt: null,
+    revealOrder: [],
+    // Placeholder; server menimpanya dengan REVEAL_STEP_MS dari konfigurasi.
+    revealStepMs: 2_500,
+    eliminationReasons: [],
     inviteBusyPlayerIds: [],
     pawns,
     openedHexes: [],

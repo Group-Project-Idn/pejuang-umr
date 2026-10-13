@@ -8,7 +8,6 @@ import type {
   Snapshot,
 } from "@pejuang/shared";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { getSeasonHint } from "@/lib/board-hud";
 import { getTurnSecondsLeft } from "@/lib/game-view";
 import { resolveHexClick } from "@/lib/hex-detail";
 import {
@@ -25,7 +24,7 @@ import {
 } from "@/lib/invites";
 import {
   buildRevealSchedule,
-  deriveRevealOrder,
+  getRevealOrder,
   getRevealProgress,
   maskUnrevealed,
   OUTCOME_LABEL,
@@ -82,7 +81,6 @@ export default function GameInterface({
   serverClockOffsetMs,
   actionMessage,
   actionPending,
-  seasonHint,
   goldNotice,
   notices,
   monthError,
@@ -101,7 +99,6 @@ export default function GameInterface({
   serverClockOffsetMs: number;
   actionMessage: string;
   actionPending: boolean;
-  seasonHint: string | null;
   goldNotice: { id: number; text: string } | null;
   notices: readonly TransientNotice[];
   monthError?: string;
@@ -156,11 +153,11 @@ export default function GameInterface({
   });
 
   const serverNow = now + serverClockOffsetMs;
-  // Order dari snapshot supaya reconnect di tengah Fase Pembalikan tetap punya jadwal.
+  // Order dan durasi dari server (snapshot/patch) supaya reconnect di tengah Fase Pembalikan tetap punya jadwal.
   const revealSchedule = useMemo(
     () => (revealEndsAt === null
       ? null
-      : buildRevealSchedule(deriveRevealOrder(game), revealEndsAt)),
+      : buildRevealSchedule(getRevealOrder(game), revealEndsAt, game.revealStepMs)),
     [game, revealEndsAt],
   );
   const revealProgress = revealSchedule
@@ -233,7 +230,7 @@ export default function GameInterface({
               <span>{SEASON_LABEL[game.calendar.season]}</span>
             </div>
             <small className="season-hint" role="status">
-              {getSeasonHint(game.calendar.season, seasonHint)}
+              {game.calendar.seasonHint}
             </small>
           </div>
           <div className="mission-card">

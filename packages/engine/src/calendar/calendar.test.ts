@@ -4,9 +4,18 @@ import {
   getCalendarEventAtStep,
   getCalendarInfo,
   getSeasonChange,
+  SEASON_HINT,
 } from "./calendar";
 
 describe("getCalendarInfo", () => {
+  it("seasonHint mengikuti musim langkah itu, di semua langkah", () => {
+    for (let step = 1; step <= 24; step += 1) {
+      const info = getCalendarInfo(step);
+      expect(info.seasonHint).toBe(SEASON_HINT[info.season]);
+      expect(CalendarInfoSchema.safeParse(info).success).toBe(true);
+    }
+  });
+
   it("langkah 1: 1 Jan, Bulan 1, rainy, Lebaran 5 langkah lagi", () => {
     const info = getCalendarInfo(1);
     expect(info.dateLabel).toBe("1 Jan");

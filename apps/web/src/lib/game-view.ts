@@ -76,13 +76,19 @@ export function applyGamePatch(
           activePlayerId: null,
           turnDeadline: null,
           revealEndsAt: null,
+          revealOrder: [],
         };
       case "phase":
         return {
           ...next,
           phase: operation.phase,
           revealEndsAt: operation.phase === "reveal" ? next.revealEndsAt : null,
+          revealOrder: operation.phase === "reveal" ? next.revealOrder : [],
         };
+      case "revealOrder":
+        return { ...next, revealOrder: operation.playerIds };
+      case "eliminationReasons":
+        return { ...next, eliminationReasons: operation.reasons };
       case "inviteBusy":
         return { ...next, inviteBusyPlayerIds: operation.playerIds };
       default:
@@ -116,6 +122,9 @@ export function applyGameStarted(
     activePlayerId: null,
     turnDeadline: null,
     revealEndsAt: null,
+    revealOrder: [],
+    revealStepMs: payload.revealStepMs,
+    eliminationReasons: [],
     inviteBusyPlayerIds: [],
     pawns: payload.startPositions.map(({ playerId, hex }) => ({ playerId, hex })),
     openedHexes: [],
@@ -209,6 +218,8 @@ export function applyRoundReveal(
     activePlayerId: null,
     turnDeadline: null,
     revealEndsAt: payload.revealEndsAt,
+    revealOrder: payload.order.map((item) => item.playerId),
+    revealStepMs: payload.revealStepMs,
   };
 }
 
@@ -241,7 +252,7 @@ export function applySeasonChanged(
   return {
     ...current!,
     version: payload.version,
-    calendar: { ...current!.calendar, season: payload.season },
+    calendar: { ...current!.calendar, season: payload.season, seasonHint: payload.hint },
   };
 }
 
@@ -256,6 +267,9 @@ export function applyPlayerEliminated(
     ...current!,
     version: payload.version,
     eliminated: [...current!.eliminated, payload.playerId],
+    eliminationReasons: current!.eliminationReasons.some((entry) => entry.playerId === payload.playerId)
+      ? current!.eliminationReasons
+      : [...current!.eliminationReasons, { playerId: payload.playerId, reason: payload.reason }],
     scores: current!.scores.map((score) =>
       score.playerId === payload.playerId ? { ...score, eliminated: true } : score,
     ),

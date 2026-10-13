@@ -333,7 +333,7 @@ export function endRound(state: GameState, random: RandomSource): RoundResult {
   events.push({
     type: "round:reveal",
     target: room,
-    payload: { version: 0, round: step, step, order, revealEndsAt: 0 }, // revealEndsAt diisi server
+    payload: { version: 0, round: step, step, order, revealEndsAt: 0, revealStepMs: 2_500 }, // revealEndsAt dan revealStepMs diisi server
   });
 
   // b. Realita dibuka dan efeknya diterapkan.
@@ -456,6 +456,7 @@ export function endRound(state: GameState, random: RandomSource): RoundResult {
 
   // e. Eliminasi: Bangkrut dulu, lalu Burnout. Skor dibekukan saat itu.
   const eliminatedNow: string[] = [];
+  const eliminationReasons = [...state.public.eliminationReasons];
   for (const playerId of state.baseTurnOrder) {
     const player = players[playerId]!;
     if (player.eliminated) continue;
@@ -466,6 +467,7 @@ export function endRound(state: GameState, random: RandomSource): RoundResult {
         : null;
     if (!reason) continue;
     const frozenScore = calculateWelfareScore(player.status).score;
+    eliminationReasons.push({ playerId, reason });
     players[playerId] = {
       ...player,
       eliminated: true,
@@ -513,6 +515,8 @@ export function endRound(state: GameState, random: RandomSource): RoundResult {
       openedHexes,
       scores,
       eliminated: [...state.public.eliminated, ...eliminatedNow],
+      eliminationReasons,
+      revealOrder: order.map((entry) => entry.playerId),
       activePlayerId: null,
     },
   };

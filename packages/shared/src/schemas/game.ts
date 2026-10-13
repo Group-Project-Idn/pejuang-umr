@@ -73,6 +73,13 @@ export const PublicGamePhaseSchema = z.enum([
   "finished",
 ]);
 
+export const EliminationReasonSchema = z.enum(["bankrupt", "burnout"]);
+
+export const EliminationReasonEntrySchema = z.strictObject({
+  playerId: z.string().min(1),
+  reason: EliminationReasonSchema,
+});
+
 export const PublicGameStateSchema = z.strictObject({
   version: z.number().int().nonnegative(),
   gameId: z.string().min(1),
@@ -83,6 +90,12 @@ export const PublicGameStateSchema = z.strictObject({
   turnDeadline: z.number().int().nullable(),
   /** Waktu server (epoch ms) animasi Fase Pembalikan selesai; angka hanya saat phase "reveal". */
   revealEndsAt: z.number().int().nullable(),
+  /** Id pemain menurut urutan giliran ronde ini; kosong di luar phase "reveal". */
+  revealOrder: z.array(z.string().min(1)),
+  /** Durasi pembalikan per heksa (ms), dari konfigurasi server. */
+  revealStepMs: z.number().int().positive(),
+  /** Alasan eliminasi tiap pemain yang tereliminasi (alasan sudah publik lewat player:eliminated). */
+  eliminationReasons: z.array(EliminationReasonEntrySchema),
   /** Id target yang punya Ajakan belum dijawab (tanpa motif, isi, atau pengirim). */
   inviteBusyPlayerIds: z.array(z.string().min(1)),
   pawns: z.array(z.object({ playerId: z.string().min(1), hex: HexCoordSchema })),
@@ -177,6 +190,8 @@ export const GameStartedPayloadSchema = z.object({
   gameId: z.string().min(1),
   boardRadius: z.literal(6),
   turnSeconds: TurnSecondsSchema,
+  /** Durasi pembalikan per heksa (ms), dari konfigurasi server. */
+  revealStepMs: z.number().int().positive(),
   turnOrder: z.array(z.string().min(1)),
   startPositions: z.array(
     z.object({ playerId: z.string().min(1), hex: HexCoordSchema }),
@@ -208,7 +223,7 @@ export const DoomTriggeredPayloadSchema = z.object({
 export const PlayerEliminatedPayloadSchema = z.object({
   version: z.number().int().nonnegative(),
   playerId: z.string().min(1),
-  reason: z.enum(["bankrupt", "burnout"]),
+  reason: EliminationReasonSchema,
   step: z.number().int().min(1).max(24),
   frozenScore: z.number().min(0).max(100),
 });
@@ -220,8 +235,10 @@ export const RoundRevealPayloadSchema = z.object({
   order: z.array(
     z.object({ playerId: z.string().min(1), hex: HexCoordSchema }),
   ),
-  /** Waktu server saat kirim + REVEAL_STEP_MS x panjang order. */
+  /** Waktu server saat kirim + revealStepMs x panjang order. */
   revealEndsAt: z.number().int(),
+  /** Durasi pembalikan per heksa (ms). */
+  revealStepMs: z.number().int().positive(),
 });
 
 export const ReflectionReadyPayloadSchema = z.object({
@@ -253,6 +270,14 @@ export const GamePatchOpSchema = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("calendar"), calendar: CalendarInfoSchema }),
   z.object({ type: z.literal("phase"), phase: PublicGamePhaseSchema }),
+  z.object({
+    type: z.literal("revealOrder"),
+    playerIds: z.array(z.string().min(1)),
+  }),
+  z.object({
+    type: z.literal("eliminationReasons"),
+    reasons: z.array(EliminationReasonEntrySchema),
+  }),
   z.object({
     type: z.literal("inviteBusy"),
     playerIds: z.array(z.string().min(1)),

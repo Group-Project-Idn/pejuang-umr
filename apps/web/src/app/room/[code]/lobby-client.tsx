@@ -1,6 +1,8 @@
 "use client";
 
 import type {
+  CalendarResultPayload,
+  DoomTriggeredPayload,
   Ack,
   CalendarEventPayload,
   DeadEndPayload,
@@ -20,6 +22,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import GameInterface from "@/app/components/game/GameInterface";
 import EliminationScreen from "@/app/components/screens/EliminationScreen";
+import { getEliminationReason } from "@/lib/result-screens";
 import ResultScreen from "@/app/components/screens/ResultScreen";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { clearGuestSession, readGuestSession } from "@/lib/guest-session";
@@ -61,8 +64,6 @@ import {
   clearAcceptedPrivateAction,
   createRoomSessionView,
   dismissNotice,
-  type CalendarResultPayload,
-  type DoomTriggeredPayload,
   type RoomSessionView,
   type SessionTransition,
 } from "@/lib/room-session-view";
@@ -487,6 +488,7 @@ export function LobbyClient({ code }: { code: string }) {
     return (
       <EliminationScreen
         status={sessionView.me?.status ?? null}
+        reason={getEliminationReason(game, sessionView.me?.playerId ?? playerId)}
         reflection={sessionView.me?.reflection}
         busy={busy || !socket}
         message={message}
@@ -518,7 +520,6 @@ export function LobbyClient({ code }: { code: string }) {
         connectionStatus={status}
         serverClockOffsetMs={sessionView.serverClockOffsetMs}
         actionMessage={message}
-        seasonHint={sessionView.seasonHint}
         goldNotice={sessionView.goldNotice}
         notices={sessionView.notices}
         monthError={monthError}

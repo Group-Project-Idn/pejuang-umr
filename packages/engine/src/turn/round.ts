@@ -13,6 +13,7 @@ import {
   getCalendarEventAtStep,
   getCalendarInfo,
   getSeasonChange,
+  SEASON_HINT,
 } from "../calendar/calendar";
 import {
   GOLD_TILES,
@@ -48,13 +49,6 @@ const ZONK_FOCUS_BY_SEASON = {
   dry: "heatPollution",
   transition: "sick",
 } as const satisfies Record<Season, "floodRain" | "heatPollution" | "sick">;
-
-/** GDD 3.2: petunjuk HUD saat musim berganti. */
-const SEASON_HINT: Record<Season, string> = {
-  rainy: "Hujan: petak Kerja lebih rawan",
-  dry: "Kemarau: petak Keuangan dan Sosial lebih rawan",
-  transition: "Pancaroba: petak Kesehatan lebih rawan",
-};
 
 const CHOICE_ORDER: readonly CalendarChoiceId[] = ["join", "joinPaylater", "skip"];
 
@@ -159,7 +153,7 @@ export function startRound(state: GameState, random: RandomSource): RoundResult 
   const calendar = getCalendarInfo(step);
   const events: DomainEvent[] = [];
   const players = { ...state.players };
-  let publicState = { ...state.public, calendar };
+  let publicState = { ...state.public, calendar, revealOrder: [] as string[] };
   let board = state.board;
 
   events.push({

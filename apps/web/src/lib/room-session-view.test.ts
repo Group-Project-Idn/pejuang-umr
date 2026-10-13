@@ -59,12 +59,16 @@ function snapshot(version: number): Snapshot {
         month: 1,
         dateLabel: "Januari · Pekan 1",
         season: "rainy",
+        seasonHint: "Hujan: petak Kerja lebih rawan",
         nextEvent: null,
       },
       turnOrder: ["p1"],
       activePlayerId: null,
       turnDeadline: null,
       revealEndsAt: null,
+      revealOrder: [],
+      revealStepMs: 2_500,
+      eliminationReasons: [],
       inviteBusyPlayerIds: [],
       pawns: [{ playerId: "p1", hex: { q: 0, r: 0 } }],
       openedHexes: [],
@@ -104,7 +108,7 @@ describe("room session recovery", () => {
       const initial = applySessionSnapshot(createRoomSessionView(), snapshot(3), 10_000);
       const revealed = applySessionPublicEvent(initial, {
         type: "round:reveal",
-        payload: { version: 4, round: 1, step: 1, order: [], revealEndsAt: 12_000 },
+        payload: { version: 4, round: 1, step: 1, order: [], revealEndsAt: 12_000, revealStepMs: 2_500 },
       });
       const calendarPatch = {
         version: 5,
@@ -176,13 +180,13 @@ describe("room session recovery", () => {
     const initial = applySessionSnapshot(createRoomSessionView(), snapshot(3), 10_000);
     const reveal = applySessionPublicEvent(initial, {
       type: "round:reveal",
-      payload: { version: 4, round: 1, step: 1, order: [], revealEndsAt: 12_000 },
+      payload: { version: 4, round: 1, step: 1, order: [], revealEndsAt: 12_000, revealStepMs: 2_500 },
     });
     expect(reveal.needsResume).toBe(false);
     expect(reveal.state.gameView.game?.phase).toBe("reveal");
     const duplicate = applySessionPublicEvent(reveal.state, {
       type: "round:reveal",
-      payload: { version: 4, round: 1, step: 1, order: [], revealEndsAt: 12_000 },
+      payload: { version: 4, round: 1, step: 1, order: [], revealEndsAt: 12_000, revealStepMs: 2_500 },
     });
     expect(duplicate.needsResume).toBe(false);
     expect(duplicate.state).toBe(reveal.state);
@@ -605,7 +609,7 @@ describe("hint musim dan notifikasi Petak Emas", () => {
   };
   const start = () => applySessionSnapshot(createRoomSessionView(), snapshot(5), 0);
 
-  it("menyimpan season:changed.hint di state sesi", () => {
+  it("season:changed memperbarui calendar.seasonHint", () => {
     const { state } = applySessionPublicEvent(start(), {
       type: "season:changed",
       payload: {
@@ -616,7 +620,7 @@ describe("hint musim dan notifikasi Petak Emas", () => {
         hint: "Pancaroba: petak Kesehatan lebih rawan",
       },
     });
-    expect(state.seasonHint).toBe("Pancaroba: petak Kesehatan lebih rawan");
+    expect(state.gameView.game?.calendar.seasonHint).toBe("Pancaroba: petak Kesehatan lebih rawan");
   });
 
   it("gold:spawned dan gold:expired menghasilkan pemberitahuan", () => {
