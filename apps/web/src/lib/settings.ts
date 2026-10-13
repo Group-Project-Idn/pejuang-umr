@@ -1,5 +1,8 @@
 const STORAGE_KEY = "pejuang.settings";
 
+/** Dikirim ke window setelah pengaturan ditulis, supaya musik bisa langsung menyala/mati. */
+export const SETTINGS_CHANGED_EVENT = "pejuang:settings-changed";
+
 export type Settings = {
   music: boolean;
   sfx: boolean;
@@ -40,6 +43,7 @@ export function readSettings(storage: SettingsStorage | null = defaultStorage())
 export function writeSettings(settings: Settings, storage: SettingsStorage | null = defaultStorage()): void {
   try {
     storage?.setItem(STORAGE_KEY, JSON.stringify(settings));
+    if (typeof window !== "undefined") window.dispatchEvent(new Event(SETTINGS_CHANGED_EVENT));
   } catch {
     // Penyimpanan penuh/diblokir: pengaturan hanya berlaku selama halaman terbuka.
   }

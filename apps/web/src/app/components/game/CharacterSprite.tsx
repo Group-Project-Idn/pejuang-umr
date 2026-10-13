@@ -3,6 +3,7 @@
 import { Html, useTexture } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { playSfx } from "@/lib/sfx";
 import * as THREE from "three";
 import { HEX_TILE_RADIUS } from "@/data/game";
 import { restoreInviteCursor, showInviteCursor } from "./invite-cursor";
@@ -56,6 +57,14 @@ export default function CharacterSprite({
     () => new THREE.Vector3(position[0], position[1], position[2]),
     [position],
   );
+  // Suara langkah netral saat pion pindah heksa (bukan saat pertama muncul).
+  const lastCell = useRef<string>(`${position[0]}:${position[2]}`);
+  useEffect(() => {
+    const cell = `${position[0]}:${position[2]}`;
+    if (cell === lastCell.current) return;
+    lastCell.current = cell;
+    playSfx("step");
+  }, [position]);
   const image = texture.image as { width: number; height: number };
   const aspectRatio = image.width / image.height;
   const characterWidth = CHARACTER_HEIGHT * aspectRatio;
