@@ -7,6 +7,7 @@ import type {
   HexCoord,
   MonthSummaryPayload,
   PrivateStatus,
+  ReflectionReadyPayload,
   RoomState,
   Snapshot,
   TurnOptionsPayload,
@@ -15,6 +16,8 @@ import { CharacterIdSchema } from "@pejuang/shared";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import GameInterface from "@/app/components/game/GameInterface";
+import EliminationScreen from "@/app/components/screens/EliminationScreen";
+import ResultScreen from "@/app/components/screens/ResultScreen";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { clearGuestSession, readGuestSession } from "@/lib/guest-session";
 import {
@@ -32,10 +35,12 @@ import {
   type TileResolved,
   type TurnStart,
 } from "@/lib/game-view";
+import { canRematch, getRematchMessage, selectRoomScreen } from "@/lib/result-screens";
 import { createRequestId } from "@/lib/request-id";
 import { clearRoomCode, writeRoomCode } from "@/lib/room-session";
 import {
   applyPrivateStatus,
+  applyReflectionReady,
   applyRoomState,
   applySessionCalendarEvent,
   applySessionMonthSummary,
@@ -159,6 +164,9 @@ export function LobbyClient({ code }: { code: string }) {
     const onPlayerStatus = (nextStatus: PrivateStatus) => {
       commitSession((current) => applyPrivateStatus(current, nextStatus));
     };
+    const onReflectionReady = (payload: ReflectionReadyPayload) => {
+      commitSession((current) => applyReflectionReady(current, payload));
+    };
     const onPublicGameEvent = (event: PublicGameEvent) => {
       commitTransition((current) => applySessionPublicEvent(current, event));
     };
@@ -223,6 +231,7 @@ export function LobbyClient({ code }: { code: string }) {
       ["session:snapshot", onSnapshot],
       ["game:patch", onGamePatch],
       ["player:status", onPlayerStatus],
+      ["reflection:ready", onReflectionReady],
       ["calendar:event", onCalendarEvent],
       ["month:summary", onMonthSummary],
       ["turn:options", onTurnOptions],
@@ -267,6 +276,27 @@ export function LobbyClient({ code }: { code: string }) {
           router.replace("/lobby");
         }
         handleResponse("Keluar room", response);
+      },
+    );
+  }
+
+  function rematch() {
+    if (!socket || pending) return;
+    setPending("rematch");
+    socket.timeout(3_000).emit(
+      "room:rematch",
+      { requestId: createRequestId() },
+      (error, response) => {
+        const result: Ack<{ room: RoomState }> = error ? { ok: false, error: "INTERNAL" } : response;
+        setPending(null);
+        if (result.ok) {
+          const next = applyRoomState(sessionViewRef.current, result.room);
+          sessionViewRef.current = next;
+          setSessionView(next);
+          setMessage("");
+        } else {
+          setMessage(getRematchMessage(result));
+        }
       },
     );
   }
@@ -353,7 +383,40 @@ export function LobbyClient({ code }: { code: string }) {
   );
   const busy = pending !== null;
 
-  if (room?.status === "playing" && game) {
+  const screen = selectRoomScreen({
+    room,
+    game,
+    result: sessionView.result,
+    playerId: sessionView.me?.playerId ?? playerId,
+  });
+
+  if (screen === "elimination") {
+    return (
+      <EliminationScreen
+        status={sessionView.me?.status ?? null}
+        reflection={sessionView.me?.reflection}
+        busy={busy || !socket}
+        message={message}
+        onLeave={leaveRoom}
+      />
+    );
+  }
+
+  if (screen === "result") {
+    return (
+      <ResultScreen
+        result={sessionView.result}
+        reflection={sessionView.me?.reflection}
+        isHost={canRematch(room, sessionView.me?.playerId ?? playerId)}
+        busy={busy || !socket}
+        message={message}
+        onRematch={rematch}
+        onLeave={leaveRoom}
+      />
+    );
+  }
+
+  if (screen === "game" && room && game) {
     return (
       <GameInterface
         room={room}

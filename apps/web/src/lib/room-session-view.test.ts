@@ -8,6 +8,8 @@ import type {
 import { describe, expect, it } from "vitest";
 import {
   applyPrivateStatus,
+  applyReflectionReady,
+  applyRoomState,
   applySessionCalendarEvent,
   applySessionGamePatch,
   applySessionMonthSummary,
@@ -555,5 +557,37 @@ describe("room session recovery", () => {
     expect(gate.finish()).toBe(true);
     expect(gate.tryStart()).toBe(true);
     expect(gate.finish()).toBe(false);
+  });
+});
+describe("reflection:ready dan Main Lagi", () => {
+  const reflection = { source: "rules" as const, summary: "s", insights: [] };
+
+  it("menyimpan refleksi milik sendiri ke me.reflection", () => {
+    const initial = applySessionSnapshot(createRoomSessionView(), snapshot(4), 10_000);
+    const gameId = initial.gameView.game!.gameId;
+    const next = applyReflectionReady(initial, { gameId, playerId: initial.me!.playerId, reflection });
+    expect(next.me?.reflection).toEqual(reflection);
+    expect(next.privateRevision).toBe(initial.privateRevision + 1);
+  });
+
+  it("mengabaikan refleksi pemain lain atau game lain", () => {
+    const initial = applySessionSnapshot(createRoomSessionView(), snapshot(4), 10_000);
+    const gameId = initial.gameView.game!.gameId;
+    expect(applyReflectionReady(initial, { gameId, playerId: "lain", reflection })).toBe(initial);
+    expect(applyReflectionReady(initial, { gameId: "game-lama", playerId: initial.me!.playerId, reflection })).toBe(initial);
+    expect(applyReflectionReady(createRoomSessionView(), { gameId, playerId: "p1", reflection }).me).toBeNull();
+  });
+
+  it("room kembali waiting menghapus hasil dan refleksi lama", () => {
+    const initial = applySessionSnapshot(createRoomSessionView(), snapshot(4), 10_000);
+    const finished = {
+      ...initial,
+      result: { version: 5, ranking: [] },
+      me: { ...initial.me!, reflection },
+    };
+    const next = applyRoomState(finished, { ...initial.room!, status: "waiting" });
+    expect(next.result).toBeNull();
+    expect(next.me?.reflection).toBeNull();
+    expect(applyRoomState(finished, { ...initial.room!, status: "finished" }).result).not.toBeNull();
   });
 });
