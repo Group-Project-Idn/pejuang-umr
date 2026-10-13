@@ -26,7 +26,7 @@ export default function BottomSheet({ open, title, onClose, children }: BottomSh
   if (!open) return null;
   return (
     <div
-      className="fixed inset-0 z-40 grid items-end justify-items-center bg-black/60 p-4"
+      className="fixed inset-0 z-50 grid items-end justify-items-center bg-black/60 p-4"
       role="presentation"
       onClick={onClose}
     >

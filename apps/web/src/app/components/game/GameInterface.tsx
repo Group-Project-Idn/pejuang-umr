@@ -222,8 +222,6 @@ export default function GameInterface({
 
   return (
     <main className="game-page">
-      <div className="ambient ambient-one" />
-      <div className="ambient ambient-two" />
       <section className="game-shell">
         <header className="top-hud">
           <div className="brand-mark">
@@ -334,7 +332,6 @@ export default function GameInterface({
           </div>
         </footer>
       </section>
-      <p className="game-tip">Klik heksa yang menyala atau heksa terbuka · Seret untuk memutar papan · tombol +/− untuk zoom</p>
       {actionMessage ? <p className="game-action-message" role="status">{actionMessage}</p> : null}
       <HexDetailSheet
         detail={detail}

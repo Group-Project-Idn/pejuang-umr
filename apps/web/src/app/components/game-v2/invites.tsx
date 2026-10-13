@@ -135,7 +135,7 @@ export function InviteIncomingView({
       <section
         role="dialog"
         aria-label="Ada ajakan buat kamu"
-        className="fixed right-4 top-4 z-40 w-72 rounded-lg border border-garis bg-kartu p-4 text-teks-utama"
+        className="fixed right-4 top-4 z-30 w-72 rounded-lg border border-garis bg-kartu p-4 text-teks-utama"
       >
         {body}
       </section>
