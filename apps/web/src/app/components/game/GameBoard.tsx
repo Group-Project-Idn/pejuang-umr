@@ -19,6 +19,7 @@ import {
   shouldShowHexFallback,
 } from "@/lib/hex-interaction";
 import { OUTCOME_LABEL } from "@/lib/reveal";
+import CategoryIcon from "./CategoryIcon";
 import GameCharacters from "./GameCharacters";
 
 const tempObject = new THREE.Object3D();
@@ -253,8 +254,8 @@ function HexTiles({
             pointerEvents="none"
             style={{ pointerEvents: "none" }}
           >
-            <span className="tile-plan-label">
-              {option.isGold ? "✦ " : ""}{option.title}
+            <span className="tile-icon tile-icon-lit">
+              <CategoryIcon category={option.isGold ? "gold" : option.category} size={34} />
             </span>
           </Html>
         );
@@ -271,8 +272,8 @@ function HexTiles({
             pointerEvents="none"
             style={{ pointerEvents: "none" }}
           >
-            <span className={`tile-symbol tile-symbol-${tile.category}`}>
-              {TILE_DETAILS[tile.category].icon}
+            <span className="tile-icon tile-icon-open">
+              <CategoryIcon category={tile.category} size={30} />
             </span>
             {reveal && tile.reality && reveal.flippedKeys.has(hexKey(tile.hex)) ? (
               <span className={`tile-outcome tile-outcome-${tile.reality.outcome}`}>

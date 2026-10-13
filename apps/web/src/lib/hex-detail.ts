@@ -1,11 +1,11 @@
 import type {
+  Category,
   Effect,
   OpenedHex,
   Risk,
   RiskTag,
   TileOption,
 } from "@pejuang/shared";
-import { TILE_DETAILS } from "@/data/game";
 
 export const REALITY_LOCKED_TEXT = "Terungkap di akhir ronde";
 
@@ -24,7 +24,7 @@ export type HexDetailView = {
   hex: { q: number; r: number };
   source: "lit" | "opened";
   title: string;
-  icon: string;
+  category: Category;
   isGold: boolean;
   plan: Effect[];
   risk: Risk | null;
@@ -52,7 +52,7 @@ export function buildLitDetail(option: TileOption): HexDetailView {
     hex: option.hex,
     source: "lit",
     title: option.title,
-    icon: TILE_DETAILS[option.category].icon,
+    category: option.isGold ? "gold" : option.category,
     isGold: option.isGold,
     plan: option.plan,
     risk: option.risk,
@@ -73,7 +73,7 @@ export function buildOpenedDetail(opened: OpenedHex): HexDetailView {
     hex: opened.hex,
     source: "opened",
     title: opened.title,
-    icon: TILE_DETAILS[opened.category].icon,
+    category: opened.category,
     isGold,
     plan: opened.plan,
     risk: null,
