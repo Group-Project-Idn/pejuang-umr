@@ -195,7 +195,7 @@ Halaman yang sudah dibuat (Home, Lobby, Room, Game Board, Detail Heksa) memakai 
 | ------------- | -------------------- | -------------------------------------------------------- |
 | **Primary**   | Kuning #F5C542       | Aksi utama, **Kekayaan**, Petak Emas                     |
 | **Secondary** | Hijau #3FB871        | **Kesehatan**, hasil **Hoki**, status berhasil           |
-| **Tertiary**  | Merah-oranye #E0614A | **Level Stress**, **Hutang**, hasil **Zonk**, peringatan |
+| **Tertiary**  | Merah-oranye #E0614A | **Hutang**, hasil **Zonk**, peringatan, dan indikator yang masuk zona bahaya (Level Stress ≥ 8, Kesehatan < 4) |
 | **Neutral**   | Navy #243040         | Latar, kartu, teks sekunder, heksa tertutup              |
 
 Token turunan (surface, container, on-surface, outline) diambil dari skala tonal pada papan style guide.
@@ -203,7 +203,7 @@ Token turunan (surface, container, on-surface, outline) diambil dari skala tonal
 **Aturan penggunaan:**
 
 1. **Dark mode sebagai default.** Light mode ditunda ke versi berikutnya, tapi token dipisah supaya mudah ditambah.
-2. **Warna mengikuti arti.** Satu warna selalu punya satu makna di seluruh game: kuning = uang/hadiah, hijau = sehat/untung, merah = bahaya/rugi. Tiga progress bar (kuning, hijau, pink) dipakai untuk Kekayaan, Kesehatan, dan Level Stress.
+2. **Warna mengikuti arti.** Satu warna selalu punya satu makna di seluruh game: kuning = uang/hadiah, hijau = sehat/untung, merah = bahaya/rugi. Tiga progress bar (kuning, hijau, pink) dipakai untuk Kekayaan, Kesehatan, dan Level Stress. **Warna indikator [v1.14]:** bar tetap memakai warna identitasnya selama aman. **Level Stress berubah merah mulai 8 ke atas** (bar penuh, disertai ikon peringatan), dan **Kesehatan merah di bawah 4** (juga dengan ikon peringatan). Merah tidak dipakai untuk bar di luar ambang itu, sehingga "merah = bahaya" tetap satu makna.
 3. **Hutang** tidak memakai bar. Tampilkan sebagai angka dengan badge minus dalam merah tua, supaya tidak tertukar dengan Level Stress.
 4. **Warna kategori petak** mengikuti indikator yang paling dipengaruhi: Keuangan kuning, Kesehatan hijau, Sosial salmon, Kerja biru-abu (netral), Emas kuning dengan glow.
 5. **Musim** memakai nada dari palet yang sama, tanpa warna baru: Hujan biru-abu dingin, Kemarau amber hangat, Pancaroba hijau-abu pucat.
@@ -259,7 +259,7 @@ Kedalaman dibuat dengan **tingkat terang-gelap permukaan**, bukan bayangan: surf
 - **Ilustrasi:** flat dengan sedikit tekstur grain, karakter siluet tanpa wajah agar inklusif.
 - **Sentuhan lokal Jakarta:** KRL, warteg, kos-kosan, ojol, kopi susu, struk minimarket, notifikasi paylater. **Jangan memakai logo merek asli.**
 - **Papan 3D:** gaya maket low-poly seperti mainan, material matte, cahaya hangat, dan heksa yang terlihat tebal.
-- **Aturan papan 3D (GDD v1.12):** tidak ada papan cadangan. Jika WebGL tidak tersedia, tampilkan pemberitahuan bahwa perangkat belum didukung. Mode hemat, pemilihan heksa dengan keyboard, dan label pembaca layar ditunda (bukan prioritas MVP). Keadaan heksa (tertutup, menyala, terbuka, Petak Emas) dibedakan dengan bentuk atau ikon, tidak hanya warna. Heksa tertutup tampil gelap; heksa menyala menampilkan ikon kategori di permukaannya (detail Rencana hanya di popup). Gambar desain yang sudah ada bergaya 2D datar, jadi dipakai sebagai acuan warna dan HUD, bukan sudut kamera.
+- **Aturan papan 3D (GDD v1.12):** tidak ada papan cadangan. Jika WebGL tidak tersedia, tampilkan pemberitahuan bahwa perangkat belum didukung. Mode hemat, pemilihan heksa dengan keyboard, dan label pembaca layar ditunda (bukan prioritas MVP). Keadaan heksa (tertutup, menyala, terbuka, Petak Emas) dibedakan dengan bentuk atau ikon, tidak hanya warna. Heksa tertutup tampil gelap; heksa menyala menampilkan ikon kategori di permukaannya (detail Rencana hanya di popup). Gambar desain datar yang sudah ada dipakai sebagai acuan warna dan HUD, bukan sudut kamera.
 
 ## Components
 
@@ -287,9 +287,10 @@ Kedalaman dibuat dengan **tingkat terang-gelap permukaan**, bukan bayangan: surf
 - **Prinsip:** gerak menjelaskan sebab-akibat. Angka yang berubah harus terlihat bergerak dari sumbernya ke indikator.
 - **Durasi:** UI biasa 150-250 ms, momen utama (heksa terbalik, reveal Realita) 400-800 ms.
 - **Easing:** ease-out saat masuk, ease-in saat keluar, dan spring ringan untuk pion.
-- **Batas total animasi per giliran 3-4 detik**, dengan tombol Percepat dan tap-to-skip. Fase Pembalikan sekitar 2-3 detik per pemain di akhir ronde (GDD v1.12).
+- **Batas total animasi per giliran 3-4 detik**, dengan tap-to-skip. Tombol Percepat (2x/3x/5x) dihapus; yang dipertahankan hanya tombol X dan tap-to-skip **[v1.14]**. Fase Pembalikan sekitar 2-3 detik per pemain di akhir ronde (GDD v1.12). Animasinya: semua heksa yang pernah terinjak berputar bergelombang dari heksa ronde itu, heksa ronde itu berakhir di sisi Realita, dan Petak Emas berkilau beranimasi (GDD 4.2 v1.14).
 - Di desktop, tombol DOM boleh punya state hover (naik sedikit atau glow) dan tooltip istilah boleh muncul saat hover. Heksa di papan tidak memakai hover (GDD v1.12). Di mobile, tooltip muncul dengan tekan lama.
 - Opsi **kurangi gerakan** ditunda bersama mode hemat (GDD v1.12). Efek musim (hujan, heat haze) hanya dekoratif dan bisa dimatikan.
+- **Popup serentak awal ronde (GDD 4.2 v1.14):** semua popup (Ganti Bulan, Event Tanggal, notifikasi musim, Petak Emas, Beban Peringkat 1) tampil bersamaan dalam satu grid dengan satu cincin hitung mundur bersama. Popup yang butuh keputusan memakai tag "Butuh keputusanmu!" dan tanpa tombol X. Popup informasi punya tombol X yang hanya menutup di layar sendiri. Hanya informasi 8 detik, ada keputusan 15 detik. Kartu hasil pribadi di akhir ronde memakai aturan yang sama (8 detik, ada X).
 - **Transisi antar screen:** wipe berbentuk heksagon (iris). Ganti bulan memakai halaman kalender yang terbalik.
 
 ## Microcopy

@@ -6,6 +6,8 @@ Berdasarkan GDD v1.6, gambar referensi Game Board, dan penilaian terhadap rancan
 
 > **Pembaruan GDD v1.12:** Realita dibuka di akhir ronde (Fase Pembalikan), Bayar Hutang lewat slider di popup Ganti Bulan, timer tidak pernah dijeda, tanpa penonton, tanpa Heksa Mati, papan selalu radius 6, pion = karakter, dan Refleksi AI masuk scope MVP. Bagian yang berubah ditandai _(v1.12)_.
 
+> **Pembaruan GDD v1.14:** popup awal ronde serentak, Petak Emas di Langkah 5, 9, 13, 17, 21 (5 kali), katalog 117 petak dengan Tumpukan Realita per kategori, dan room uji. Perubahan kontrak dicatat di API Contract v0.7.
+
 ## 0. Scope MVP (diperbarui)
 
 **Ditunda:** Mode Solo, serta register dan login.
@@ -47,7 +49,7 @@ Yang tetap dikerjakan: Home, Lobby, Room, Game Board dengan overlay, Hasil Akhir
 | Topik                      | Rekomendasi                                                                                                                                                                                                                                                                                         | Alasan                                                                                                                                                  |
 | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Render papan _(v1.12)_     | **3D** dengan three, @react-three/fiber, dan @react-three/drei. HUD tetap DOM di atas canvas. Tanpa papan cadangan: perangkat tanpa WebGL mendapat pemberitahuan dan tidak bisa bermain. Mode hemat, akses keyboard, dan label pembaca layar ditunda. Interaksi heksa hanya klik/ketuk, tanpa hover | Papan 3D sudah dibangun dan hasilnya dinilai menarik (GDD v1.10). Fokus MVP desktop (GDD v1.12). Risiko: bundle sekitar 255 KB gzip dan beban GPU di HP |
-| Rekomendasi awal (riwayat) | 2D DOM/SVG di belakang `BoardRenderer`, PixiJS jika FPS kurang                                                                                                                                                                                                                                      | Diganti oleh keputusan 3D di GDD v1.10                                                                                                                  |
+| Rekomendasi awal (riwayat) | Papan datar (DOM/SVG) di belakang `BoardRenderer`, PixiJS jika FPS kurang                                                                                                                                                                                                                                      | Diganti oleh keputusan 3D di GDD v1.10                                                                                                                  |
 | Web                        | Next.js (TypeScript) untuk halaman, HUD, dan klien socket                                                                                                                                                                                                                                           | Sesuai stack                                                                                                                                            |
 | Game server                | Node.js + Socket.IO, **terpisah** dari Next.js                                                                                                                                                                                                                                                      | Room dan timer perlu proses yang hidup terus                                                                                                            |
 | Database                   | **Ditunda.** Tanpa akun dan riwayat, state room cukup di memori server                                                                                                                                                                                                                              | Tambahkan MongoDB saat akun, riwayat, atau leaderboard dikerjakan                                                                                       |
@@ -180,6 +182,15 @@ Kode error awal:
 
 Server **tidak boleh mengirim seluruh papan** ke klien. Kirim hanya heksa terbuka plus data yang memang boleh dilihat pemain itu.
 
+### Room uji dan alat pengembangan _(v1.14)_
+
+Hanya untuk pengembangan dan tes. Bukan aturan game dan bukan bagian dari 46 event produksi.
+
+- **Room uji `UMR-0099`** hanya ada jika env `DEV_TOOLS=true`. Tidak pernah aktif di production (server menolak atau mengabaikan `DEV_TOOLS` saat `NODE_ENV=production`). Kode ini **tidak pernah dibuat generator kode room**.
+- Host room uji = **pemain yang masuk pertama**. Setelah game selesai atau room kosong, room kembali ke status menunggu (`waiting`), siap dipakai lagi.
+- Event **`dev:finish-game`** (C→S, **host saja**): server menyelesaikan sisa langkah dengan jawaban acak (lewat `RandomSource`), lalu mengirim `game:finished` yang sama seperti game biasa. Event ini hanya didaftarkan saat `DEV_TOOLS=true`, seperti `ping:test` yang hanya didaftarkan saat `NODE_ENV=test`. Detail di API Contract (Bagian 18).
+- Tujuan: menguji layar Hasil Akhir, Refleksi AI, dan Main Lagi tanpa memainkan 24 langkah.
+
 ## 7. Dokumen yang ditulis sebelum coding
 
 _(diperbarui)_ Yang akhirnya dibuat:
@@ -204,7 +215,7 @@ _(diperbarui)_ Yang akhirnya dibuat:
 
 | Rekomendasi sebelumnya                               | Perubahan                                                                          |
 | ---------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| Papan 3D dengan Three.js                             | Sempat diganti 2D, lalu kembali ke **3D** di GDD v1.10 _(diperbarui)_              |
+| Papan 3D dengan Three.js                             | Sempat diganti papan datar, lalu kembali ke **3D** di GDD v1.10 _(diperbarui)_     |
 | Engine bisa dipakai frontend untuk prediksi tampilan | Engine hanya di server, demi privasi isi heksa                                     |
 | 15-22 event socket                                   | 46 di API Contract _(v1.12)_                                                       |
 | 8-12 endpoint REST                                   | 3 untuk MVP _(diperbarui)_                                                         |

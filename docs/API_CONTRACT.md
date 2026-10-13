@@ -1,6 +1,16 @@
 # API Contract - Pejuang UMR: Jakarta Survival (MVP)
 
-Versi 0.6 · Oktober 2026 · Sumber aturan: GDD v1.13 · Sumber stack: 03_REKOMENDASI
+Versi 0.7 · 14 Oktober 2026 · Sumber aturan: GDD v1.14 · Sumber stack: 03_REKOMENDASI
+
+**Perubahan v0.7 (GDD v1.14, hanya dicatat; skema di `packages/shared` dan kode diubah di prompt berikutnya):**
+
+> Catatan versi: permintaan awal menyebut "naikkan ke v0.5", tetapi kontrak ini sudah di v0.6, jadi versi baru adalah v0.7.
+
+1. **Jadwal Petak Emas:** `gold:spawned` kini hanya di awal Langkah 5, 9, 13, 17, 21 (5 kali). Langkah 1 dihapus, jadi tidak ada `gold:spawned` di ronde pertama. Judul Petak Emas berasal dari 5 dari 8 petak Emas, tanpa pengulangan dalam satu game (GDD 4.7).
+2. **Popup serentak awal ronde (GDD 4.2):** `month:summary`, `calendar:event`, `season:changed`, `gold:spawned`, dan pemberitahuan Beban Peringkat 1 ditampilkan klien dalam satu grid dengan **satu hitung mundur bersama**. Server memakai satu `deadline` bersama: 8 detik jika semua popup hanya informasi, 15 detik jika ada keputusan (`payDebt` bukan `null` atau ada `calendar:event`). `calendar:event` tidak lagi menunggu popup Ganti Bulan selesai; keduanya dikirim bersamaan. Hitung mundur selesai lebih cepat jika semua keputusan sudah dijawab. Waktu habis: Bayar Hutang Rp0, Event Tanggal dianggap `skip`. Keputusan D2 (popup Ganti Bulan tanpa debtor ditutup setelah `MONTH_SUMMARY_ONLY_MS` 3 detik) diganti: tanpa keputusan, hitung mundur 8 detik. Usulan field: `deadline` bersama dan penanda `needsDecision` per popup di state publik; bentuk pastinya ditetapkan di prompt skema.
+3. **Fase Pembalikan (GDD 4.2):** urutan event tidak berubah. Animasi papan menjadi gelombang dari heksa ronde itu. Setelah animasi, `invite:resolved`, `doom:triggered`, dan `player:eliminated` ditampilkan klien sebagai kartu hasil pribadi serentak dengan hitung mundur 8 detik (informasi saja, ada tombol X yang hanya menutup di layar sendiri). Server perlu memasukkan jeda kartu ini ke `revealEndsAt` (bentuk field ditetapkan di prompt skema).
+4. **Event dev:** `dev:finish-game` (C→S, host saja) dan room uji `UMR-0099`, hanya saat `DEV_TOOLS=true`. **Bukan bagian dari 46 event produksi** (Bagian 18).
+5. **Isi papan dan konten (GDD 4.1, 5):** tidak ada perubahan payload. `TileView.title` dan `plan` tetap; `reality` kini berasal dari Tumpukan Realita per kategori. Hadiah `GoldTile.plan` maksimal Rp10.000.000.
 
 **Perubahan v0.6 (penutupan celah snapshot T11):** semua field baru wajib, divalidasi skema Zod, diisi server, dan ikut `game:patch` bila berubah.
 
@@ -39,7 +49,7 @@ Kontrak hanya mendefinisikan **bentuk data**. Keputusan aturan (boleh atau tidak
 | Jenis        | Jumlah                  | Keterangan                                                                           |
 | ------------ | ----------------------- | ------------------------------------------------------------------------------------ |
 | REST         | 3                       | `POST /api/v1/guest`, `GET /api/v1/rooms/:code`, `GET /health`                       |
-| Socket.IO    | 46                      | 44 dari 03_REKOMENDASI + 2 tambahan bertanda **[+]** (`room:kicked`, `room:rematch`). Di luar itu ada `ping:test` (C→S) yang hanya didaftarkan saat `NODE_ENV=test`; lihat Keputusan Terbuka #11 |
+| Socket.IO    | 46                      | 44 dari 03_REKOMENDASI + 2 tambahan bertanda **[+]** (`room:kicked`, `room:rematch`). Di luar itu ada `ping:test` (C→S) yang hanya didaftarkan saat `NODE_ENV=test`; lihat Keputusan Terbuka #11. Juga `dev:finish-game` (C→S) yang hanya didaftarkan saat `DEV_TOOLS=true`, di luar 46 event produksi (Bagian 18) |
 | Server lokal | `http://localhost:3002` | REST dan Socket.IO di port yang sama                                                 |
 | Web lokal    | `http://localhost:3000` | Next.js                                                                              |
 
@@ -161,6 +171,7 @@ Pakai tabel ini untuk tahu layar mana memanggil apa.
 | **Overlay Jalan Buntu**               | Tidak ada heksa menyala                         | `turn:dead-end` → `turn:jump`                                                                                             |
 | **Fase Berjalan**                     | Pion pindah, Rencana berlaku                    | `tile:opened`                                                                                                             |
 | **Fase Pembalikan**                   | Akhir ronde, heksa dibalik berurutan            | `round:reveal` → `tile:resolved` (per pemain) → `invite:resolved` → `doom:triggered` → `player:eliminated` → `game:patch` |
+| **Grid popup serentak** (v0.7)         | Awal ronde, satu hitung mundur bersama          | `month:summary`, `calendar:event`, `season:changed`, `gold:spawned` diterima bersamaan; keputusan lewat `month:pay-debt` dan `calendar:answer` |
 | **Popup Ganti Bulan**                 | Bulan berganti, geser slider Bayar Hutang       | `month:summary` → `month:pay-debt`                                                                                        |
 | **Popup Event Tanggal**               | Event muncul serentak                           | `calendar:event` → `calendar:answer` → `calendar:result`                                                                  |
 | **Overlay Doom Spending**             | Level Stress ≥ 9 di Fase Pembalikan             | `doom:triggered`                                                                                                          |
@@ -243,7 +254,7 @@ type OpenedHex = {
 type GoldTile = {
   goldId: string;
   hex: HexCoord;
-  title: string; // "Beasiswa Penuh"
+  title: string; // "Menang Undian Bank BUMN"
   plan: Effect[];
   expiresAtStep: number; // hilang saat langkah ini dimulai, heksa kembali ke petak asli
 };
@@ -860,7 +871,7 @@ Efek Rencana langsung mengubah status saat Fase Berjalan, jadi `player:status` d
 |       |                                                             |
 | ----- | ----------------------------------------------------------- |
 | Layar | Popup Event Tanggal (serentak untuk semua pemain hidup)     |
-| Aksi  | Awal ronde pada Langkah 1, 6, 9, 12, 16, 21 (Fase Kalender) |
+| Aksi  | Awal ronde pada Langkah 1, 6, 9, 12, 16, 21 (Fase Kalender), serentak dengan popup lain (v0.7) |
 
 ```ts
 type CalendarEventPayload = {
@@ -878,7 +889,7 @@ type CalendarEventPayload = {
 };
 ```
 
-Catatan: efek di popup memakai nilai 1×. `note` untuk efek peluang (misalnya "25% menang lomba: +Rp750.000"). Pilihan `joinPaylater` hanya ada di Harbolnas (lihat Keputusan Terbuka #5). Jika di ronde yang sama ada ganti bulan, event ini dikirim setelah popup Ganti Bulan ditutup (GDD 3.3 v1.12). Giliran pertama ronde dimulai setelah semua menjawab atau waktu habis.
+Catatan: efek di popup memakai nilai 1×. `note` untuk efek peluang (misalnya "25% menang lomba: +Rp750.000"). Pilihan `joinPaylater` hanya ada di Harbolnas (lihat Keputusan Terbuka #5). Sejak v0.7, event ini dikirim bersamaan dengan popup awal ronde lain (termasuk Ganti Bulan) dan berbagi satu hitung mundur (GDD 4.2 v1.14); popup bertag "Butuh keputusanmu!" tanpa tombol X. Giliran pertama ronde dimulai setelah hitung mundur bersama selesai.
 
 ### `calendar:answer` · C→S
 
@@ -947,7 +958,7 @@ type MonthSummaryPayload = {
 
 Urutan proses mengikuti GDD 2.4 v1.12: gaji → biaya hidup → bunga → slider Bayar Hutang. Doom Spending, Bangkrut, dan Burnout **tidak** dicek di sini, tetapi di Fase Pembalikan. Jika `payDebt` `null`, popup tetap tampil sebagai ringkasan dan ditutup otomatis saat popup pemain lain selesai (atau setelah sekitar 3 detik bila tidak ada debitur). Saat reconnect selama popup terbuka, `snapshot.me.pendingMonth` memuat ringkasan untuk semua pemain hidup; pemain tanpa Hutang atau yang sudah menjawab menerima `payDebt: null` sehingga tidak bisa membayar ulang. Setelah popup selesai, Event Tanggal (jika ada) dimulai, lalu kartu Ajakan dibagikan dan Petak Emas muncul sebelum giliran pertama.
 
-**Lama popup (D2, D5):** jika ada debtor, server menunggu sampai semua debtor menjawab atau `MONTH_PAY_SECONDS` (15 detik) habis. Debtor dengan Kekayaan 0 (`payDebt.max` = 0) tetap ditunggu; ia bisa menutup lebih cepat dengan membayar Rp0. Jika tidak ada debtor, popup ditutup setelah `MONTH_SUMMARY_ONLY_MS` (3 detik).
+**Lama popup (D5, diperbarui v0.7):** semua popup awal ronde berbagi satu hitung mundur (GDD 4.2 v1.14). Jika ada debtor atau Event Tanggal, server menunggu sampai semua keputusan terjawab atau `MONTH_PAY_SECONDS` (15 detik) habis. Debtor dengan Kekayaan 0 (`payDebt.max` = 0) tetap ditunggu; ia bisa menutup lebih cepat dengan membayar Rp0. Jika tidak ada keputusan sama sekali, hitung mundur 8 detik (menggantikan `MONTH_SUMMARY_ONLY_MS` 3 detik, keputusan D2 lama).
 
 ### `month:pay-debt` · C→S **(v1.12)**
 
@@ -1154,7 +1165,7 @@ Klien boleh mempercepat animasi, tetapi urutan event tidak berubah.
 |       |                                                                                                             |
 | ----- | ----------------------------------------------------------------------------------------------------------- |
 | Layar | Game Board (heksa emas berkilau, label "Petak Emas"), kartu "Petak Emas - Hilang dalam 3 ronde", notifikasi |
-| Aksi  | Awal Langkah 1, 5, 9, 13, 17, 21                                                                            |
+| Aksi  | Awal Langkah 5, 9, 13, 17, 21 (v0.7: Langkah 1 dihapus)                                                     |
 
 ```ts
 {
@@ -1438,7 +1449,7 @@ S→R  gold:spawned        (Petak Emas baru, klien menampilkan notifikasi)
 S→C  month:summary       (tiap pemain, privat, payDebt.deadline 15 dtk)
 C→S  month:pay-debt      (tiap pemain yang punya Hutang)
 S→C  player:status
-S→R  calendar:event      (setelah popup Ganti Bulan selesai, deadline 15 dtk)
+S→R  calendar:event      (bersamaan dengan month:summary, deadline bersama 15 dtk; v0.7)
 C→S  calendar:answer     (tiap pemain)
 S→C  calendar:result + player:status
 
@@ -1466,7 +1477,7 @@ S→R  game:patch          { ops: [scores] }
 
 ## 17. Keputusan terbuka
 
-Status mengikuti GDD v1.13. Butir yang sudah diputuskan berlaku sebagai kontrak. Butir yang masih asumsi memakai usulan di kolom kanan sampai diputuskan.
+Status mengikuti GDD v1.14. Butir yang sudah diputuskan berlaku sebagai kontrak. Butir yang masih asumsi memakai usulan di kolom kanan sampai diputuskan.
 
 | #   | Pertanyaan                                                             | Status dan keputusan                                                                                                                                                                           |
 | --- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1484,3 +1495,37 @@ Status mengikuti GDD v1.13. Butir yang sudah diputuskan berlaku sebagai kontrak.
 | 12  | Op `phase` di `game:patch`                                             | **Diputuskan (v0.5).** Server mengirimnya setiap `public.phase` berubah                                                                                                                        |
 | 13  | Snapshot divalidasi seperti event                                      | **Diputuskan (G6).** Setiap field popup dan refleksi di `session:snapshot` divalidasi dengan skema event aslinya; yang gagal dikirim `null` dan dicatat di log server tanpa isi payload       |
 | 14  | Config Refleksi                                                        | **Diputuskan (G6).** `REFLECTION_PROVIDER` (`none` default, `fake` hanya di luar production) dan `REFLECTION_TIMEOUT_MS` (default 15000). Maksimal 1 refleksi per pemain per game, 4 panggilan provider bersamaan |
+| 15  | Room uji dan `dev:finish-game` | **Diputuskan (v0.7, GDD v1.14).** Hanya saat `DEV_TOOLS=true`, tidak pernah di production; di luar 46 event produksi. Lihat Bagian 18 |
+
+---
+
+## 18. Alat pengembangan: room uji dan `dev:finish-game` (v0.7, GDD v1.14)
+
+**Bukan bagian dari 46 event produksi.** Seperti `ping:test`, event ini hanya didaftarkan pada kondisi tertentu dan tidak masuk hitungan Bagian 0 maupun daftar 46 event yang dikunci tes.
+
+**Room uji `UMR-0099`:**
+
+- Hanya aktif jika `DEV_TOOLS=true`. Tidak pernah aktif di production, apa pun isi `DEV_TOOLS`.
+- Kode ini tidak pernah dihasilkan generator kode room. Generator tidak boleh menghasilkan `UMR-0099`.
+- Host = pemain yang masuk pertama.
+- Setelah game selesai atau room kosong, room kembali ke status menunggu (`waiting`) dan siap dipakai lagi.
+- Aturan lain (kapasitas, Siap, Mulai, timer) sama seperti room biasa.
+
+### `dev:finish-game` · C→S (hanya `DEV_TOOLS=true`)
+
+|       |                                                                                                   |
+| ----- | ------------------------------------------------------------------------------------------------- |
+| Layar | Game Board di room uji (tombol pengembangan, tidak tampil di production)                           |
+| Aksi  | Host menekan tombol selesaikan game                                                                |
+
+```ts
+{
+  requestId: string;
+}
+// ack
+Ack<{ finished: true }>;
+```
+
+Server menyelesaikan sisa langkah dengan **jawaban acak** (lewat `RandomSource`, bukan `Math.random`): pilihan heksa, Bayar Hutang, Event Tanggal, dan Ajakan. Fase Pembalikan dan cek eliminasi tetap berjalan seperti biasa. Setelah langkah terakhir, server mengirim `game:finished` yang **sama persis** dengan game biasa (termasuk `reflection:ready`). Klien tidak membedakan hasilnya dari game normal.
+
+Error: `NOT_HOST` (bukan host), `NOT_IN_ROOM`, `GAME_FINISHED` (game sudah selesai). Di luar room uji atau saat `DEV_TOOLS` tidak `true`, event ini tidak terdaftar (server tidak menanggapi, sama seperti event yang tidak dikenal).

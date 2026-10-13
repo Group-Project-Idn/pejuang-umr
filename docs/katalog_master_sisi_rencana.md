@@ -171,5 +171,5 @@ _Fokus: Petak rebutan pemain. Tanpa Zonk dan Realita, siapa cepat dia dapat._
 | **Menang Undian Bank BUMN**       | Kekayaan +Rp7.500.000, Level Stress -2  | Hoki seumur hidup cair tanpa potongan pajak.            |
 | **Menang Flash Sale Rp10.000**    | Kekayaan +Rp10.000.000, Level Stress -2 | Berhasil _checkout_ motor/iPhone buat dijual lagi.      |
 | **Giveaway Tiket VIP Konser**     | Kekayaan +Rp3.000.000, Level Stress -3  | Ikut kuis iseng _brand_ besar di Twitter/IG dan tembus. |
-| **Bonus Kinerja 2x Gaji**         | Kekayaan +Rp11.460.000, Level Stress -3 | Keajaiban tahunan untuk karyawan teladan, cair penuh!   |
+| **Bonus Kinerja 2x Gaji**         | Kekayaan +Rp10.000.000, Level Stress -3 | Keajaiban tahunan untuk karyawan teladan, cair penuh!   |
 | **Proyek Side Job Dibayar Dolar** | Kekayaan +Rp7.500.000, Level Stress -2  | Klien luar negeri nggak nawar harga, kurs lagi tinggi.  |
