@@ -25,6 +25,7 @@ import EliminationScreen from "@/app/components/screens/EliminationScreen";
 import { getEliminationReason } from "@/lib/result-screens";
 import ResultScreen from "@/app/components/screens/ResultScreen";
 import { copyTextToClipboard } from "@/lib/clipboard";
+import { markInternalNavigation } from "@/lib/back-target";
 import { clearGuestSession, readGuestSession } from "@/lib/guest-session";
 import {
   type GameFinished,
@@ -545,7 +546,7 @@ export function LobbyClient({ code }: { code: string }) {
       busy={busy || !socket}
       message={message}
       onLeave={leaveRoom}
-      onOpenGuide={() => router.push("/cara-main")}
+      onOpenGuide={() => { markInternalNavigation(); router.push("/cara-main"); }}
       onCopyCode={copyRoomCode}
       onSelectAvatar={(avatarId) => emitRoomAction("avatar", (gameSocket) => {
         const parsed = CharacterIdSchema.safeParse(avatarId);

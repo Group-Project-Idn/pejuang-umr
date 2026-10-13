@@ -818,7 +818,7 @@ Bagian ini mengatur apa yang terjadi sebelum, selama, dan sesudah game Multiplay
 
 ### 9.2 Home dan Lobby
 
-- **Home:** tombol **Mabar**, **Spill Cara Main**, dan ikon pengaturan aktif. Tombol **Singel**, **Ajang Flexing**, dan ikon Portal/Masuk tetap tampil tetapi **tidak bisa diklik** (tanpa efek hover dan tekan, tanpa label "Segera hadir").
+- **Home:** tombol **Mabar**, **Spill Cara Main**, dan ikon pengaturan aktif. Tombol **Singel**, **Ajang Flexing**, dan ikon profil (Portal/Masuk/Daftar) tetap tampil tetapi **tidak bisa diklik** (tanpa efek hover dan tekan, tanpa label "Segera hadir").
 - **Lobby:** **Buat Room (Host)** dan kolom **Kode Room** dengan tombol **Gabung**. Kode tampil sebagai placeholder (contoh "UMR-4821"), otomatis huruf besar, dan Enter berfungsi sebagai Gabung. Ada keterangan aturan Mabar: 2-4 pemain, 24 langkah, ±30 menit.
 - **Kondisi khusus Lobby:** kode salah ("Kode room tidak ketemu."), room penuh (4/4), game sudah berjalan, server bermasalah (tombol nonaktif dan "Coba lagi"), dan kartu **"Lanjutkan permainan"** jika game sebelumnya masih berjalan.
 - **Pengaturan:** hanya Musik, Efek suara, dan Notifikasi Ajakan. Bagian Akun dan pilihan Aturan Mabar dihapus (timer dipindah ke Room).
