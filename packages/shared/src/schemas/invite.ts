@@ -33,7 +33,7 @@ export const InviteResolvedPayloadSchema = z.strictObject({
   targetPlayerId: z.string().min(1),
   answer: z.enum(["join", "decline"]),
   autoDeclined: z.boolean(),
-  motive: InviteMotiveSchema.nullable(),
+  motive: InviteMotiveSchema,
   effectsForYou: z.array(EffectSchema),
 });
 

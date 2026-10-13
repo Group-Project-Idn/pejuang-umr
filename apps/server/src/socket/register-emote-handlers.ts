@@ -19,7 +19,7 @@ export const EMOTE_WINDOW_MS = 3_000;
 const EMOTE_ID_PATTERN = /^[a-z0-9-]{1,24}$/;
 
 /**
- * emote:send: berlaku di Room dan saat game. Penonton dan pemain tereliminasi boleh mengirim.
+ * emote:send: berlaku di Room dan saat game. Pemain tereliminasi yang masih di room boleh mengirim.
  * emote:shown tidak memakai version karena tidak mengubah state game.
  */
 export function registerEmoteHandlers(

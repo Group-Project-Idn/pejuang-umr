@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AvatarIdSchema } from "./common";
+import { CharacterIdSchema } from "./common";
 
 const GUEST_NAME_PATTERN = /^[\p{L}\p{N} .'-]+$/u;
 
@@ -12,14 +12,14 @@ export const GuestNameSchema = z
 
 export const GuestRequestSchema = z.object({
   name: GuestNameSchema,
-  avatarId: AvatarIdSchema,
+  avatarId: CharacterIdSchema,
 });
 
 export const GuestResponseSchema = z.object({
   ok: z.literal(true),
   playerId: z.string().min(1),
   name: GuestNameSchema,
-  avatarId: AvatarIdSchema,
+  avatarId: CharacterIdSchema,
   token: z.string().min(1),
   expiresAt: z.number().int(),
 });

@@ -12,7 +12,6 @@ import type { GameSession } from "../game/game-session";
 import type { GameRepository } from "../repositories/game-repository";
 import type { IdempotencyRepository } from "../repositories/idempotency-repository";
 import type { RoomRepository } from "../repositories/room-repository";
-import { createSnapshot } from "../services/snapshot";
 import { executeWithAck } from "./safe-handler";
 
 type GameSocket = Socket<
@@ -78,27 +77,12 @@ export function registerGameHandlers(
     session.payMonthDebt(playerId, p.month, p.amount),
   );
 
-  register("invite:send", (session, playerId, p: { cardId: string; targetPlayerId: string }) =>
-    session.sendInvite(playerId, p.cardId, p.targetPlayerId),
+  register(
+    "invite:send",
+    (session, playerId, p: { cardId: string; targetPlayerId: string; turnId: string }) =>
+      session.sendInvite(playerId, p.cardId, p.targetPlayerId, p.turnId),
   );
   register("invite:respond", (session, playerId, p: { inviteId: string; answer: "join" | "decline" }) =>
     session.respondInvite(playerId, p.inviteId, p.answer),
-  );
-
-  // Tanpa cache idempotensi: memanggil ulang selalu aman dan snapshot-nya harus segar.
-  socket.on("spectate:enter", (payload, unsafeAck) =>
-    executeWithAck<{ snapshot: Snapshot }>(unsafeAck, (ack) => {
-      if (!ClientEventSchemas["spectate:enter"].safeParse(payload).success) {
-        return ack({ ok: false, error: "INVALID_PAYLOAD" });
-      }
-      const playerId = socket.data.playerId;
-      const room = rooms.getByPlayer(playerId);
-      if (!room) return ack({ ok: false, error: "NOT_IN_ROOM" });
-      const session = games.get(room.code);
-      if (!session) return ack({ ok: false, error: "NOT_ELIMINATED" });
-      const entered = session.enterSpectate(playerId);
-      if (!entered.ok) return ack(entered as never);
-      ack({ ok: true, snapshot: createSnapshot(room, playerId, session) });
-    }),
   );
 }

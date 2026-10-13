@@ -1,7 +1,6 @@
 import { z } from "zod";
 import {
-  AvatarIdSchema,
-  PawnIdSchema,
+  CharacterIdSchema,
   RoomCodeSchema,
   TurnSecondsSchema,
 } from "./common";
@@ -9,8 +8,7 @@ import {
 export const PublicPlayerSchema = z.strictObject({
   playerId: z.string().min(1),
   name: z.string().min(1),
-  avatarId: AvatarIdSchema,
-  pawn: PawnIdSchema.nullable(),
+  avatarId: CharacterIdSchema,
   connected: z.boolean(),
 });
 

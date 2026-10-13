@@ -70,6 +70,5 @@ describe("engine", () => {
     expect(getBoardRadius(ids.length)).toBe(6);
     const state = createInitialGameState(ids, "g", new SequenceRandomSource([0.3]));
     expect(state.boardRadius).toBe(6);
-    expect(state.deadHexes).toEqual([]);
   });
 });

@@ -12,7 +12,6 @@ import {
 import { SEASON_ZONKS } from "./season-zonks";
 import { TILES } from "./tiles";
 import { SEASON_BY_MONTH } from "./schema";
-import { toMultiplayerEffects } from "./multiplier";
 
 const FORBIDDEN_IMPORT = "@pejuang/engine";
 const webSrcDir = join(
@@ -183,12 +182,21 @@ describe("katalog data konten", () => {
     expect(SEASON_ZONKS.filter((zonk) => zonk.season !== "transition").map(({ season, title, effects }) => [season, title, effects])).toEqual(expected);
   });
 
-  it("memuat 4 Rencana Ajakan dengan bobot motif 50/50", () => {
-    expect(INVITE_PLANS).toHaveLength(4);
-    expect(INVITE_MOTIVE_WEIGHTS).toEqual({
-      sincere: 50,
-      commission: 50,
-    });
+  it("memuat 4 Rencana Ajakan dengan nilai GDD 4.8 v1.12 dan bobot motif 50/50", () => {
+    expect(INVITE_PLANS.map((plan) => [plan.id, plan.effects])).toEqual([
+      ["hangout", [{ stat: "wealth", delta: -500_000 }, { stat: "stress", delta: -2 }]],
+      ["morningRun", [{ stat: "health", delta: 1 }, { stat: "stress", delta: -1 }]],
+      ["jointProject", [{ stat: "wealth", delta: 1_500_000 }, { stat: "health", delta: -1 }]],
+      [
+        "staycation",
+        [
+          { stat: "wealth", delta: -1_000_000 },
+          { stat: "health", delta: 1 },
+          { stat: "stress", delta: -2 },
+        ],
+      ],
+    ]);
+    expect(INVITE_MOTIVE_WEIGHTS).toEqual({ sincere: 50, commission: 50 });
   });
 
   it("bobot motif berjumlah 100", () => {
@@ -213,35 +221,29 @@ describe("katalog data konten", () => {
     expect(Object.keys(SEASON_BY_MONTH)).toHaveLength(12);
   });
 
-  it("efek motif Ajakan mengikuti tabel Motif dan hasilnya", () => {
-    expect(INVITE_MOTIVE_EFFECTS.sincere.join.planAppliesToTarget).toBe(true);
-    expect(INVITE_MOTIVE_EFFECTS.sincere.decline.declineTarget).toEqual([{ stat: "stress", delta: 1 }]);
-    expect(INVITE_MOTIVE_EFFECTS.commission.decline.declineTarget).toEqual([{ stat: "stress", delta: -1 }]);
-    expect(INVITE_MOTIVE_EFFECTS.commission.join.senderExtra).toContainEqual({
-      stat: "wealth",
-      delta: 500_000,
+  it("efek motif Ajakan mengikuti tabel Motif dan hasilnya (GDD 4.8 v1.12)", () => {
+    const { sincere, commission } = INVITE_MOTIVE_EFFECTS;
+    expect(Object.keys(INVITE_MOTIVE_EFFECTS).sort()).toEqual(["commission", "sincere"]);
+    expect(sincere.join).toEqual({
+      planAppliesToTarget: true,
+      targetExtra: [{ stat: "stress", delta: -1 }],
+      senderExtra: [{ stat: "stress", delta: -1 }],
     });
-    expect(INVITE_MOTIVE_EFFECTS.commission.join.targetExtra).toContainEqual({
-      stat: "wealth",
-      delta: -500_000,
+    expect(sincere.decline).toEqual({
+      planAppliesToTarget: false,
+      targetExtra: [{ stat: "stress", delta: 1 }],
+      senderExtra: [],
     });
-  });
-
-  it("pembukaan motif Ajakan sesuai GDD 4.8", () => {
-    const joinReveal = {
-      sincere: "target" as const,
-      commission: "target" as const,
-    };
-    for (const motive of Object.keys(INVITE_MOTIVE_EFFECTS) as Array<
-      keyof typeof INVITE_MOTIVE_EFFECTS
-    >) {
-      expect(INVITE_MOTIVE_EFFECTS[motive].join.revealMotiveTo).toBe(
-        joinReveal[motive],
-      );
-    }
-    for (const motive of ["sincere", "commission"] as const) {
-      expect(INVITE_MOTIVE_EFFECTS[motive].decline.revealMotiveTo).toBe("target");
-    }
+    expect(commission.join).toEqual({
+      planAppliesToTarget: true,
+      targetExtra: [{ stat: "wealth", delta: -500_000 }],
+      senderExtra: [{ stat: "wealth", delta: 500_000 }],
+    });
+    expect(commission.decline).toEqual({
+      planAppliesToTarget: false,
+      targetExtra: [{ stat: "stress", delta: -1 }],
+      senderExtra: [],
+    });
   });
 
   it("mendaftarkan semua katalog di index data", async () => {
@@ -350,13 +352,6 @@ describe("nilai konten 1x (GDD 1.3 v1.12)", () => {
       { stat: "wealth", delta: -250_000 },
       { stat: "stress", delta: -1 },
     ]);
-  });
-
-  it("semua stat tidak dikali atau dijepit dan input tidak dimutasi", () => {
-    const effects = [{ stat: "wealth", delta: -750_000 }, { stat: "debt", delta: 5_000_000 }, { stat: "health", delta: -4 }, { stat: "stress", delta: 4 }] as const;
-    const result = toMultiplayerEffects(effects);
-    expect(result).toEqual(effects);
-    expect(result[0]).not.toBe(effects[0]);
   });
 
   it("Jalan-jalan menggantikan Bayar Hutang dan Kondangan berlaku Rp250.000", () => {

@@ -6,7 +6,6 @@ import {
   InviteRespondRequestSchema,
   InviteSendRequestSchema,
   RoomRematchRequestSchema,
-  SpectateEnterRequestSchema,
   TurnChooseRequestSchema,
   TurnJumpRequestSchema,
 } from "./game-actions";
@@ -86,17 +85,11 @@ describe("game action schemas", () => {
     ).toBe(false);
   });
 
-  it("menerima spectate:enter yang valid dan menolak payload kosong", () => {
-    expect(
-      SpectateEnterRequestSchema.safeParse({ requestId: REQUEST_ID }).success,
-    ).toBe(true);
-    expect(SpectateEnterRequestSchema.safeParse({}).success).toBe(false);
-  });
-
   it("menerima invite:send yang valid dan menolak targetPlayerId kosong", () => {
     expect(
       InviteSendRequestSchema.safeParse({
         requestId: REQUEST_ID,
+        turnId: "turn-1",
         cardId: "card-1",
         targetPlayerId: "player-2",
       }).success,
@@ -104,6 +97,14 @@ describe("game action schemas", () => {
     expect(
       InviteSendRequestSchema.safeParse({
         requestId: REQUEST_ID,
+        cardId: "card-1",
+        targetPlayerId: "player-2",
+      }).success,
+    ).toBe(false);
+    expect(
+      InviteSendRequestSchema.safeParse({
+        requestId: REQUEST_ID,
+        turnId: "turn-1",
         cardId: "card-1",
         targetPlayerId: "",
       }).success,

@@ -8,8 +8,6 @@ export interface MonthSummary {
   livingCost: number;
   interest: number;
   interestAddedToDebt: number;
-  /** @deprecated v1.12: Doom Spending dicek di Fase Pembalikan; selalu null. */
-  doomAmount: number | null;
   before: PrivateStatus;
   after: PrivateStatus;
 }
@@ -45,7 +43,6 @@ export function processMonthChange(
       livingCost: LIVING_COST,
       interest,
       interestAddedToDebt: interestStep.debtAdded,
-      doomAmount: null,
       before: status,
       after: interestStep.status,
     },

@@ -62,4 +62,19 @@ describe("readServerConfig", () => {
     expect(() => readServerConfig({ MONTH_PAY_SECONDS: "0" })).toThrow(/MONTH_PAY_SECONDS/);
     expect(() => readServerConfig({ MONTH_SUMMARY_ONLY_MS: "-5" })).toThrow(/MONTH_SUMMARY_ONLY_MS/);
   });
+
+  it("REFLECTION_PROVIDER default none, fake hanya di luar production; REFLECTION_TIMEOUT_MS default 15000", () => {
+    const config = readServerConfig({ GUEST_TOKEN_SECRET: "change-me" });
+    expect(config.reflectionProvider).toBe("none");
+    expect(config.reflectionTimeoutMs).toBe(15_000);
+    expect(readServerConfig({ REFLECTION_PROVIDER: "fake", REFLECTION_TIMEOUT_MS: "250" })).toMatchObject({
+      reflectionProvider: "fake",
+      reflectionTimeoutMs: 250,
+    });
+    expect(() =>
+      readServerConfig({ NODE_ENV: "production", GUEST_TOKEN_SECRET: "a".repeat(40), REFLECTION_PROVIDER: "fake" }),
+    ).toThrow(/REFLECTION_PROVIDER/);
+    expect(() => readServerConfig({ REFLECTION_PROVIDER: "openai" })).toThrow(/REFLECTION_PROVIDER/);
+    expect(() => readServerConfig({ REFLECTION_TIMEOUT_MS: "0" })).toThrow(/REFLECTION_TIMEOUT_MS/);
+  });
 });

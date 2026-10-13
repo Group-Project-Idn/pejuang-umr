@@ -363,7 +363,10 @@ describe("host dan main lagi", () => {
       error: "INVALID_PAYLOAD",
     });
     runToFinish(ctx);
-    expect(await ctx.guest.socket.emitWithAck("room:rematch", { requestId: rid() })).toEqual({
+    // Host bisa pindah bila host awal tereliminasi saat game selesai (D7); yang bukan host ditolak.
+    const hostId = ctx.server.rooms.get("UMR-1234")!.hostId;
+    const nonHost = hostId === ctx.host.playerId ? ctx.guest : ctx.host;
+    expect(await nonHost.socket.emitWithAck("room:rematch", { requestId: rid() })).toEqual({
       ok: false,
       error: "NOT_HOST",
     });
@@ -372,23 +375,36 @@ describe("host dan main lagi", () => {
   it("rematch: sesi dihapus, room waiting, ready false, pion tetap, lalu game baru mulai dengan version 1", async () => {
     const ctx = await setup();
     runToFinish(ctx);
-    const pawnsBefore = ctx.server.rooms.get("UMR-1234")!.players.map((p) => [p.playerId, p.pawn]);
+    // Game acak bisa mengeliminasi satu pemain, padahal Main Lagi mengeluarkan yang tereliminasi
+    // (GDD 9.5 v1.12; diuji di elimination.integration.test.ts). Pulihkan agar alur rematch utuh.
+    const session = ctx.server.games.get("UMR-1234")!;
+    session.state = {
+      ...session.state,
+      players: Object.fromEntries(
+        Object.entries(session.state.players).map(([id, player]) => [id, { ...player, eliminated: false }]),
+      ),
+    };
+    const pawnsBefore = ctx.server.rooms.get("UMR-1234")!.players.map((p) => [p.playerId, p.avatarId]);
+    // Host bisa pindah ke pemain lain bila host awal tereliminasi saat game selesai (D7).
+    const hostId = ctx.server.rooms.get("UMR-1234")!.hostId;
+    const host = hostId === ctx.host.playerId ? ctx.host : ctx.guest;
+    const other = host === ctx.host ? ctx.guest : ctx.host;
     const stateSeen = () =>
-      ctx.find(ctx.guest, "room:state").filter((e) => e.payload.status === "waiting").length;
+      ctx.find(other, "room:state").filter((e) => e.payload.status === "waiting").length;
     const waitingBefore = stateSeen();
 
-    const ack = await ctx.host.socket.emitWithAck("room:rematch", { requestId: rid() });
+    const ack = await host.socket.emitWithAck("room:rematch", { requestId: rid() });
     expect(ack.ok).toBe(true);
     if (!ack.ok) return;
     expect(ack.room.status).toBe("waiting");
     expect(ack.room.players.every((p) => p.ready === false)).toBe(true);
-    expect(ack.room.players.map((p) => [p.playerId, p.pawn])).toEqual(pawnsBefore);
+    expect(ack.room.players.map((p) => [p.playerId, p.avatarId])).toEqual(pawnsBefore);
     expect(ctx.server.games.get("UMR-1234")).toBeNull();
     await until(() => stateSeen() > waitingBefore, "room:state waiting");
 
     const startedBefore = ctx.find(ctx.host, "game:started").length;
-    expect(await ctx.guest.socket.emitWithAck("room:ready", { requestId: rid(), ready: true })).toEqual({ ok: true });
-    expect(await ctx.host.socket.emitWithAck("game:start", { requestId: rid() })).toEqual({ ok: true });
+    expect(await other.socket.emitWithAck("room:ready", { requestId: rid(), ready: true })).toEqual({ ok: true });
+    expect(await host.socket.emitWithAck("game:start", { requestId: rid() })).toEqual({ ok: true });
     await until(() => ctx.find(ctx.host, "game:started").length > startedBefore, "game:started kedua");
     expect(ctx.find(ctx.host, "game:started")[startedBefore]!.payload.version).toBe(1);
     await until(() => ctx.find(ctx.host, "calendar:event").length > 1, "calendar:event game baru");
@@ -403,6 +419,14 @@ describe("host dan main lagi", () => {
       "player:connection false",
     );
     runToFinish(ctx);
+    // Game acak bisa mengeliminasi host; Main Lagi mengeluarkan yang tereliminasi (diuji di elimination.integration).
+    const session = ctx.server.games.get("UMR-1234")!;
+    session.state = {
+      ...session.state,
+      players: Object.fromEntries(
+        Object.entries(session.state.players).map(([id, player]) => [id, { ...player, eliminated: false }]),
+      ),
+    };
     const ack = await ctx.host.socket.emitWithAck("room:rematch", { requestId: rid() });
     expect(ack.ok).toBe(true);
     if (!ack.ok) return;

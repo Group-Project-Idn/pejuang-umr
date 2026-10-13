@@ -1,11 +1,10 @@
 import { z } from "zod";
 import {
-  AvatarIdSchema,
   CategorySchema,
+  CharacterIdSchema,
   EffectSchema,
   HexCoordSchema,
   OutcomeSchema,
-  PawnIdSchema,
   PrivateStatusSchema,
   RiskSchema,
   TurnSecondsSchema,
@@ -41,12 +40,8 @@ export const OpenedHexSchema = z.object({
   hex: HexCoordSchema,
   category: CategorySchema,
   title: z.string().min(1),
-  /** @deprecated v0.3: pakai `reality`. */
-  outcome: OutcomeSchema.nullable(),
-  // v0.3: wajib setelah pembersihan G7
-  plan: z.array(EffectSchema).optional(),
-  // v0.3: wajib setelah pembersihan G7
-  reality: RevealedRealitySchema.nullable().optional(),
+  plan: z.array(EffectSchema),
+  reality: RevealedRealitySchema.nullable(),
   byPlayerId: z.string().min(1),
   step: z.number().int().min(1).max(24),
 });
@@ -67,25 +62,28 @@ export const ScoreRowSchema = z.strictObject({
   eliminated: z.boolean(),
 });
 
+export const PublicGamePhaseSchema = z.enum([
+  "calendar",
+  "turn",
+  "reveal",
+  "finished",
+]);
+
 export const PublicGameStateSchema = z.strictObject({
   version: z.number().int().nonnegative(),
   gameId: z.string().min(1),
-  boardRadius: z.union([z.literal(4), z.literal(5), z.literal(6)]),
+  boardRadius: z.literal(6),
   calendar: CalendarInfoSchema,
   turnOrder: z.array(z.string().min(1)),
   activePlayerId: z.string().min(1).nullable(),
   turnDeadline: z.number().int().nullable(),
-  turnPaused: z.boolean(),
   pawns: z.array(z.object({ playerId: z.string().min(1), hex: HexCoordSchema })),
   openedHexes: z.array(OpenedHexSchema),
-  deadHexes: z.array(HexCoordSchema),
   gold: GoldTileSchema.nullable(),
   scores: z.array(ScoreRowSchema),
   rankOneBurden: z.array(z.string().min(1)),
   eliminated: z.array(z.string().min(1)),
-  spectators: z.array(z.string().min(1)),
-  // v0.3: wajib setelah pembersihan G7
-  phase: z.enum(["calendar", "turn", "reveal", "finished"]).optional(),
+  phase: PublicGamePhaseSchema,
 });
 
 export const RiskTagSchema = z.discriminatedUnion("type", [
@@ -129,15 +127,6 @@ export const TurnStartPayloadSchema = z.object({
   turnSeconds: TurnSecondsSchema,
 });
 
-/** @deprecated v0.3: `turn:timer` dihapus. */
-export const TurnTimerPayloadSchema = z.object({
-  version: z.number().int().nonnegative(),
-  turnId: z.string().min(1),
-  paused: z.boolean(),
-  deadline: z.number().int().nullable(),
-  remainingMs: z.number().int().nonnegative(),
-});
-
 export const TileOpenedPayloadSchema = z.object({
   version: z.number().int().nonnegative(),
   turnId: z.string().min(1),
@@ -154,9 +143,7 @@ export const TileOpenedPayloadSchema = z.object({
 
 export const TileResolvedPayloadSchema = z.object({
   version: z.number().int().nonnegative(),
-  turnId: z.string().min(1),
-  // v0.3: wajib setelah pembersihan G7
-  round: z.number().int().positive().optional(),
+  round: z.number().int().positive(),
   playerId: z.string().min(1),
   hex: HexCoordSchema,
   outcome: OutcomeSchema,
@@ -193,17 +180,8 @@ export const SeasonChangedPayloadSchema = z.object({
   version: z.number().int().nonnegative(),
   season: z.enum(["rainy", "dry", "transition"]),
   vulnerableCategories: z.array(CategorySchema),
-  zonkFocus: z.enum([
-    "floodRain",
-    "heatPollution",
-    "sick",
-    /** @deprecated v0.3 */
-    "vehicleWash",
-    /** @deprecated v0.3 */
-    "vehicleBreakdown",
-  ]),
-  // v0.3: wajib setelah pembersihan G7
-  hint: z.string().optional(),
+  zonkFocus: z.enum(["floodRain", "heatPollution", "sick"]),
+  hint: z.string(),
 });
 
 export const PlayerConnectionPayloadSchema = z.object({
@@ -215,9 +193,7 @@ export const PlayerConnectionPayloadSchema = z.object({
 
 export const DoomTriggeredPayloadSchema = z.object({
   amount: z.number().int(),
-  trigger: z.enum(["month", "tile"]),
-  // v0.3: wajib setelah pembersihan G7
-  round: z.number().int().positive().optional(),
+  round: z.number().int().positive(),
   stressAfter: z.number().int().min(0).max(10),
 });
 
@@ -226,8 +202,7 @@ export const PlayerEliminatedPayloadSchema = z.object({
   playerId: z.string().min(1),
   reason: z.enum(["bankrupt", "burnout"]),
   step: z.number().int().min(1).max(24),
-  // v0.3: wajib setelah pembersihan G7
-  frozenScore: z.number().min(0).max(100).optional(),
+  frozenScore: z.number().min(0).max(100),
 });
 
 export const RoundRevealPayloadSchema = z.object({
@@ -267,11 +242,7 @@ export const GamePatchOpSchema = z.discriminatedUnion("type", [
     playerIds: z.array(z.string().min(1)),
   }),
   z.object({ type: z.literal("calendar"), calendar: CalendarInfoSchema }),
-  z.object({
-    type: z.literal("inviteSincereDeclined"),
-    fromPlayerId: z.string().min(1),
-    targetPlayerId: z.string().min(1),
-  }),
+  z.object({ type: z.literal("phase"), phase: PublicGamePhaseSchema }),
 ]);
 
 export const GamePatchPayloadSchema = z.object({
@@ -283,9 +254,7 @@ export const GameFinishedRankSchema = z.strictObject({
   rank: z.number().int().positive(),
   playerId: z.string().min(1),
   name: z.string().min(1),
-  pawn: PawnIdSchema,
-  // v0.3: wajib setelah pembersihan G7
-  avatarId: AvatarIdSchema.optional(),
+  avatarId: CharacterIdSchema,
   points: z.strictObject({
     finance: z.number().min(0).max(100),
     health: z.number().min(0).max(100),
@@ -316,11 +285,8 @@ export const SnapshotSchema = z.object({
       .nullable(),
     pendingCalendar: CalendarEventPayloadSchema.nullable(),
     pendingInvite: InviteIncomingPayloadSchema.nullable(),
-    isSpectator: z.boolean(),
-    // v0.3: wajib setelah pembersihan G7
-    pendingMonth: MonthSummaryPayloadSchema.nullable().optional(),
-    // v0.3: wajib setelah pembersihan G7
-    reflection: ReflectionSchema.nullable().optional(),
+    pendingMonth: MonthSummaryPayloadSchema.nullable(),
+    reflection: ReflectionSchema.nullable(),
   }),
   result: GameFinishedPayloadSchema.nullable(),
 });

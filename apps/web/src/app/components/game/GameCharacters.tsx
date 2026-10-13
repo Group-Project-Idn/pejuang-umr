@@ -1,7 +1,8 @@
 "use client";
 
 import type { PublicGameState, RoomState } from "@pejuang/shared";
-import { hexToWorld, PAWN_DETAILS } from "@/data/game";
+import { hexToWorld } from "@/data/game";
+import { getAvatarSrc } from "@/lib/avatars";
 import CharacterSprite from "./CharacterSprite";
 
 type GameCharactersProps = {
@@ -19,14 +20,14 @@ export default function GameCharacters({
     const player = room.players.find(
       (candidate) => candidate.playerId === playerId,
     );
-    if (!player?.pawn) return null;
+    if (!player) return null;
     const { x, z } = hexToWorld(hex.q, hex.r);
 
     return (
       <CharacterSprite
         key={playerId}
         name={player.name}
-        sprite={PAWN_DETAILS[player.pawn].sprite}
+        sprite={getAvatarSrc(player.avatarId)}
         position={[x, surfaceY, z]}
       />
     );

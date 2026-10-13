@@ -1,10 +1,10 @@
 # Pejuang UMR: Jakarta Survival
 
-### Game Design Document (GDD) Ringkas - v1.12
+### Game Design Document (GDD) Ringkas - v1.13
 
 > **Logline:** Game simulasi kehidupan berbasis papan heksagonal di mana pemain harus bertahan hidup selama 12 bulan dengan menyeimbangkan uang, kesehatan, dan kewarasan mental di tengah kejamnya realita finansial Jakarta.
 
-Bagian yang baru atau berubah ditandai **[v1.12]** (perubahan terbaru), **[v1.11]**, **[v1.10]**, **[v1.9]**, **[v1.8]**, **[v1.7]**, atau **[v1.6]**. Ringkasan perubahan dan daftar asumsi ada di Bagian 10. Dokumen ini adalah versi terkonsolidasi: aturan game dari v1.6, scope MVP dan alur Room dari v1.7, dan ide dari konsep awal "Jatah" yang dicatat sebagai backlog.
+Bagian yang baru atau berubah ditandai **[v1.13]** (perubahan terbaru), **[v1.12]**, **[v1.11]**, **[v1.10]**, **[v1.9]**, **[v1.8]**, **[v1.7]**, atau **[v1.6]**. Ringkasan perubahan dan daftar asumsi ada di Bagian 10. Dokumen ini adalah versi terkonsolidasi: aturan game dari v1.6, scope MVP dan alur Room dari v1.7, dan ide dari konsep awal "Jatah" yang dicatat sebagai backlog.
 
 ### Konsep Inti: Petak adalah Kartu **[v1.6]**
 
@@ -164,7 +164,7 @@ Ganti bulan terjadi di Fase Kalender dan tampil sebagai **popup Ganti Bulan** ke
 1. Gaji masuk (+Rp 5.730.000)
 2. Biaya Hidup Wajib dipotong (-Rp 4.600.000)
 3. Bunga Hutang dipotong (3% dari Hutang)
-4. Popup menampilkan rincian 1-3 dan Kekayaan baru. Jika Hutang lebih dari 0, popup juga berisi **slider Bayar Hutang** (Rp0 sampai `min(Kekayaan, Hutang)`). Batas waktu **15 detik**, ditampilkan di popup. Waktu habis atau pemain putus = bayar Rp0. Jika Hutang 0, popup tampil tanpa slider. Popup ditutup lebih cepat jika semua pemain yang berhutang sudah membayar. Jika tidak ada satu pun pemain yang berhutang, popup hanya ringkasan dan game lanjut setelah sekitar 3 detik **[v1.12]**.
+4. Popup menampilkan rincian 1-3 dan Kekayaan baru. Jika Hutang lebih dari 0, popup juga berisi **slider Bayar Hutang** (Rp0 sampai `min(Kekayaan, Hutang)`). Batas waktu **15 detik**, ditampilkan di popup. Waktu habis atau pemain putus = bayar Rp0. Jika Hutang 0, popup tampil tanpa slider. Popup ditutup lebih cepat jika semua pemain yang berhutang sudah membayar. Jika tidak ada satu pun pemain yang berhutang, popup hanya ringkasan dan game lanjut setelah sekitar 3 detik **[v1.12]**. Pemain yang berhutang tetapi Kekayaannya Rp0 tetap ditunggu seperti pemain berhutang lain; ia bisa menutup popup lebih cepat dengan membayar Rp0 **[v1.13]**.
 5. Jika pembayaran membuat Hutang **lunas** (dari lebih dari 0 menjadi 0), Level Stress -2.
 
 Doom Spending, Bangkrut, dan Burnout tidak dicek di sini, tetapi di Fase Pembalikan (4.2).
@@ -321,7 +321,9 @@ Popup tampil berurutan (Ganti Bulan, lalu Event Tanggal). Giliran pertama dimula
 
 Di Langkah 24, skor akhir dihitung setelah Fase Pembalikan. **Saran Lisan** boleh kapan saja.
 
-Server mengirim seluruh hasil Fase Pembalikan sekaligus, lalu memberi jeda animasi sekitar 2,5 detik per pemain sebelum ronde berikutnya dimulai, supaya semua pemain melihat urutan yang sama **[v1.12]**.
+Server mengirim seluruh hasil Fase Pembalikan sekaligus, lalu memberi jeda animasi sekitar 2,5 detik per pemain sebelum ronde berikutnya dimulai, supaya semua pemain melihat urutan yang sama **[v1.12]**. Selama jeda itu, kalender masih menunjukkan langkah ronde yang baru selesai; tanggal baru tampil saat ronde berikutnya dimulai **[v1.13]**.
+
+Jika semua pemain sudah melangkah tetapi masih ada Ajakan yang belum dijawab, Fase Pembalikan menunggu sampai Ajakan itu dijawab atau habis waktu (maksimal 15 detik) **[v1.13]**.
 
 ### 4.3 Fase Pilihan: Detail Rahasia & Giliran Bergantian **[v1.6]**
 
@@ -334,7 +336,7 @@ Server mengirim seluruh hasil Fase Pembalikan sekaligus, lalu memberi jeda anima
 
 **Timer Giliran (Multiplayer):**
 
-- **Host** memilih di Room sebelum game dimulai: **15 detik**, **30 detik** (Cepat, default), atau **60 detik** (Santai) **[v1.12]**. Berlaku untuk semua pemain dan tidak bisa diubah saat game berjalan **[v1.7]**.
+- **Host** memilih di Room sebelum game dimulai: **15 detik** (Kilat), **30 detik** (Cepat, default), atau **60 detik** (Santai) **[v1.12, label Kilat v1.13]**. Berlaku untuk semua pemain dan tidak bisa diubah saat game berjalan **[v1.7]**.
 - Timer dihitung dari awal Fase Pilihan. Jika waktu habis, heksa tujuan dipilih **acak** dari heksa yang menyala, termasuk saat popup detail sedang terbuka tetapi Pilih belum ditekan **[v1.12]**. **Tidak ada timer yang dijeda** dalam keadaan apa pun **[v1.12]**. Popup Ganti Bulan, Event Tanggal, dan Ajakan punya batas waktu sendiri yang ditampilkan di popup (2.4, 3.3, 4.8).
 - Karena pemain berjalan bergantian, tidak ada konflik heksa. Siapa yang jalan lebih dulu di ronde itu otomatis mendapat heksa yang ia pilih.
 
@@ -784,7 +786,7 @@ Bagian ini mengatur apa yang terjadi sebelum, selama, dan sesudah game Multiplay
 
 ### 9.1 Identitas pemain: tamu
 
-- Tidak ada akun. Saat pertama kali membuka Lobby (atau menekan Mabar tanpa sesi), muncul popup **"Masuk sebagai tamu"**: kolom **Nama** (ada batas panjang dan penyaring kata kasar) dan pilihan **Avatar**, yaitu karakter yang juga menjadi pion di papan **[v1.12]**.
+- Tidak ada akun. Saat pertama kali membuka Lobby (atau menekan Mabar tanpa sesi), muncul popup **"Masuk sebagai tamu"**: kolom **Nama** (ada batas panjang dan penyaring kata kasar) dan pilihan **Avatar**, yaitu karakter yang juga menjadi pion di papan **[v1.12]**. Pilihannya 4 karakter (Michael, Raka, Sinta, Icha) **[v1.13]**.
 - Data tersimpan di perangkat (`localStorage`) bersama token sesi yang dipakai untuk masuk kembali ke room saat koneksi putus.
 - Di Lobby, kartu identitas pemain memiliki tombol **Edit Profile** (membuka popup yang sama untuk mengubah nama dan avatar) **[v1.12]**. Edit Profile **hanya bisa di Lobby**, tidak saat pemain berada di Room atau game, supaya nama dan karakter di Papan Skor tidak berubah di tengah permainan **[v1.10]**.
 - Riwayat dan rekor tidak tersimpan (butuh akun, ditunda).
@@ -800,7 +802,7 @@ Bagian ini mengatur apa yang terjadi sebelum, selama, dan sesudah game Multiplay
 
 - Pemain yang menekan **Buat Room** menjadi **Host**. Room memiliki **Kode Room** unik (contoh `UMR-4821`) yang bisa disalin atau dibagikan sebagai link.
 - **4 slot pemain.** Pion tiap pemain adalah **karakter (avatar)** yang ia pilih, dan karakter yang sama tampil di Papan Skor. Karakter harus unik dalam satu room: pemain yang masuk dengan karakter yang sudah dipakai mendapat karakter kosong pertama dan bisa menggantinya di Room selama karakter itu belum dipakai pemain lain **[v1.12]**.
-- **Host mengatur Timer Giliran** (15 detik, 30 detik Cepat, atau 60 detik Santai) **[v1.12]**. **Jumlah pemain tidak diatur manual.** Papan selalu 127 heksa; hanya titik awal yang mengikuti jumlah pemain (4.1) **[v1.12]**.
+- **Host mengatur Timer Giliran** (15 detik Kilat, 30 detik Cepat, atau 60 detik Santai) **[v1.12, label Kilat v1.13]**. **Jumlah pemain tidak diatur manual.** Papan selalu 127 heksa; hanya titik awal yang mengikuti jumlah pemain (4.1) **[v1.12]**.
 - **Siap:** setiap pemain selain host menekan **Siap**.
 - **Mulai** (hanya host) aktif jika ada **minimal 2 pemain** dan semua pemain selain host sudah **Siap**. Jika belum, tombol nonaktif dengan penjelasan ("Menunggu minimal 2 pemain" atau "Menunggu pemain siap").
 - Host bisa **mengeluarkan** (kick) pemain, hanya selama Room belum mulai. Pemain yang dikeluarkan kembali ke Lobby dengan pesan, dan karakternya kembali tersedia **[v1.11]**.
@@ -824,11 +826,25 @@ Bagian ini mengatur apa yang terjadi sebelum, selama, dan sesudah game Multiplay
 
 - Game berakhir setelah Langkah 24 atau lebih cepat jika tinggal 1 pemain yang belum tereliminasi (1.2) **[v1.10]**.
 - Layar **Hasil Akhir Multiplayer:** podium dan peringkat Skor Kesejahteraan, rincian skor yang bisa dibuka (Harta Bersih dan tiga poin skor) **[v1.12]**, **Refleksi AI** pribadi (6.5) **[v1.12]**, serta tombol **Main Lagi** (kembali ke Room yang sama), **Kembali ke Lobby**, dan **Bagikan hasil** (gambar dibuat di sisi klien).
-- **Main Lagi [v1.11]:** dikendalikan host. Room kembali ke ruang tunggu dengan pion yang sama, semua pemain selain host perlu menekan Siap lagi, dan pemain yang sedang putus dikeluarkan. Pemain yang tereliminasi sudah keluar dari room dan tidak ikut **[v1.12]**. Jika host sudah putus, peran host berpindah ke pemain paling awal yang masih tersambung.
+- **Main Lagi [v1.11]:** dikendalikan host. Room kembali ke ruang tunggu dengan pion yang sama, semua pemain selain host perlu menekan Siap lagi, dan pemain yang sedang putus dikeluarkan. Pemain yang tereliminasi tidak ikut **[v1.12]**: yang sudah menekan Kembali ke Lobby sudah keluar, dan sisanya dikeluarkan saat Main Lagi **[v1.13]**. Jika host sudah putus, peran host berpindah ke pemain paling awal yang masih tersambung.
+- **Host yang tereliminasi [v1.13]:** saat game selesai, jika host sudah tereliminasi, peran host pindah ke pemain yang belum tereliminasi dan masih tersambung dengan peringkat terbaik, supaya Main Lagi tetap bisa dimulai. Jika tidak ada pemain yang memenuhi syarat (semua tereliminasi atau putus), Main Lagi ditolak dan semua pemain kembali ke Lobby.
 
 ---
 
 ## 10. Ringkasan Revisi
+
+### v1.13 (keputusan selama migrasi kode G1-G7)
+
+| # | Keputusan | Bagian |
+|---|---|---|
+| 1 | Pemain berhutang dengan Kekayaan Rp0 tetap ditunggu di popup Ganti Bulan (D5) | 2.4 |
+| 2 | Fase Pembalikan menunggu Ajakan yang belum dijawab, maksimal 15 detik (D6) | 4.2 |
+| 3 | Kalender tidak maju selama jeda Fase Pembalikan | 4.2 |
+| 4 | Host yang tereliminasi digantikan saat game selesai; Main Lagi ditolak jika tidak ada pemain yang memenuhi syarat (D7) | 9.5 |
+| 5 | Label timer 15 detik: "Kilat" | 4.3, 9.3 |
+| 6 | Avatar tamu hanya 4 karakter: Michael, Raka, Sinta, Icha | 9.1 |
+
+Catatan: angka keseimbangan (simulasi 200 game: rata-rata skor 89, eliminasi 0%) menunjukkan game terlalu mudah. Penyetelan angka ditunda sampai simulasi pembanding dijalankan (05_PROJECT_STATE).
 
 ### v1.12 (keputusan dari komentar tim pada v1.11)
 

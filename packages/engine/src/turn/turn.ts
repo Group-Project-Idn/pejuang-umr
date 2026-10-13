@@ -1,10 +1,11 @@
 import {
-  PawnIdSchema,
+  CharacterIdSchema,
   hexKey,
+  type Effect,
   type ErrorCode,
   type HexCoord,
+  type CharacterId,
   type OpenedHex,
-  type PawnId,
   type PrivateStatus,
   type TileOption,
 } from "@pejuang/shared";
@@ -16,6 +17,8 @@ import { applyDoomSpending } from "../economy/doom";
 import { TOTAL_STEPS } from "../economy/schedule";
 import { isBankrupt, isBurnout, type EliminationReason } from "../economy/elimination";
 import type { DomainEvent } from "../game/domain-events";
+import { inviteEffects } from "../invite/invite";
+import { appendDecision, attachReality, indicatorsOf } from "../log/decision-log";
 import type { GameState, PlayerState } from "../game/game-state";
 import { withPhase } from "../game/phase";
 import type { RandomSource } from "../random";
@@ -36,9 +39,7 @@ export type TurnResult =
 
 export interface PlayerIdentity {
   name: string;
-  pawn: PawnId;
-  /** Diisi server (G5); engine meneruskannya ke `game:finished`. */
-  avatarId?: string;
+  avatarId: CharacterId;
 }
 
 /** Nilai awal; server mengisi turnSeconds dan deadline yang sebenarnya. */
@@ -218,7 +219,6 @@ function applyChoice(
     const reality = resolveReality(tileId, context, random);
     pendingRealities.push({
       playerId,
-      turnId: pending.turnId,
       hex,
       outcome: reality.outcome,
       text: reality.text,
@@ -230,6 +230,17 @@ function applyChoice(
   const next: GameState = {
     ...state,
     board,
+    decisionLog: appendDecision(state.decisionLog, playerId, {
+      kind: "tile",
+      step,
+      tileId,
+      category: option.category,
+      title: option.title,
+      plan: option.plan,
+      autoPicked,
+      viaJump: pending.mode === "deadEnd",
+      reality: null,
+    }),
     players: { ...state.players, [playerId]: { ...player, status } },
     pendingTurn: null,
     pendingRealities,
@@ -243,7 +254,6 @@ function applyChoice(
           hex,
           category: option.category,
           title: option.title,
-          outcome: null,
           plan: option.plan,
           reality: null,
           byPlayerId: playerId,
@@ -311,6 +321,7 @@ export function endRound(state: GameState, random: RandomSource): RoundResult {
   const events: DomainEvent[] = [];
   const players = { ...state.players };
   let openedHexes = state.public.openedHexes;
+  let decisionLog = state.decisionLog;
 
   // a. Pemain yang melangkah di ronde ini, sesuai urutan giliran.
   const order = state.public.turnOrder.flatMap((playerId) => {
@@ -338,7 +349,6 @@ export function endRound(state: GameState, random: RandomSource): RoundResult {
       target: room,
       payload: {
         version: 0,
-        turnId: reality.turnId,
         round: step,
         playerId,
         hex: reality.hex,
@@ -349,12 +359,17 @@ export function endRound(state: GameState, random: RandomSource): RoundResult {
       },
     });
     events.push({ type: "player:status", target, payload: status });
+    decisionLog = attachReality(decisionLog, playerId, step, {
+      outcome: reality.outcome,
+      text: reality.text,
+      effects: reality.effects,
+      seasonal: reality.seasonal,
+    });
     const hexId = hexKey(reality.hex);
     openedHexes = openedHexes.map((entry) =>
       entry.step === step && entry.byPlayerId === playerId && hexKey(entry.hex) === hexId
         ? {
             ...entry,
-            outcome: reality.outcome,
             reality: {
               outcome: reality.outcome,
               text: reality.text,
@@ -366,7 +381,63 @@ export function endRound(state: GameState, random: RandomSource): RoundResult {
     );
   }
 
-  // c. Doom Spending: sekali per pemain hidup dengan Level Stress >= 9.
+  // c. Ajakan: hasil diterapkan sesuai urutan kirim, motif dibuka ke pengirim dan target.
+  //    Ajakan yang belum dijawab dianggap Tolak otomatis (GDD 4.8 v1.12).
+  for (const invite of state.roundInvites) {
+    const answer = invite.answer ?? "decline";
+    const autoDeclined = invite.answer === null ? true : invite.autoDeclined;
+    const { targetEffects, senderEffects } = inviteEffects(invite, answer);
+    for (const [role, playerId, otherPlayerId] of [
+      ["sender", invite.senderId, invite.targetId],
+      ["target", invite.targetId, invite.senderId],
+    ] as const) {
+      decisionLog = appendDecision(decisionLog, playerId, {
+        kind: "inviteResult",
+        step,
+        role,
+        otherPlayerId,
+        plan: invite.plan,
+        answer,
+        autoDeclined,
+        motive: invite.motive,
+      });
+    }
+    const base = {
+      inviteId: invite.inviteId,
+      fromPlayerId: invite.senderId,
+      targetPlayerId: invite.targetId,
+      answer,
+      autoDeclined,
+      motive: invite.motive,
+    };
+    events.push({
+      type: "invite:resolved",
+      target: { kind: "player", playerId: invite.senderId },
+      payload: { ...base, effectsForYou: senderEffects },
+    });
+    events.push({
+      type: "invite:resolved",
+      target: { kind: "player", playerId: invite.targetId },
+      payload: { ...base, effectsForYou: targetEffects },
+    });
+    const affected: Array<[string, Effect[]]> = [
+      [invite.targetId, targetEffects],
+      [invite.senderId, senderEffects],
+    ];
+    for (const [playerId, effects] of affected) {
+      const player = players[playerId];
+      if (!player || player.eliminated || effects.length === 0) continue;
+      const status = applyEffects(player.status, effects).status;
+      players[playerId] = { ...player, status };
+      events.push({
+        type: "player:status",
+        target: { kind: "player", playerId },
+        payload: status,
+      });
+    }
+  }
+
+  // d. Doom Spending: sekali per pemain hidup dengan Level Stress >= 9.
   for (const playerId of state.baseTurnOrder) {
     const player = players[playerId]!;
     if (player.eliminated) continue;
@@ -374,15 +445,16 @@ export function endRound(state: GameState, random: RandomSource): RoundResult {
     if (!doom.triggered) continue;
     const target = { kind: "player", playerId } as const;
     players[playerId] = { ...player, status: doom.status };
+    decisionLog = appendDecision(decisionLog, playerId, { kind: "doom", step, amount: doom.amount });
     events.push({
       type: "doom:triggered",
       target,
-      payload: { amount: doom.amount, trigger: "tile", round: step, stressAfter: doom.status.stress },
+      payload: { amount: doom.amount, round: step, stressAfter: doom.status.stress },
     });
     events.push({ type: "player:status", target, payload: doom.status });
   }
 
-  // d. Eliminasi: Bangkrut dulu, lalu Burnout. Skor dibekukan saat itu.
+  // e. Eliminasi: Bangkrut dulu, lalu Burnout. Skor dibekukan saat itu.
   const eliminatedNow: string[] = [];
   for (const playerId of state.baseTurnOrder) {
     const player = players[playerId]!;
@@ -410,7 +482,18 @@ export function endRound(state: GameState, random: RandomSource): RoundResult {
     });
   }
 
-  // e. Skor Sementara hanya berubah di akhir ronde.
+  // Keempat indikator di akhir Fase Pembalikan (juga untuk pemain yang baru tereliminasi).
+  for (const playerId of state.baseTurnOrder) {
+    const player = players[playerId]!;
+    if (player.eliminated && !eliminatedNow.includes(playerId)) continue;
+    decisionLog = appendDecision(decisionLog, playerId, {
+      kind: "roundEnd",
+      step,
+      ...indicatorsOf(player.status),
+    });
+  }
+
+  // f. Skor Sementara hanya berubah di akhir ronde.
   const scores = toScoreRows(rankingEntries(players, state.baseTurnOrder));
   events.push({
     type: "game:patch",
@@ -423,6 +506,8 @@ export function endRound(state: GameState, random: RandomSource): RoundResult {
     players,
     pendingTurn: null,
     pendingRealities: [],
+    roundInvites: [],
+    decisionLog,
     public: {
       ...state.public,
       openedHexes,
@@ -432,7 +517,7 @@ export function endRound(state: GameState, random: RandomSource): RoundResult {
     },
   };
 
-  // f. Selesai bila pemain hidup <= 1 atau Langkah 24.
+  // g. Selesai bila pemain hidup <= 1 atau Langkah 24.
   const alive = Object.values(players).filter((player) => !player.eliminated).length;
   if (alive <= 1 || step >= TOTAL_STEPS) {
     const finished = finishGame(resolved);
@@ -442,7 +527,8 @@ export function endRound(state: GameState, random: RandomSource): RoundResult {
     {
       ...resolved,
       movedThisRound: [],
-      public: { ...resolved.public, calendar: getCalendarInfo(step + 1) },
+      // Kalender publik tetap di langkah ini selama jeda Fase Pembalikan; startRound memajukannya.
+      nextStep: step + 1,
     },
     "roundStart",
   );
@@ -451,18 +537,8 @@ export function endRound(state: GameState, random: RandomSource): RoundResult {
 }
 
 /**
- * GDD 1.2 v1.10: game selesai lebih cepat bila pemain yang belum tereliminasi <= 1.
- * Mengembalikan hasil finishGame, atau null bila game berlanjut. Pemain yang tersisa
- * otomatis peringkat 1 karena rankPlayers menaruh pemain bertahan di atas yang tereliminasi.
- */
-export function checkEarlyFinish(state: GameState): RoundResult | null {
-  const alive = Object.values(state.players).filter((player) => !player.eliminated).length;
-  return alive <= 1 ? finishGame(state) : null;
-}
-
-/**
- * Menutup game dan membuat peringkat akhir. Engine tidak tahu nama dan pion;
- * server mengisinya lewat `identities` (bila kosong: playerId dan pion berurutan).
+ * Menutup game dan membuat peringkat akhir. Engine tidak tahu nama dan karakter;
+ * server mengisinya lewat `identities` (bila kosong: playerId dan karakter berurutan).
  */
 export function finishGame(
   state: GameState,
@@ -480,7 +556,7 @@ export function finishGame(
     payload: { version: 0, goldId: gold.goldId, hex: gold.hex },
   }] : [];
   const ranked = rankPlayers(rankingEntries(state.players, state.baseTurnOrder));
-  const pawns = PawnIdSchema.options;
+  const characters = CharacterIdSchema.options;
   const ranking = ranked.map((player) => {
     const index = state.baseTurnOrder.indexOf(player.playerId);
     const identity = identities[player.playerId];
@@ -488,8 +564,7 @@ export function finishGame(
       rank: player.rank,
       playerId: player.playerId,
       name: identity?.name ?? player.playerId,
-      pawn: identity?.pawn ?? pawns[index % pawns.length]!,
-      ...(identity?.avatarId ? { avatarId: identity.avatarId } : {}),
+      avatarId: identity?.avatarId ?? characters[index % characters.length]!,
       points: player.points,
       finalScore: player.score,
       netWorth: player.netWorth,

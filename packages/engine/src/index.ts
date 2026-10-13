@@ -21,6 +21,8 @@ export * from "./hex/board";
 export * from "./hex/coordinates";
 export * from "./invite/deal-invite";
 export * from "./invite/invite";
+export * from "./log/decision-log";
+export * from "./reflection/rules-insight";
 export * from "./random";
 export * from "./reality/resolve-reality";
 export * from "./reality/roll-outcome";

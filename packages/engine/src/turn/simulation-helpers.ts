@@ -20,7 +20,8 @@ const PLAYER_RANDOM_OFFSET = 7919;
 const INVITE_RANDOM_OFFSET = 104729;
 const INVITE_SEND_PCT = 30;
 const INVITE_EXPIRE_PCT = 20;
-const INVITE_JOIN_PCT = 50;
+/** Target hanya ikut Rencana yang memotong Kekayaan bila Kekayaannya cukup. */
+const INVITE_JOIN_MIN_WEALTH = 3_000_000;
 /** Bot debtor membayar separuh batas slider, dibulatkan ke bawah kelipatan Rp1.000. */
 const BOT_PAYMENT_ROUNDING = 1_000;
 
@@ -53,15 +54,14 @@ export class SeededRandom implements RandomSource {
   }
 }
 
-/** Catatan satu Ajakan sukses; `scoreDelta` = selisih Skor Sementara sesaat setelah dijawab. */
+/** Catatan satu Ajakan yang dikirim bot; motif dan hasil ada di event invite:resolved. */
 export interface InviteLogEntry {
   step: number;
   senderId: string;
   targetId: string;
+  inviteId: string;
   answer: "join" | "decline";
   autoDeclined: boolean;
-  senderScoreDelta: number;
-  targetScoreDelta: number;
 }
 
 export interface SimulationResult {
@@ -70,16 +70,10 @@ export interface SimulationResult {
   initialUsedHexKeys: string[];
   playerIds: string[];
   inviteLog: InviteLogEntry[];
-  /** Percobaan kirim yang ditolak karena INVITE_LIMIT (1 Ajakan per ronde). */
-  inviteLimitRejections: number;
 }
 
 function isFinished(state: GameState): boolean {
   return state.phase === "finished";
-}
-
-function scoreOf(state: GameState, playerId: string): number {
-  return state.public.scores.find((row) => row.playerId === playerId)?.provisionalScore ?? 0;
 }
 
 export type Observer = (state: GameState, events: readonly DomainEvent[]) => void;
@@ -94,7 +88,6 @@ export function playRandomGame(
   const playerRandom = new SeededRandom(seed + PLAYER_RANDOM_OFFSET);
   const inviteRandom = new SeededRandom(seed + INVITE_RANDOM_OFFSET);
   const inviteLog: InviteLogEntry[] = [];
-  let inviteLimitRejections = 0;
   const playerIds = Array.from({ length: playerCount }, (_, index) => `p${index + 1}`);
 
   const created = createGame(playerIds, `sim-${seed}`, engineRandom);
@@ -109,39 +102,48 @@ export function playRandomGame(
     observe?.(state, produced);
   };
 
-  /** Pemain yang sedang giliran punya peluang 30% mengirim Ajakan bila memegang kartu. */
+  /**
+   * Pemain aktif punya peluang 30% mengirim Ajakan di Fase Pilihannya sendiri, sebelum memilih
+   * heksa. Target menjawab segera dengan aturan tetap: menolak bila Rencana memotong Kekayaan
+   * padahal ia masih berhutang atau Kekayaannya di bawah batas; selain itu ikut. 20% Ajakan tidak
+   * dijawab (habis waktu). Jawaban hanya dicatat.
+   */
   const maybeInvite = (senderId: string) => {
     const card = state.players[senderId]?.inviteCard;
     if (!card || !inviteRandom.chance(INVITE_SEND_PCT)) return;
-    const targets = playerIds.filter((id) => id !== senderId && !state.players[id]!.eliminated);
+    const targets = playerIds.filter(
+      (id) =>
+        id !== senderId &&
+        !state.players[id]!.eliminated &&
+        !state.roundInvites.some((invite) => invite.targetId === id && invite.answer === null),
+    );
     if (targets.length === 0) return;
     const targetId = inviteRandom.pick(targets);
-    const sent = sendInvite(state, senderId, card.cardId, targetId);
-    if (!sent.ok) {
-      if (sent.code !== "INVITE_LIMIT") throw new Error(`${sent.code}: ${sent.message}`);
-      inviteLimitRejections += 1;
-      return;
-    }
+    const sent = sendInvite(state, senderId, card.cardId, targetId, state.pendingTurn!.turnId);
+    if (!sent.ok) throw new Error(`${sent.code}: ${sent.message}`);
     record(sent.state, sent.events);
-    const inviteId = state.pendingInvite!.inviteId;
-    const step = state.public.calendar.step;
-    const senderBefore = scoreOf(state, senderId);
-    const targetBefore = scoreOf(state, targetId);
+    const invite = state.roundInvites[state.roundInvites.length - 1]!;
     const autoDeclined = inviteRandom.chance(INVITE_EXPIRE_PCT);
-    const answer = inviteRandom.chance(INVITE_JOIN_PCT) ? "join" : "decline";
-    const resolved = autoDeclined
-      ? expireInvite(state, inviteId)
-      : respondInvite(state, targetId, inviteId, answer);
-    if (!resolved.ok) throw new Error(`${resolved.code}: ${resolved.message}`);
-    record(resolved.state, resolved.events);
+    const wealthCost = invite.planEffects
+      .filter((effect) => effect.stat === "wealth")
+      .reduce((sum, effect) => sum + effect.delta, 0);
+    const targetStatus = state.players[targetId]!.status;
+    const answer =
+      wealthCost >= 0 || (targetStatus.debt === 0 && targetStatus.wealth >= INVITE_JOIN_MIN_WEALTH)
+        ? "join"
+        : "decline";
+    const recorded = autoDeclined
+      ? expireInvite(state, invite.inviteId)
+      : respondInvite(state, targetId, invite.inviteId, answer);
+    if (!recorded.ok) throw new Error(`${recorded.code}: ${recorded.message}`);
+    record(recorded.state, []);
     inviteLog.push({
-      step,
+      step: state.public.calendar.step,
       senderId,
       targetId,
+      inviteId: invite.inviteId,
       answer: autoDeclined ? "decline" : answer,
       autoDeclined,
-      senderScoreDelta: scoreOf(state, senderId) - senderBefore,
-      targetScoreDelta: scoreOf(state, targetId) - targetBefore,
     });
   };
 
@@ -220,5 +222,5 @@ export function playRandomGame(
     }
   }
 
-  return { state, events, initialUsedHexKeys, playerIds, inviteLog, inviteLimitRejections };
+  return { state, events, initialUsedHexKeys, playerIds, inviteLog };
 }

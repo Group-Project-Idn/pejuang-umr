@@ -9,11 +9,9 @@ import {
   applyPlayerConnection,
   applyPlayerEliminated,
   applyPublicGameEvent,
-  applyRealtimeTurnTimer,
   applyRoundReveal,
   applyTileOpened,
   applyTileResolved,
-  applyTurnTimer,
   applyTurnStart,
   getTurnSecondsLeft,
   type GameFinished,
@@ -41,7 +39,7 @@ function snapshot(version: number): Snapshot {
     game: {
       version,
       gameId: "game-1",
-      boardRadius: 4,
+      boardRadius: 6,
       calendar: {
         step: 1,
         totalSteps: 24,
@@ -54,15 +52,13 @@ function snapshot(version: number): Snapshot {
       turnOrder: [],
       activePlayerId: null,
       turnDeadline: null,
-      turnPaused: false,
       pawns: [],
       openedHexes: [],
-      deadHexes: [],
       gold: null,
       scores: [],
       rankOneBurden: [],
       eliminated: [],
-      spectators: [],
+      phase: "calendar",
     },
     me: {
       playerId: "p1",
@@ -71,7 +67,8 @@ function snapshot(version: number): Snapshot {
       pendingTurn: null,
       pendingCalendar: null,
       pendingInvite: null,
-      isSpectator: false,
+      pendingMonth: null,
+      reflection: null,
     },
     result: null,
   };
@@ -131,47 +128,6 @@ describe("acceptSnapshot", () => {
     expect(patched?.rankOneBurden).toEqual(["p1"]);
     expect(applyGamePatch(patched, { version: 3, ops: [] })).toBe(patched);
   });
-
-  it("menerapkan timer authoritative tanpa menurunkan version", () => {
-    const game = snapshot(3).game!;
-    const timer = applyTurnTimer(game, {
-      version: 4,
-      turnId: "turn-1",
-      paused: true,
-      deadline: null,
-      remainingMs: 12_500,
-    });
-    expect(timer).toMatchObject({
-      version: 4,
-      turnPaused: true,
-      turnDeadline: null,
-    });
-    expect(
-      applyTurnTimer(timer, {
-        version: 2,
-        turnId: "turn-old",
-        paused: false,
-        deadline: 1,
-        remainingMs: 0,
-      }),
-    ).toBe(timer);
-  });
-
-  it("menolak remaining time dari event timer yang stale", () => {
-    const current = {
-      game: snapshot(4).game,
-      timerRemainingMs: 20_000,
-    };
-    expect(
-      applyRealtimeTurnTimer(current, {
-        version: 3,
-        turnId: "turn-old",
-        paused: true,
-        deadline: null,
-        remainingMs: 5_000,
-      }),
-    ).toBe(current);
-  });
 });
 
 describe("reducer event publik (B01)", () => {
@@ -221,7 +177,6 @@ describe("reducer event publik (B01)", () => {
 
   const resolved: TileResolved = {
     version: 4,
-    turnId: "turn-1",
     round: 1,
     playerId: "p1",
     hex: { q: 1, r: 0 },
@@ -263,7 +218,6 @@ describe("reducer event publik (B01)", () => {
     expect(game.openedHexes[0]).toMatchObject({
       category: "work",
       title: "Lembur",
-      outcome: null,
       plan: tileOpened.plan,
       reality: null,
       byPlayerId: "p1",
@@ -281,7 +235,6 @@ describe("reducer event publik (B01)", () => {
 
   it("round:reveal menjaga versi dan menutup timer; Realita baru terlihat setelah tile:resolved", () => {
     const chosen = applyTileOpened(applyTurnStart(baseGame(), turnStart), tileOpened)!;
-    expect(chosen.openedHexes[0]?.outcome).toBeNull();
     expect(chosen.openedHexes[0]?.reality).toBeNull();
     const revealed = applyPublicGameEvent(chosen, {
       type: "round:reveal",
@@ -295,7 +248,6 @@ describe("reducer event publik (B01)", () => {
     expect(after.openedHexes[0]?.reality).toEqual({
       outcome: "safe", text: "Aman", effects: [], seasonal: false,
     });
-    expect(after.openedHexes[0]?.outcome).toBe("safe");
     expect(applyTileResolved(after, { ...resolved, version: 4, round: 1, text: "usang" })).toBe(after);
     const wrongStep = applyTileResolved(revealed, { ...resolved, version: 5, round: 2 })!;
     expect(wrongStep.openedHexes[0]?.reality).toBeNull();
@@ -322,7 +274,7 @@ describe("reducer event publik (B01)", () => {
       applyTileOpened(baseGame(), tileOpened)!,
       resolved,
     )!;
-    expect(game.openedHexes[0]?.outcome).toBe("safe");
+    expect(game.openedHexes[0]?.reality?.outcome).toBe("safe");
 
     const spawned = applyGoldSpawned(game, {
       version: 5,
@@ -342,7 +294,6 @@ describe("reducer event publik (B01)", () => {
       hex: { q: 2, r: 0 },
     })!;
     expect(expired.gold).toBeNull();
-    expect(expired.deadHexes).toEqual([]);
     expect(
       applyGoldExpired(expired, {
         version: 7,
@@ -366,6 +317,7 @@ describe("reducer event publik (B01)", () => {
       playerId: "p1",
       reason: "bankrupt",
       step: 12,
+      frozenScore: 40,
     } satisfies PlayerEliminated)!;
     expect(game.eliminated).toEqual(["p1"]);
     expect(game.scores[0]?.eliminated).toBe(true);
@@ -377,6 +329,7 @@ describe("reducer event publik (B01)", () => {
         playerId: "p1",
         reason: "bankrupt",
         step: 13,
+        frozenScore: 40,
       }),
     ).toBe(game);
 
@@ -384,7 +337,7 @@ describe("reducer event publik (B01)", () => {
       type: "game:finished",
       payload: { version: 9, ranking: [] } satisfies GameFinished,
     })!;
-    expect(finished.turnPaused).toBe(true);
+    expect(finished).toMatchObject({ phase: "finished", turnDeadline: null });
     expect(finished.version).toBe(9);
   });
 
@@ -396,6 +349,7 @@ describe("reducer event publik (B01)", () => {
         season: "dry",
         vulnerableCategories: ["work"],
         zonkFocus: "sick",
+        hint: "Pancaroba: petak Kesehatan lebih rawan",
       },
     })!;
     expect(game.calendar.season).toBe("dry");
@@ -408,8 +362,7 @@ describe("reducer event publik (B01)", () => {
       {
         playerId: "p1",
         name: "Rina",
-        avatarId: "avatar-01",
-        pawn: null,
+        avatarId: "michael",
         connected: true,
         isHost: true,
         ready: false,
@@ -431,24 +384,30 @@ describe("reducer event publik (B01)", () => {
     ).toBe(offline);
   });
 
-  it("menghitung timer dari clock server dan membekukan remaining time saat pause", () => {
+  it("menghitung sisa waktu dari turnDeadline dan clock server saja", () => {
     expect(
       getTurnSecondsLeft({
         localNow: 1_000,
         serverClockOffsetMs: 4_000,
         deadline: 15_000,
-        paused: false,
-        remainingMs: null,
       }),
     ).toBe(10);
     expect(
       getTurnSecondsLeft({
-        localNow: 99_000,
-        serverClockOffsetMs: 4_000,
-        deadline: null,
-        paused: true,
-        remainingMs: 12_500,
+        localNow: 1_000,
+        serverClockOffsetMs: 0,
+        deadline: 1_001,
       }),
-    ).toBe(13);
+    ).toBe(1);
+    expect(
+      getTurnSecondsLeft({
+        localNow: 20_000,
+        serverClockOffsetMs: 0,
+        deadline: 15_000,
+      }),
+    ).toBe(0);
+    expect(
+      getTurnSecondsLeft({ localNow: 1_000, serverClockOffsetMs: 0, deadline: null }),
+    ).toBe(0);
   });
 });

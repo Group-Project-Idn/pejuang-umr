@@ -10,7 +10,7 @@ function validGameState() {
   return {
     version: 1,
     gameId: "game-1",
-    boardRadius: 4,
+    boardRadius: 6,
     calendar: {
       step: 1,
       totalSteps: 24,
@@ -23,15 +23,13 @@ function validGameState() {
     turnOrder: ["p1"],
     activePlayerId: "p1",
     turnDeadline: null,
-    turnPaused: false,
     pawns: [],
     openedHexes: [],
-    deadHexes: [],
     gold: null,
     scores: [],
     rankOneBurden: [],
     eliminated: [],
-    spectators: [],
+    phase: "turn",
   };
 }
 
@@ -60,7 +58,7 @@ describe("privasi payload", () => {
   });
 
   it("InviteIncomingPayloadSchema menolak objek yang membawa motive", () => {
-    const leaked = { ...validInviteIncoming(), motive: "trap" };
+    const leaked = { ...validInviteIncoming(), motive: "sincere" };
     expect(InviteIncomingPayloadSchema.safeParse(leaked).success).toBe(false);
   });
 

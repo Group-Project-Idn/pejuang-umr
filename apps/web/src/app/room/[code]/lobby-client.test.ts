@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  AVATAR_TAKEN_MESSAGE,
+  getAvatarChoices,
   getCountdownPresentation,
   getCountdownSeconds,
   getParticipantLabel,
+  getRoomActionMessage,
   getStartHelper,
   ROOM_COPY,
 } from "./waiting-room";
@@ -50,5 +53,40 @@ describe("copy ruang tunggu", () => {
       seconds: null,
       preparing: false,
     });
+  });
+});
+describe("pemilih karakter", () => {
+  const players = [
+    { playerId: "p1", avatarId: "michael" as const },
+    { playerId: "p2", avatarId: "sinta" as const },
+  ];
+
+  it("menyediakan 4 karakter dengan id, nama, dan gambar", () => {
+    const choices = getAvatarChoices(players, "p1");
+    expect(choices.map((choice) => choice.id)).toEqual(["michael", "raka", "sinta", "icha"]);
+    for (const choice of choices) {
+      expect(choice.name.length).toBeGreaterThan(0);
+      expect(choice.src).toMatch(/^\/characters\/.+\.png$/);
+    }
+  });
+
+  it("menonaktifkan karakter yang dipakai pemain lain, bukan milik sendiri", () => {
+    const byId = Object.fromEntries(
+      getAvatarChoices(players, "p1").map((choice) => [choice.id, choice]),
+    );
+    expect(byId.michael).toMatchObject({ taken: false, selected: true });
+    expect(byId.sinta).toMatchObject({ taken: true, selected: false });
+    expect(byId.raka).toMatchObject({ taken: false, selected: false });
+    expect(byId.icha).toMatchObject({ taken: false, selected: false });
+  });
+
+  it("menerjemahkan AVATAR_TAKEN dan error lain", () => {
+    expect(getRoomActionMessage("Pilih karakter", { ok: false, error: "AVATAR_TAKEN" }))
+      .toBe("Karakter ini sudah dipilih pemain lain.");
+    expect(AVATAR_TAKEN_MESSAGE).toBe("Karakter ini sudah dipilih pemain lain.");
+    expect(getRoomActionMessage("Pilih karakter", { ok: false, error: "INTERNAL" }))
+      .toBe("Gagal: INTERNAL");
+    expect(getRoomActionMessage("Pilih karakter", { ok: true } as never))
+      .toBe("Pilih karakter berhasil.");
   });
 });

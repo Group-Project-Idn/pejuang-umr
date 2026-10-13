@@ -189,7 +189,6 @@ describe("Ganti Bulan (GDD 2.4 v1.12)", () => {
     expect(b.payDebt).toEqual({ max: b.after.wealth, deadline: 0 });
     expect(b.payDebt!.max).toBeLessThan(40_000_000);
     expect(summaries.get("c")!.payload.payDebt).toBeNull();
-    for (const e of summaries.values()) expect(e.payload.doomAmount).toBeNull();
   });
 
   it("tanpa debtor: hasMonthDebtors false dan semua sudah terjawab", () => {
@@ -461,7 +460,6 @@ describe("Petak Emas (GDD 4.7)", () => {
       goldId: gold1.goldId,
       hex: gold1.hex,
     });
-    expect(state.public.deadHexes).toEqual([]);
     expect(state.board.usedHexKeys).not.toContain(hexKey(gold1.hex));
     // Isi asli tidak pernah dikirim: tidak ada di event maupun state publik.
     expect(JSON.stringify(events)).not.toContain(`"${originalTile}"`);
@@ -773,9 +771,6 @@ describe("Burnout dan game selesai lebih cepat", () => {
     expect(state.players.a?.eliminated).toBe(false);
     expect(ofType(events, "player:eliminated")).toHaveLength(0);
     expect(ofType(events, "doom:triggered")).toHaveLength(0);
-    for (const e of ofType(events, "month:summary")) {
-      expect(e.payload.doomAmount).toBeNull();
-    }
     // Bila tidak dibayar sampai Fase Pembalikan, baru Bangkrut.
     const ended = endRound(closeMonthChange(state).state, rand());
     expect(ended.state.players.a?.eliminatedReason).toBe("bankrupt");
@@ -877,10 +872,24 @@ describe("startRound: Kartu Ajakan", () => {
     expect(burden).toBeGreaterThan(lastInvite);
   });
 
-  it("inviteUsedThisRound direset ke false di setiap startRound", () => {
+  it("roundInvites dikosongkan di setiap startRound", () => {
     for (const step of [1, 2, 5]) {
-      const game = { ...gameAtStep(step), inviteUsedThisRound: true };
-      expect(startRound(game, rand()).state.inviteUsedThisRound).toBe(false);
+      const game = {
+        ...gameAtStep(step),
+        roundInvites: [
+          {
+            inviteId: "i",
+            senderId: "a",
+            targetId: "b",
+            plan: "hangout" as const,
+            planEffects: [],
+            motive: "sincere" as const,
+            answer: null,
+            autoDeclined: false,
+          },
+        ],
+      };
+      expect(startRound(game, rand()).state.roundInvites).toEqual([]);
     }
   });
 

@@ -1,7 +1,6 @@
 import { z } from "zod";
 import {
   CharacterIdSchema,
-  PawnIdSchema,
   RequestPayloadSchema,
   RoomCodeSchema,
   TurnSecondsSchema,
@@ -23,11 +22,6 @@ export const RoomReadyRequestSchema = RequestPayloadSchema.extend({
 
 export const RoomAvatarRequestSchema = RequestPayloadSchema.extend({
   avatarId: CharacterIdSchema,
-});
-
-/** @deprecated v0.3: diganti `room:avatar`. */
-export const RoomPawnRequestSchema = RequestPayloadSchema.extend({
-  pawn: PawnIdSchema,
 });
 
 export const RoomTimerRequestSchema = RequestPayloadSchema.extend({

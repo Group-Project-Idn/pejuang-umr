@@ -3,10 +3,9 @@ import { getCalendarInfo } from "../calendar/calendar";
 import { INITIAL_STATUS } from "../economy/constants";
 import { toScoreRows } from "../score/ranking";
 import { createBoardState, type BoardState } from "../board/board-state";
-import type { BoardRadius } from "../hex/board";
 import type { RandomSource } from "../random";
 
-export function getBoardRadius(playerCount: number): BoardRadius {
+export function getBoardRadius(playerCount: number): 6 {
   if (playerCount < 2 || playerCount > 4) {
     throw new RangeError("Game membutuhkan dua sampai empat pemain.");
   }
@@ -70,10 +69,8 @@ export function createGameSetup(
     turnOrder,
     activePlayerId: null,
     turnDeadline: null,
-    turnPaused: false,
     pawns,
     openedHexes: [],
-    deadHexes: [], // @deprecated: Heksa Mati dihapus di v1.12, selalu kosong.
     gold: null,
     scores: toScoreRows(
       turnOrder.map((playerId) => ({
@@ -85,7 +82,7 @@ export function createGameSetup(
     ),
     rankOneBurden: [],
     eliminated: [],
-    spectators: [],
+    phase: "calendar",
   };
   return { publicState, board };
 }

@@ -14,13 +14,20 @@ export type ServerConfig = {
   monthPaySeconds?: number;
   /** Lama popup Ganti Bulan tampil bila tidak ada yang berhutang (ms). */
   monthSummaryOnlyMs?: number;
+  /** Penyedia Refleksi: "none" (default, hanya insight berbasis aturan) atau "fake" (tes/dev, bukan production). */
+  reflectionProvider?: ReflectionProviderName;
+  /** Batas waktu provider Refleksi (ms) sebelum memakai cadangan aturan. */
+  reflectionTimeoutMs?: number;
 };
+
+export type ReflectionProviderName = "none" | "fake";
 
 export const DEFAULT_ROOM_IDLE_MS = 600_000;
 export const DEFAULT_ROOM_EMPTY_MS = 120_000;
 export const DEFAULT_REVEAL_STEP_MS = 2_500;
 export const DEFAULT_MONTH_PAY_SECONDS = 15;
 export const DEFAULT_MONTH_SUMMARY_ONLY_MS = 3_000;
+export const DEFAULT_REFLECTION_TIMEOUT_MS = 15_000;
 
 function readDuration(value: string | undefined, fallback: number, name: string): number {
   if (value === undefined || value === "") return fallback;
@@ -29,6 +36,18 @@ function readDuration(value: string | undefined, fallback: number, name: string)
     throw new Error(`${name} harus berupa integer milidetik lebih dari 0.`);
   }
   return parsed;
+}
+
+function readReflectionProvider(
+  value: string | undefined,
+  production: boolean,
+): ReflectionProviderName {
+  if (value === undefined || value === "" || value === "none") return "none";
+  if (value === "fake") {
+    if (production) throw new Error("REFLECTION_PROVIDER=fake tidak boleh dipakai saat production.");
+    return "fake";
+  }
+  throw new Error('REFLECTION_PROVIDER harus "none" atau "fake".');
 }
 
 const PLACEHOLDER_SECRET = "change-me";
@@ -73,6 +92,15 @@ export function readServerConfig(
       env.MONTH_SUMMARY_ONLY_MS,
       DEFAULT_MONTH_SUMMARY_ONLY_MS,
       "MONTH_SUMMARY_ONLY_MS",
+    ),
+    reflectionProvider: readReflectionProvider(
+      env.REFLECTION_PROVIDER,
+      env.NODE_ENV === "production",
+    ),
+    reflectionTimeoutMs: readDuration(
+      env.REFLECTION_TIMEOUT_MS,
+      DEFAULT_REFLECTION_TIMEOUT_MS,
+      "REFLECTION_TIMEOUT_MS",
     ),
   };
 }

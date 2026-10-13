@@ -1,11 +1,12 @@
 import { randomInt } from "node:crypto";
-import type {
-  ErrorCode,
-  PawnId,
-  RoomPlayer,
-  RoomState,
-  SocketData,
-  TurnSeconds,
+import {
+  CharacterIdSchema,
+  type CharacterId,
+  type ErrorCode,
+  type RoomPlayer,
+  type RoomState,
+  type SocketData,
+  type TurnSeconds,
 } from "@pejuang/shared";
 
 type RoomMutationResult =
@@ -22,16 +23,18 @@ function cloneRoom(room: RoomState): RoomState {
   return { ...room, players: room.players.map((player) => ({ ...player })) };
 }
 
-const PAWN_ORDER: readonly PawnId[] = [
-  "cream-circle",
-  "iceblue-square",
-  "mint-triangle",
-  "salmon-diamond",
-];
+/** Urutan karakter sah (GDD 9.1 v1.12). */
+const CHARACTER_ORDER: readonly CharacterId[] = CharacterIdSchema.options;
 
-function firstFreePawn(players: RoomPlayer[]): PawnId {
-  const taken = new Set(players.map((player) => player.pawn));
-  return PAWN_ORDER.find((pawn) => !taken.has(pawn)) ?? PAWN_ORDER[0]!;
+/**
+ * Karakter untuk pemain baru di room: profil tamu bila sah dan belum dipakai,
+ * selain itu karakter kosong pertama sesuai urutan CharacterIdSchema.
+ */
+function pickAvatar(players: RoomPlayer[], preferred: string): CharacterId {
+  const taken = new Set<string>(players.map((player) => player.avatarId));
+  const wanted = CharacterIdSchema.safeParse(preferred);
+  if (wanted.success && !taken.has(wanted.data)) return wanted.data;
+  return CHARACTER_ORDER.find((id) => !taken.has(id)) ?? CHARACTER_ORDER[0]!;
 }
 
 function guestsReady(players: RoomPlayer[]): boolean {
@@ -75,7 +78,7 @@ export class RoomRepository {
       status: "waiting",
       hostId: identity.playerId,
       turnSeconds: 30,
-      players: [this.createPlayer(identity, true, now, firstFreePawn([]))],
+      players: [this.createPlayer(identity, true, now, pickAvatar([], identity.avatarId))],
       maxPlayers: 4,
       canStart: false,
       startBlockReason: "NEED_MIN_PLAYERS",
@@ -105,7 +108,7 @@ export class RoomRepository {
     }
 
     room.players.push(
-      this.createPlayer(identity, false, now, firstFreePawn(room.players)),
+      this.createPlayer(identity, false, now, pickAvatar(room.players, identity.avatarId)),
     );
     this.playerRooms.set(identity.playerId, code);
     return { ok: true, room: cloneRoom(this.save(room)) };
@@ -131,6 +134,24 @@ export class RoomRepository {
       // Pemain yang masuk paling awal (urutan array = urutan masuk).
       this.assignHost(room, room.status === "finished" ? this.earliestConnected(room) : room.players[0]!);
     }
+    return { ok: true, room: cloneRoom(this.save(room)) };
+  }
+
+  /**
+   * Pemain yang sudah tereliminasi keluar saat game berjalan (GDD 9.4 v1.12): dikeluarkan dari
+   * room. Host berpindah ke pemain tersambung paling awal. Game tidak terpengaruh.
+   */
+  leaveEliminated(playerId: string): RoomMutationResult {
+    const room = this.getByPlayerMutable(playerId);
+    if (!room) return { ok: false, error: "NOT_IN_ROOM" };
+    if (room.status !== "playing") return { ok: false, error: "ROOM_LOCKED" };
+    room.players = room.players.filter((player) => player.playerId !== playerId);
+    this.playerRooms.delete(playerId);
+    if (room.players.length === 0) {
+      this.rooms.delete(room.code);
+      return { ok: true, room: cloneRoom(room) };
+    }
+    if (room.hostId === playerId) this.assignHost(room, this.earliestConnected(room));
     return { ok: true, room: cloneRoom(this.save(room)) };
   }
 
@@ -165,20 +186,21 @@ export class RoomRepository {
     return this.updatePlayer(playerId, (player) => ({ ...player, ready }));
   }
 
-  setPawn(playerId: string, pawn: PawnId): RoomMutationResult {
+  /** room:avatar (GDD 9.3 v1.12): ganti karakter di room ini; unik per room. */
+  setAvatar(playerId: string, avatarId: CharacterId): RoomMutationResult {
     const room = this.getByPlayerMutable(playerId);
     if (!room) return { ok: false, error: "NOT_IN_ROOM" };
     if (room.status !== "waiting") return { ok: false, error: "ROOM_LOCKED" };
     if (
       room.players.some(
-        (player) => player.playerId !== playerId && player.pawn === pawn,
+        (player) => player.playerId !== playerId && player.avatarId === avatarId,
       )
     ) {
-      return { ok: false, error: "PAWN_TAKEN" };
+      return { ok: false, error: "AVATAR_TAKEN" };
     }
     return this.updatePlayer(playerId, (player) => ({
       ...player,
-      pawn,
+      avatarId,
       ready: false,
     }));
   }
@@ -238,27 +260,54 @@ export class RoomRepository {
     return { ok: true, room: cloneRoom(this.save(room)) };
   }
 
-  markFinished(code: string): RoomMutationResult {
+  /**
+   * Game selesai. Host yang sudah tereliminasi pindah ke pemain belum tereliminasi yang masih
+   * tersambung dengan peringkat terbaik (`survivorsByRank`, urutan peringkat game:finished);
+   * bila tak ada yang memenuhi syarat, host tidak berubah (D7). Host yang masih hidup mengikuti
+   * aturan lama: pemain tersambung paling awal.
+   */
+  markFinished(code: string, survivorsByRank?: readonly string[]): RoomMutationResult {
     const room = this.rooms.get(code);
     if (!room) return { ok: false, error: "ROOM_NOT_FOUND" };
     if (room.status !== "playing") return { ok: false, error: "ROOM_LOCKED" };
     room.status = "finished";
-    // Peran host tidak diperlukan selama game; saat selesai, host = pemain paling awal yang masih tersambung.
-    this.assignHost(room, this.earliestConnected(room));
+    // Peran host tidak diperlukan selama game; saat selesai dipilih ulang.
+    const hostSurvived = survivorsByRank === undefined || survivorsByRank.includes(room.hostId);
+    if (hostSurvived) {
+      this.assignHost(room, this.earliestConnected(room));
+    } else {
+      const best = survivorsByRank
+        .map((id) => room.players.find((player) => player.playerId === id))
+        .find((player): player is RoomPlayer => player !== undefined && player.connected);
+      if (best) this.assignHost(room, best);
+    }
     return { ok: true, room: cloneRoom(this.save(room)) };
   }
 
-  /** Main Lagi (GDD 9.5): hanya host dan hanya saat finished. Pemain tidak tersambung dikeluarkan. */
-  rematch(hostId: string): RoomMutationResult & { removed?: string[] } {
+  /**
+   * Main Lagi (GDD 9.5 v1.12): hanya host dan hanya saat finished. Pemain tidak tersambung dan
+   * pemain yang tereliminasi di game sebelumnya (`eliminatedIds`) dikeluarkan. Bila tak seorang pun
+   * tersisa, ditolak NOT_ENOUGH_PLAYERS dan room tidak berubah (D7).
+   */
+  rematch(
+    hostId: string,
+    eliminatedIds: readonly string[] = [],
+  ): RoomMutationResult & { removed?: string[] } {
     const room = this.getByPlayerMutable(hostId);
     if (!room) return { ok: false, error: "NOT_IN_ROOM" };
     if (room.hostId !== hostId) return { ok: false, error: "NOT_HOST" };
     if (room.status !== "finished") return { ok: false, error: "INVALID_PAYLOAD" };
-    const removed = room.players.filter((player) => !player.connected).map((player) => player.playerId);
+    const qualifies = (player: RoomPlayer) =>
+      player.connected && !eliminatedIds.includes(player.playerId);
+    if (!room.players.some(qualifies)) return { ok: false, error: "NOT_ENOUGH_PLAYERS" };
+    const stays = qualifies;
+    const removed = room.players.filter((player) => !stays(player)).map((player) => player.playerId);
     for (const playerId of removed) this.playerRooms.delete(playerId);
-    room.players = room.players
-      .filter((player) => player.connected)
-      .map((player) => ({ ...player, ready: false }));
+    room.players = room.players.filter(stays).map((player) => ({ ...player, ready: false }));
+    // Host yang dikeluarkan (mis. tereliminasi) digantikan pemain tersambung paling awal.
+    if (!room.players.some((player) => player.playerId === room.hostId)) {
+      this.assignHost(room, this.earliestConnected(room));
+    }
     room.status = "waiting";
     return { ok: true, room: cloneRoom(this.save(room)), removed };
   }
@@ -322,11 +371,11 @@ export class RoomRepository {
     identity: SocketData,
     isHost: boolean,
     joinedAt: number,
-    pawn: PawnId,
+    avatarId: CharacterId,
   ): RoomPlayer {
     return {
       ...identity,
-      pawn,
+      avatarId,
       connected: true,
       isHost,
       ready: false,

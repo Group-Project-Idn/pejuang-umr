@@ -3,14 +3,13 @@ import {
   randomUUID,
   timingSafeEqual,
 } from "node:crypto";
-import type { AvatarId } from "@pejuang/shared";
-
 const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type GuestIdentity = {
   playerId: string;
   name: string;
-  avatarId: AvatarId;
+  /** String bebas: token lama bisa memuat avatar tidak sah (dianggap belum punya karakter). */
+  avatarId: string;
 };
 
 type GuestTokenPayload = GuestIdentity & {
