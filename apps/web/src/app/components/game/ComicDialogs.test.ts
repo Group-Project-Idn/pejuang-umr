@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import Button from "../ui/Button";
 import CalendarEventView from "./CalendarEventView";
-import { InviteCardSheet, InviteConfirmSheet, InviteIncomingView, InvitePickBanner, InviteResultsView } from "./invites";
+import { InviteCardSheet, InviteConfirmSheet, InviteIncomingView, InvitePickBanner } from "./invites";
 
 const card: InviteCard = {
   cardId: "card-1", plan: "hangout", planEffects: [], motive: "sincere", expiresAtMonth: 2,
@@ -28,13 +28,13 @@ describe("dialog event dan ajakan bergaya komik", () => {
   });
   it("event menampilkan stempel, tanggal, radio native, centang, catatan dan tombol kirim", () => {
     const event = {
-      version: 1, eventId: "event-1", name: "Kondangan Teman", dateLabel: "15 Mei", deadline: 10_000,
+      version: 1, batchId: "game-1-step3", eventId: "event-1", name: "Kondangan Teman", dateLabel: "15 Mei", deadline: 10_000,
       choices: [{ id: "join", label: "Datang", note: "Biaya transport", effects: [] }],
     } satisfies CalendarEventPayload;
     const markup = renderToStaticMarkup(createElement(CalendarEventView, {
       event, pending: false, onAnswer: () => undefined,
     }));
-    for (const text of ["Kondangan Teman", "EVENT TANGGAL", "15 Mei", "Pilih jawabanmu", "Datang", "Biaya transport", "Kirim jawaban"]) {
+    for (const text of ["EVENT TANGGAL", "15 Mei", "Pilih jawabanmu", "Datang", "Biaya transport", "Kirim jawaban"]) {
       expect(markup).toContain(text);
     }
     expect(markup).toContain('type="radio"');
@@ -79,12 +79,5 @@ describe("dialog event dan ajakan bergaya komik", () => {
     expect(compactMarkup).toContain("ui-folder ui-popup comic-dialog-compact");
     expect(compactMarkup).toContain("comic-timer");
 
-    const resultMarkup = renderToStaticMarkup(createElement(InviteResultsView, {
-      results: [{ inviteId: "inv-1", title: "Rina ikut", answerText: "Jawaban", motiveText: "Motif", effectsText: "Efek" }],
-      onDismiss: () => undefined,
-    }));
-    expect(resultMarkup).toContain("Hasil Ajakan");
-    expect(resultMarkup).toContain("Efek untukmu: Efek");
-    expect(resultMarkup).toContain("Tutup");
   });
 });

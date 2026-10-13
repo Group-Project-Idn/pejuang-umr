@@ -11,7 +11,6 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { getTurnSecondsLeft } from "@/lib/game-view";
 import { resolveHexClick } from "@/lib/hex-detail";
 import {
-  buildInviteResultView,
   canUseInviteCard,
   getDisabledInvitePawnIds,
   getInvitePopup,
@@ -20,7 +19,6 @@ import {
   INVITE_FLOW_CANCELLED_NOTICE,
   isInviteExpired,
   resolveInviteFlow,
-  selectUnseenInviteResults,
   type InviteFlow,
 } from "@/lib/invites";
 import {
@@ -31,7 +29,6 @@ import {
   maskUnrevealed,
   OUTCOME_LABEL,
 } from "@/lib/reveal";
-import CalendarEventView from "./CalendarEventView";
 import NoticeViews from "./NoticeViews";
 import HexDetailSheet from "./HexDetailSheet";
 import RevealPopup from "./RevealPopup";
@@ -40,19 +37,19 @@ import {
   InviteConfirmSheet,
   InviteIncomingView,
   InvitePickBanner,
-  InviteResultsView,
 } from "./invites";
 import GameBoard from "./GameBoard";
 import Scoreboard from "./Scoreboard";
-import MonthChangeView from "./MonthChangeView";
-import type { TransientNotice } from "@/lib/room-session-view";
+import PopupGrid from "./PopupGrid";
+import {
+  buildResultsGrid,
+  buildStartGrid,
+  getVisibleCards,
+  pickGrid,
+  SEASON_LABEL,
+} from "@/lib/popup-cards";
+import type { PopupBatch, ResultsWindow, TransientNotice } from "@/lib/room-session-view";
 import StatusPanel from "./StatusPanel";
-
-const SEASON_LABEL = {
-  rainy: "Musim hujan",
-  dry: "Musim kemarau",
-  transition: "Pancaroba",
-} as const;
 
 const SEASON_ICON = {
   rainy: "☂",
@@ -86,6 +83,7 @@ export default function GameInterface({
   actionPending,
   goldNotice,
   notices,
+  popupSources,
   monthError,
   onDismissNotice,
   onAnswerCalendar,
@@ -105,6 +103,13 @@ export default function GameInterface({
   actionPending: boolean;
   goldNotice: { id: number; text: string } | null;
   notices: readonly TransientNotice[];
+  /** Sumber kartu popup serentak dari sesi: batch awal ronde, notifikasi, dan jendela hasil. */
+  popupSources: {
+    popupBatch: PopupBatch | null;
+    seasonNotice: { step: number; season: "rainy" | "dry" | "transition"; hint: string } | null;
+    goldSpawnedStep: number | null;
+    resultsWindow: ResultsWindow | null;
+  };
   monthError?: string;
   onDismissNotice: (id: number) => void;
   onAnswerCalendar: (
@@ -126,14 +131,18 @@ export default function GameInterface({
   const [selectedHexKey, setSelectedHexKey] = useState<string | null>(null);
   const [dismissedNoticeId, setDismissedNoticeId] = useState<number | null>(null);
   const [inviteFlow, setInviteFlow] = useState<InviteFlow | null>(null);
-  const [seenInviteIds, setSeenInviteIds] = useState<ReadonlySet<string>>(() => new Set());
+  // Kartu popup yang ditutup pemain di layarnya sendiri; id memuat batch/ronde, jadi tidak bocor ke ronde lain.
+  const [dismissedCardIds, setDismissedCardIds] = useState<ReadonlySet<string>>(() => new Set());
   const [expiredInviteId, setExpiredInviteId] = useState<string | null>(null);
   // Popup Fase Pembalikan diminimalkan untuk revealEndsAt ini; fase berikutnya muncul lagi.
   const [minimizedRevealEndsAt, setMinimizedRevealEndsAt] = useState<number | null>(null);
   const pendingInvite = me?.pendingInvite ?? null;
   const reducedMotion = usePrefersReducedMotion();
   const revealEndsAt = game.phase === "reveal" ? game.revealEndsAt : null;
-  const needsTick = Boolean(game.turnDeadline || pendingInvite || revealEndsAt);
+  const startGrid = buildStartGrid({ game, me, ...popupSources });
+  const resultsGrid = buildResultsGrid({ game, me, room, resultsWindow: popupSources.resultsWindow, notices });
+  const popupGrid = pickGrid(startGrid, resultsGrid);
+  const needsTick = Boolean(game.turnDeadline || pendingInvite || revealEndsAt || popupGrid);
   useEffect(() => {
     if (!needsTick) return;
     const timer = window.setInterval(
@@ -197,9 +206,7 @@ export default function GameInterface({
   const popup = getInvitePopup(me, now, serverClockOffsetMs);
   const popupExpired = isInviteExpired(pendingInvite, now, serverClockOffsetMs);
   const expiredNotice = popupExpired && pendingInvite?.inviteId !== expiredInviteId;
-  const resultViews = selectUnseenInviteResults(me?.inviteResults ?? [], seenInviteIds)
-    .map((result) => buildInviteResultView(result, me?.playerId ?? "", room))
-    .filter((view) => view !== null);
+  const popupCards = getVisibleCards(popupGrid, dismissedCardIds, serverNow);
   const inviteTargeting = activeFlow?.step === "pick" && me
     ? {
         disabledIds: getDisabledInvitePawnIds(game, me.playerId),
@@ -398,22 +405,22 @@ export default function GameInterface({
         onRespond={onRespondInvite}
         onDismissExpired={() => pendingInvite && setExpiredInviteId(pendingInvite.inviteId)}
       />
-      <InviteResultsView
-        results={resultViews}
-        onDismiss={(inviteId) => setSeenInviteIds((seen) => new Set(seen).add(inviteId))}
-      />
-      <CalendarEventView
-        event={me?.pendingCalendar ?? null}
-        pending={actionPending}
-        onAnswer={onAnswerCalendar}
-      />
-      <MonthChangeView
-        summary={me?.pendingMonth ?? null}
-        pending={actionPending}
-        serverClockOffsetMs={serverClockOffsetMs}
-        error={monthError}
-        onPayDebt={onPayDebt}
-      />
+      {popupGrid ? (
+        <PopupGrid
+          key={popupGrid.key}
+          cards={popupCards}
+          deadline={popupGrid.deadline}
+          serverNow={serverNow}
+          pending={actionPending}
+          monthError={monthError}
+          onDismissCard={(card) => {
+            setDismissedCardIds((dismissed) => new Set(dismissed).add(card.id));
+            if (card.kind === "doom") onDismissNotice(card.noticeId);
+          }}
+          onPayDebt={onPayDebt}
+          onAnswerCalendar={onAnswerCalendar}
+        />
+      ) : null}
       <NoticeViews notices={notices} onDismiss={onDismissNotice} />
     </main>
   );

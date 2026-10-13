@@ -11,6 +11,7 @@ import type {
   PublicGameState,
   ReflectionReadyPayload,
   RoomState,
+  Season,
   Snapshot,
   TurnOptionsPayload,
 } from "@pejuang/shared";
@@ -38,7 +39,18 @@ export type RoomSessionView = {
   notices: TransientNotice[];
   /** Pencacah id pemberitahuan; tidak turun sehingga id tidak dipakai ulang. */
   noticeSeq: number;
+  /** Batch popup awal ronde yang sedang terbuka (batchId dan deadline server); null di luar batch. */
+  popupBatch: PopupBatch | null;
+  /** Musim berganti di awal ronde ini (season:changed); jadi kartu informasi selama batch. */
+  seasonNotice: { step: number; season: Season; hint: string } | null;
+  /** Langkah saat Petak Emas muncul (gold:spawned); jadi kartu informasi selama batch. */
+  goldSpawnedStep: number | null;
+  /** Jendela kartu hasil akhir ronde, dari round:reveal. */
+  resultsWindow: ResultsWindow | null;
 };
+
+export type PopupBatch = { batchId: string; deadline: number };
+export type ResultsWindow = { step: number; revealEndsAt: number; resultsDeadline: number };
 
 export type TransientNotice =
   | { id: number; kind: "doom"; payload: DoomTriggeredPayload }
@@ -60,7 +72,17 @@ export function createRoomSessionView(): RoomSessionView {
     goldNotice: null,
     notices: [],
     noticeSeq: 0,
+    popupBatch: null,
+    seasonNotice: null,
+    goldSpawnedStep: null,
+    resultsWindow: null,
   };
+}
+
+/** Batch yang masih terbuka di snapshot; pemain yang sudah menjawab semua keputusan tidak membawanya. */
+function batchFromMe(me: Snapshot["me"] | null): PopupBatch | null {
+  const source = me?.pendingMonth ?? me?.pendingCalendar ?? null;
+  return source ? { batchId: source.batchId, deadline: source.deadline } : null;
 }
 
 function isOlderSnapshot(
@@ -117,6 +139,10 @@ export function applySessionSnapshot(
     goldNotice: sameGame ? current.goldNotice : null,
     notices: sameGame ? current.notices : [],
     noticeSeq: current.noticeSeq,
+    popupBatch: batchFromMe(incoming.me) ?? (sameGame ? current.popupBatch : null),
+    seasonNotice: sameGame ? current.seasonNotice : null,
+    goldSpawnedStep: sameGame ? current.goldSpawnedStep : null,
+    resultsWindow: sameGame ? current.resultsWindow : null,
   };
 }
 
@@ -318,6 +344,7 @@ function clearPrivatePending(
     : null;
 }
 
+/** Teks kartu popup serentak; dipakai juga oleh PopupGrid. */
 export const GOLD_SPAWNED_NOTICE = "Petak Emas muncul! Hilang dalam 3 ronde";
 export const GOLD_EXPIRED_NOTICE = "Petak Emas hangus";
 
@@ -326,7 +353,6 @@ function goldNoticeFor(
   event: PublicGameEvent,
 ): RoomSessionView["goldNotice"] {
   const id = (state.goldNotice?.id ?? 0) + 1;
-  if (event.type === "gold:spawned") return { id, text: GOLD_SPAWNED_NOTICE };
   if (
     event.type === "gold:expired" &&
     state.gameView.game?.gold?.goldId === event.payload.goldId
@@ -355,8 +381,12 @@ export function applySessionPublicEvent(
         result: null,
         serverClockOffsetMs: event.payload.serverTime - receivedAt,
         privateRevision: current.privateRevision + 1,
-            goldNotice: null,
+        goldNotice: null,
         notices: [],
+        popupBatch: null,
+        seasonNotice: null,
+        goldSpawnedStep: null,
+        resultsWindow: null,
       },
       needsResume: false,
     };
@@ -389,6 +419,17 @@ export function applySessionPublicEvent(
         ? state.privateRevision + 1
         : state.privateRevision,
       goldNotice: goldNoticeFor(state, event),
+      // Giliran pertama menutup batch; Hasil Akhir menutup semuanya.
+      popupBatch: clearMonth || finished ? null : state.popupBatch,
+      seasonNotice: event.type === "season:changed" && nextGame
+        ? { step: nextGame.calendar.step, season: event.payload.season, hint: event.payload.hint }
+        : state.seasonNotice,
+      goldSpawnedStep: event.type === "gold:spawned" && nextGame
+        ? nextGame.calendar.step
+        : state.goldSpawnedStep,
+      resultsWindow: event.type === "round:reveal"
+        ? { step: event.payload.step, revealEndsAt: event.payload.revealEndsAt, resultsDeadline: event.payload.resultsDeadline }
+        : finished ? null : state.resultsWindow,
     };
   });
 }
@@ -409,6 +450,8 @@ export function applySessionGamePatch(
       newRound && state.me && state.me.inviteResults.length > 0
         ? { ...state.me, inviteResults: [] }
         : state.me,
+    notices: newRound ? state.notices.filter((notice) => notice.kind !== "doom") : state.notices,
+    resultsWindow: newRound ? null : state.resultsWindow,
   }));
 }
 
@@ -431,8 +474,9 @@ export function applySessionCalendarEvent(
         game: { ...game, version: payload.version },
       },
       me: state.me
-        ? { ...state.me, pendingCalendar: canAnswer ? payload : null, pendingMonth: null }
+        ? { ...state.me, pendingCalendar: canAnswer ? payload : null }
         : null,
+      popupBatch: canAnswer ? { batchId: payload.batchId, deadline: payload.deadline } : state.popupBatch,
     };
   });
 }
@@ -443,10 +487,11 @@ export function applySessionMonthSummary(
   payload: MonthSummaryPayload,
 ): RoomSessionView {
   const game = current.gameView.game;
-  if (!current.me || !game || game.calendar.month !== payload.month || game.phase !== "calendar" || game.eliminated.includes(current.me.playerId) || current.me.pendingCalendar) return current;
+  if (!current.me || !game || game.calendar.month !== payload.month || game.phase !== "calendar" || game.eliminated.includes(current.me.playerId)) return current;
   return {
     ...current,
-    me: { ...current.me, pendingMonth: payload, pendingCalendar: null },
+    popupBatch: { batchId: payload.batchId, deadline: payload.deadline },
+    me: { ...current.me, pendingMonth: payload },
     privateRevision: current.privateRevision + 1,
   };
 }

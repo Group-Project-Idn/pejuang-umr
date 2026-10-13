@@ -333,7 +333,7 @@ export function endRound(state: GameState, random: RandomSource): RoundResult {
   events.push({
     type: "round:reveal",
     target: room,
-    payload: { version: 0, round: step, step, order, revealEndsAt: 0, revealStepMs: 2_500 }, // revealEndsAt dan revealStepMs diisi server
+    payload: { version: 0, round: step, step, order, revealEndsAt: 0, revealStepMs: 2_500, resultsDeadline: 0 }, // revealEndsAt, revealStepMs, dan resultsDeadline diisi server
   });
 
   // b. Realita dibuka dan efeknya diterapkan.

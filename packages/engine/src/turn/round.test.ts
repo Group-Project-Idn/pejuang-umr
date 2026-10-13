@@ -198,10 +198,10 @@ describe("Ganti Bulan (GDD 2.4 v1.12)", () => {
     const summaries = new Map(
       ofType(events, "month:summary").map((e) => [(e.target as { playerId: string }).playerId, e]),
     );
-    expect(summaries.get("a")!.payload.payDebt).toEqual({ max: 4_000_000, deadline: 0 });
+    expect(summaries.get("a")!.payload.payDebt).toEqual({ max: 4_000_000 });
     // Kekayaan b setelah gaji dan biaya: 5.730.000 - 4.600.000 - bunga 3% dari Rp40 juta.
     const b = summaries.get("b")!.payload;
-    expect(b.payDebt).toEqual({ max: b.after.wealth, deadline: 0 });
+    expect(b.payDebt).toEqual({ max: b.after.wealth });
     expect(b.payDebt!.max).toBeLessThan(40_000_000);
     expect(summaries.get("c")!.payload.payDebt).toBeNull();
   });

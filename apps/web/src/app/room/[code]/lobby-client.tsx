@@ -541,6 +541,12 @@ export function LobbyClient({ code }: { code: string }) {
         actionMessage={message}
         goldNotice={sessionView.goldNotice}
         notices={sessionView.notices}
+        popupSources={{
+          popupBatch: sessionView.popupBatch,
+          seasonNotice: sessionView.seasonNotice,
+          goldSpawnedStep: sessionView.goldSpawnedStep,
+          resultsWindow: sessionView.resultsWindow,
+        }}
         monthError={monthError}
         onDismissNotice={dismissNoticeById}
         actionPending={pending === "calendar" || pending === "turn" || pending === "month"}

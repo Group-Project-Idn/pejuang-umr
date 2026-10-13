@@ -8,31 +8,21 @@ import MonthChangeView, {
   DEBT_UNAFFORDABLE_TEXT,
   debtPositionToAmount,
   getDebtSliderPositions,
-  getMonthPaymentSeconds,
   getPayDebtErrorMessage,
 } from "./MonthChangeView";
-
-describe("timer Ganti Bulan", () => {
-  it("menggunakan jam server dan berhenti pada tenggat", () => {
-    expect(getMonthPaymentSeconds(15_000, 0)).toBe(15);
-    expect(getMonthPaymentSeconds(15_000, 14_001)).toBe(1);
-    expect(getMonthPaymentSeconds(15_000, 15_000)).toBe(0);
-    expect(getMonthPaymentSeconds(15_000, 16_000)).toBe(0);
-  });
-});
 
 describe("ringkasan Ganti Bulan setelah reconnect", () => {
   it.each([0, 500_000, 1_000_000])("tidak menyatakan hutang lunas saat sisa hutang Rp%s dan aksi pembayaran sudah selesai", (debt) => {
     const status: MonthSummaryPayload["after"] = { wealth: 5_000_000, debt, debtLimit: 25_000_000, health: 7, stress: 2 };
     const summary: MonthSummaryPayload = {
       month: 2, salary: 5_730_000, livingCost: 4_600_000,
-      interest: 30_000, interestAddedToDebt: 0,
+      interest: 30_000, interestAddedToDebt: 0, batchId: "game-1-step3", deadline: 25_000,
       before: { ...status, debt: 1_000_000 }, after: status, payDebt: null,
     };
     const markup = renderToStaticMarkup(createElement(MonthChangeView, {
-      summary, pending: false, serverClockOffsetMs: 0, onPayDebt: () => undefined,
+      summary, pending: false, expired: false, onPayDebt: () => undefined,
     }));
-    expect(markup).toContain("Menunggu proses Ganti Bulan selesai");
+    expect(markup).not.toContain("Waktu tersisa");
     expect(markup).not.toContain("Tidak ada hutang");
     expect(markup).not.toContain('type="range"');
   });
@@ -40,11 +30,11 @@ describe("ringkasan Ganti Bulan setelah reconnect", () => {
 const baseStatus: MonthSummaryPayload["after"] = { wealth: 0, debt: 1_000_000, debtLimit: 25_000_000, health: 7, stress: 2 };
 const debtSummary = (max: number): MonthSummaryPayload => ({
   month: 2, salary: 5_730_000, livingCost: 4_600_000, interest: 30_000, interestAddedToDebt: 0,
-  before: baseStatus, after: baseStatus, payDebt: { max, deadline: Date.now() + 15_000 },
+  before: baseStatus, after: baseStatus, batchId: "game-1-step3", deadline: Date.now() + 15_000, payDebt: { max },
 });
 const render = (summary: MonthSummaryPayload, error?: string) =>
   renderToStaticMarkup(createElement(MonthChangeView, {
-    summary, pending: false, serverClockOffsetMs: 0, error, onPayDebt: () => undefined,
+    summary, pending: false, expired: false, error, onPayDebt: () => undefined,
   }));
 
 describe("Bayar Hutang saat Kekayaan tidak cukup", () => {
@@ -96,7 +86,7 @@ describe("pesan pembayaran hutang", () => {
 describe("nota Ganti Bulan bergaya komik", () => {
   it("mempertahankan rincian, tanda nominal, timer dan satu tombol utama", () => {
     const markup = render({ ...debtSummary(120_000), interestAddedToDebt: 30_000 });
-    for (const text of ["Ganti Bulan", "Bulan 2", "Gaji masuk", "Biaya hidup wajib", "Bunga hutang", "Bunga menjadi hutang", "Kekayaan baru", "Hutang baru", "Bayar hutang:", "Waktu tersisa:", "Konfirmasi pembayaran"]) {
+    for (const text of ["Bulan 2", "Gaji masuk", "Biaya hidup wajib", "Bunga hutang", "Bunga menjadi hutang", "Kekayaan baru", "Hutang baru", "Bayar hutang:", "Konfirmasi pembayaran"]) {
       expect(markup).toContain(text);
     }
     expect(markup).toContain("comic-receipt-total");

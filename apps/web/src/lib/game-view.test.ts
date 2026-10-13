@@ -291,7 +291,7 @@ describe("reducer event publik (B01)", () => {
     expect(chosen.openedHexes[0]?.reality).toBeNull();
     const revealed = applyPublicGameEvent(chosen, {
       type: "round:reveal",
-      payload: { version: 4, round: 1, step: 1, order: [{ playerId: "p1", hex: tileOpened.to }], revealEndsAt: 12_000, revealStepMs: 1_500 },
+      payload: { version: 4, round: 1, step: 1, order: [{ playerId: "p1", hex: tileOpened.to }], revealEndsAt: 12_000, revealStepMs: 1_500, resultsDeadline: 20_000 },
     })!;
     expect(revealed).toMatchObject({
       version: 4, phase: "reveal", activePlayerId: null, turnDeadline: null, revealEndsAt: 12_000,
@@ -300,7 +300,7 @@ describe("reducer event publik (B01)", () => {
     const nextTurn = applyTurnStart(revealed, { ...turnStart, version: 6 })!;
     expect(nextTurn.revealEndsAt).toBeNull();
     expect(revealed.openedHexes[0]?.reality).toBeNull();
-    expect(applyRoundReveal(revealed, { version: 3, round: 1, step: 1, order: [], revealEndsAt: 12_000, revealStepMs: 1_500 })).toBe(revealed);
+    expect(applyRoundReveal(revealed, { version: 3, round: 1, step: 1, order: [], revealEndsAt: 12_000, revealStepMs: 1_500, resultsDeadline: 20_000 })).toBe(revealed);
 
     const after = applyTileResolved(revealed, { ...resolved, version: 5, round: 1 })!;
     expect(after.openedHexes[0]?.reality).toEqual({

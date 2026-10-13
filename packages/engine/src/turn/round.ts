@@ -221,7 +221,7 @@ export function startRound(state: GameState, random: RandomSource): RoundResult 
         batchId,
         deadline: 0, // deadline bersama batch, diisi server
         payDebt: hasDebt
-          ? { max: Math.min(result.status.wealth, result.status.debt), deadline: 0 }
+          ? { max: Math.min(result.status.wealth, result.status.debt) }
           : null,
       } as MonthSummaryPayload;
       const target = { kind: "player", playerId } as const;

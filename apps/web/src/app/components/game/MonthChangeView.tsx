@@ -1,13 +1,8 @@
 "use client";
 
 import { formatRupiah, type ErrorCode, type MonthSummaryPayload } from "@pejuang/shared";
-import { useEffect, useState } from "react";
-import BottomSheet from "../ui/BottomSheet";
+import { useState } from "react";
 import Button from "../ui/Button";
-
-export function getMonthPaymentSeconds(deadline: number, serverNow: number): number {
-  return Math.max(0, Math.ceil((deadline - serverNow) / 1000));
-}
 
 export const DEBT_SLIDER_STEP = 50_000;
 export const DEBT_UNAFFORDABLE_TEXT = "Kekayaanmu belum cukup untuk mencicil";
@@ -33,53 +28,40 @@ export function debtPositionToAmount(position: number, max: number): number {
   return Math.min(Math.max(0, position) * DEBT_SLIDER_STEP, max);
 }
 
-export default function MonthChangeView({ summary, pending, serverClockOffsetMs, error, onPayDebt }: {
-  summary: MonthSummaryPayload | null;
+/** Isi kartu Ganti Bulan: nota, lalu slider Bayar Hutang bila berhutang. Bingkai dan hitung mundur ada di PopupGrid. */
+export default function MonthChangeView({ summary, pending, expired, error, onPayDebt }: {
+  summary: MonthSummaryPayload;
   pending: boolean;
-  serverClockOffsetMs: number;
+  /** Hitung mundur bersama sudah habis. */
+  expired: boolean;
   error?: string;
   onPayDebt: (month: number, amount: number) => void;
 }) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!summary?.payDebt) return;
-    const timer = window.setInterval(() => setNow(Date.now()), 250);
-    return () => window.clearInterval(timer);
-  }, [summary?.payDebt]);
-
-  const seconds = summary?.payDebt
-    ? getMonthPaymentSeconds(summary.payDebt.deadline, now + serverClockOffsetMs)
-    : 0;
-
   return (
-    <BottomSheet open={summary !== null} title="Ganti Bulan" onClose={() => undefined}>
-      {summary ? (
-        <div className="comic-month grid gap-3 text-body-sm">
-          <p className="ui-stamp">Bulan {summary.month}</p>
-          <dl className="comic-receipt">
-            <div className="comic-receipt-row"><dt>Gaji masuk</dt><dd className="comic-amount-positive">+{formatRupiah(summary.salary)}</dd></div>
-            <div className="comic-receipt-row"><dt>Biaya hidup wajib</dt><dd className="comic-amount-negative">−{formatRupiah(summary.livingCost)}</dd></div>
-            <div className="comic-receipt-row"><dt>Bunga hutang</dt><dd className="comic-amount-negative">−{formatRupiah(summary.interest)}</dd></div>
-            {summary.interestAddedToDebt > 0 ? (
-              <div className="comic-receipt-row"><dt>Bunga menjadi hutang</dt><dd className="comic-amount-negative">+{formatRupiah(summary.interestAddedToDebt)}</dd></div>
-            ) : null}
-            <div className="comic-receipt-row comic-receipt-total"><dt>Kekayaan baru</dt><dd className={summary.after.wealth < 0 ? "comic-amount-negative" : "comic-amount-positive"}>{summary.after.wealth >= 0 ? "+" : "−"}{formatRupiah(Math.abs(summary.after.wealth))}</dd></div>
-            <div className="comic-receipt-row comic-receipt-total"><dt>Hutang baru</dt><dd className="comic-amount-negative">+{formatRupiah(summary.after.debt)}</dd></div>
-          </dl>
-          {summary.payDebt ? (
-            <MonthDebtPayment
-              key={summary.month}
-              month={summary.month}
-              max={summary.payDebt.max}
-              seconds={seconds}
-              pending={pending}
-              error={error}
-              onPayDebt={onPayDebt}
-            />
-          ) : <p>Menunggu proses Ganti Bulan selesai. Kamu tidak perlu mengirim pembayaran lagi.</p>}
-        </div>
+    <div className="comic-month grid gap-3 text-body-sm">
+      <p className="ui-stamp">Bulan {summary.month}</p>
+      <dl className="comic-receipt">
+        <div className="comic-receipt-row"><dt>Gaji masuk</dt><dd className="comic-amount-positive">+{formatRupiah(summary.salary)}</dd></div>
+        <div className="comic-receipt-row"><dt>Biaya hidup wajib</dt><dd className="comic-amount-negative">−{formatRupiah(summary.livingCost)}</dd></div>
+        <div className="comic-receipt-row"><dt>Bunga hutang</dt><dd className="comic-amount-negative">−{formatRupiah(summary.interest)}</dd></div>
+        {summary.interestAddedToDebt > 0 ? (
+          <div className="comic-receipt-row"><dt>Bunga menjadi hutang</dt><dd className="comic-amount-negative">+{formatRupiah(summary.interestAddedToDebt)}</dd></div>
+        ) : null}
+        <div className="comic-receipt-row comic-receipt-total"><dt>Kekayaan baru</dt><dd className={summary.after.wealth < 0 ? "comic-amount-negative" : "comic-amount-positive"}>{summary.after.wealth >= 0 ? "+" : "−"}{formatRupiah(Math.abs(summary.after.wealth))}</dd></div>
+        <div className="comic-receipt-row comic-receipt-total"><dt>Hutang baru</dt><dd className="comic-amount-negative">+{formatRupiah(summary.after.debt)}</dd></div>
+      </dl>
+      {summary.payDebt ? (
+        <MonthDebtPayment
+          key={summary.month}
+          month={summary.month}
+          max={summary.payDebt.max}
+          expired={expired}
+          pending={pending}
+          error={error}
+          onPayDebt={onPayDebt}
+        />
       ) : null}
-    </BottomSheet>
+    </div>
   );
 }
 
@@ -87,14 +69,14 @@ export default function MonthChangeView({ summary, pending, serverClockOffsetMs,
 function MonthDebtPayment({
   month,
   max,
-  seconds,
+  expired,
   pending,
   error,
   onPayDebt,
 }: {
   month: number;
   max: number;
-  seconds: number;
+  expired: boolean;
   pending: boolean;
   error?: string;
   onPayDebt: (month: number, amount: number) => void;
@@ -107,18 +89,17 @@ function MonthDebtPayment({
   return (
     <form className="comic-payment grid gap-3" onSubmit={(event) => {
       event.preventDefault();
-      if (seconds > 0 && !pending) onPayDebt(month, amount);
+      if (!expired && !pending) onPayDebt(month, amount);
     }}>
       <label htmlFor="month-debt-amount">Bayar hutang: <strong className="comic-payment-amount">{formatRupiah(amount)}</strong></label>
       <input id="month-debt-amount" type="range" min={0} max={positions} step={1}
         className="comic-debt-slider"
         value={Math.min(position, positions)}
         onChange={(event) => setPosition(Number(event.target.value))}
-        disabled={pending || seconds === 0 || cannotAfford} />
+        disabled={pending || expired || cannotAfford} />
       {cannotAfford ? <p>{DEBT_UNAFFORDABLE_TEXT}</p> : null}
-      <p className="comic-timer" role="timer"><span aria-hidden="true">◷</span> Waktu tersisa: {seconds} detik</p>
       {error ? <p role="alert" className="comic-error"><span aria-hidden="true">⚠</span> {error}</p> : null}
-      <Button variant="primary" type="submit" disabled={pending || seconds === 0}>
+      <Button variant="primary" type="submit" disabled={pending || expired}>
         {pending ? "Mengirim..." : cannotAfford ? "Lewati" : "Konfirmasi pembayaran"}
       </Button>
     </form>

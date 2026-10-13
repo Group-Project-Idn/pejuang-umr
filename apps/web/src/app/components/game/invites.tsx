@@ -6,7 +6,6 @@ import {
   INVITE_EXPIRED_NOTICE,
   type InviteFlow,
   type InvitePopupState,
-  type InviteResultView,
   PLAN_LABEL,
 } from "@/lib/invites";
 import BottomSheet from "../ui/BottomSheet";
@@ -141,32 +140,6 @@ export function InviteIncomingView({
   return (
     <BottomSheet open title="Ada ajakan buat kamu" onClose={() => undefined}>
       {body}
-    </BottomSheet>
-  );
-}
-
-/** Hasil Ajakan di Fase Pembalikan: jawaban, motif, dan efek untukmu. */
-export function InviteResultsView({
-  results,
-  onDismiss,
-}: {
-  results: InviteResultView[];
-  onDismiss: (inviteId: string) => void;
-}) {
-  const first = results[0];
-  return (
-    <BottomSheet open={first !== undefined} title="Hasil Ajakan" onClose={() => first && onDismiss(first.inviteId)}>
-      {first ? (
-        <div className="grid gap-3">
-          <p className="comic-invite-plan"><strong>{first.title}</strong></p>
-          <p className="comic-invite-detail">{first.answerText}</p>
-          <p className="comic-invite-detail">{first.motiveText}</p>
-          <p className="comic-effect">Efek untukmu: {first.effectsText}</p>
-          <Button variant="primary" onClick={() => onDismiss(first.inviteId)}>
-            {results.length > 1 ? `Lanjut (${results.length - 1} lagi)` : "Tutup"}
-          </Button>
-        </div>
-      ) : null}
     </BottomSheet>
   );
 }
