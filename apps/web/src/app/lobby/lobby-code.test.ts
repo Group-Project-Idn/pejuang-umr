@@ -35,7 +35,7 @@ describe("teks lobby sesuai dokumen 04", () => {
       title: "RUANG RAPAT",
       playerCount: "Mabar 2-4 pemain",
       identityCardTitle: "Kartu Identitas Pemain",
-      editName: "Ubah nama",
+      editName: "Edit Profile",
       roomCodePlaceholder: "Contoh: UMR-4821",
       resumeTitle: "Lanjutkan permainan",
       gameSummary: "2-4 pemain | 24 langkah | ±30 menit",
