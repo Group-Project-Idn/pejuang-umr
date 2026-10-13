@@ -11,25 +11,29 @@ function context(season: RealityContext["season"]): RealityContext {
 const FORBIDDEN_FIELDS = ["outcome", "realities", "realityPool", "zonkPct", "variantId"];
 
 describe("buildTileOption - petak biasa (API_CONTRACT 3.2)", () => {
-  it("Lembur Proyek: plan wealth +2.500.000 apa adanya", () => {
-    const option = buildTileOption(HEX, "overtime-project", context("dry"));
+  it("Side Job Admin Olshop: plan apa adanya", () => {
+    const option = buildTileOption(HEX, "side-job-jadi-admin-olshop", context("dry"));
 
     expect(option.hex).toEqual(HEX);
     expect(option.category).toBe("work");
-    expect(option.title).toBe("Lembur Proyek");
-    expect(option.plan).toEqual([{ stat: "wealth", delta: 2_500_000 }]);
+    expect(option.title).toBe("Side Job Jadi Admin Olshop");
+    expect(option.plan).toEqual([
+      { stat: "wealth", delta: 600_000 },
+      { stat: "health", delta: -1 },
+      { stat: "stress", delta: 1 },
+    ]);
     expect(option.isGold).toBe(false);
     expect(option.risk).toBe("medium");
     expect(option.riskTags).toEqual([]);
   });
 
   it("lolos TileOptionSchema", () => {
-    const option = buildTileOption(HEX, "overtime-project", context("dry"));
+    const option = buildTileOption(HEX, "side-job-jadi-admin-olshop", context("dry"));
     expect(TileOptionSchema.safeParse(option).success).toBe(true);
   });
 
   it("JSON hasil tidak membocorkan isi heksa rahasia", () => {
-    const option = buildTileOption(HEX, "overtime-project", context("rainy"));
+    const option = buildTileOption(HEX, "side-job-jadi-admin-olshop", context("rainy"));
     const json = JSON.stringify(option);
 
     expect(json).not.toContain("Bos marah");
@@ -40,13 +44,13 @@ describe("buildTileOption - petak biasa (API_CONTRACT 3.2)", () => {
   });
 
   it("risk dan riskTags mengikuti musim dan beban pemain yang melihat", () => {
-    const rainy = buildTileOption(HEX, "overtime-project", context("rainy"));
+    const rainy = buildTileOption(HEX, "side-job-jadi-admin-olshop", context("rainy"));
     expect(rainy.risk).toBe("high");
     expect(rainy.riskTags).toEqual([
       { type: "season", season: "rainy", plusPct: 10 },
     ]);
 
-    const burdened = buildTileOption(HEX, "overtime-project", {
+    const burdened = buildTileOption(HEX, "side-job-jadi-admin-olshop", {
       season: "rainy",
       isRankOneBurden: true,
       health: 5,
@@ -66,14 +70,14 @@ describe("buildTileOption - petak biasa (API_CONTRACT 3.2)", () => {
 });
 
 describe("buildTileOption - Petak Emas (GDD 4.7)", () => {
-  it("Beasiswa Penuh: plan apa adanya, isGold true, risk null", () => {
-    const option = buildTileOption(HEX, "full-scholarship", context("dry"));
+  it("Lolos CPNS Jalur Murni: plan apa adanya, isGold true, risk null", () => {
+    const option = buildTileOption(HEX, "lolos-cpns-jalur-murni", context("dry"));
 
     expect(option.category).toBe("gold");
-    expect(option.title).toBe("Beasiswa Penuh");
+    expect(option.title).toBe("Lolos CPNS Jalur Murni");
     expect(option.plan).toEqual([
-      { stat: "wealth", delta: 7_500_000 },
-      { stat: "stress", delta: -2 },
+      { stat: "wealth", delta: 5_000_000 },
+      { stat: "stress", delta: -3 },
     ]);
     expect(option.risk).toBeNull();
     expect(option.riskTags).toEqual([]);
@@ -81,11 +85,11 @@ describe("buildTileOption - Petak Emas (GDD 4.7)", () => {
     expect(TileOptionSchema.safeParse(option).success).toBe(true);
   });
 
-  it("Menang Giveaway juga tanpa Realita dan tanpa risiko", () => {
-    const option = buildTileOption(HEX, "winning-giveaway", context("rainy"));
+  it("Giveaway Tiket VIP Konser juga tanpa Realita dan tanpa risiko", () => {
+    const option = buildTileOption(HEX, "giveaway-tiket-vip-konser", context("rainy"));
     expect(option.plan).toEqual([
-      { stat: "wealth", delta: 5_000_000 },
-      { stat: "health", delta: 1 },
+      { stat: "wealth", delta: 3_000_000 },
+      { stat: "stress", delta: -3 },
     ]);
     expect(option.isGold).toBe(true);
     expect(option.risk).toBeNull();

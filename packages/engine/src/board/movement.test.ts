@@ -13,7 +13,7 @@ import {
 const origin = { q: 0, r: 0 };
 
 function emptyBoard(radius: BoardRadius = 4): BoardState {
-  return { radius, tiles: {}, usedHexKeys: [hexKey(origin)], goldOrigin: null };
+  return { radius, tiles: {}, usedHexKeys: [hexKey(origin)], goldOrigin: null, goldQueue: [] };
 }
 
 describe("pickLitHexes", () => {

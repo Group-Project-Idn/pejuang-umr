@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { getHexDistance, getNeighbors, hexKey } from "@pejuang/shared";
 import { getEnterableHexes } from "../board/movement";
 import { SequenceRandomSource } from "../random";
+import { GOLD_TILES } from "../data";
 import { createGame } from "../game/create-game";
 import type { DomainEvent } from "../game/domain-events";
 import type { GameState } from "../game/game-state";
@@ -588,6 +589,40 @@ describe("Petak Emas (GDD 4.7)", () => {
     expect(getEnterableHexes(state.board, neighbor).map(hexKey)).toContain(key);
   });
 
+  it("5 spawn Petak Emas (langkah 5, 9, 13, 17, 21) memakai 5 id berbeda dari 8, urut sesuai antrean game", () => {
+    let state = gameAtStep(5);
+    const queue = [...state.board.goldQueue];
+    expect(queue).toHaveLength(5);
+    expect(new Set(queue).size).toBe(5);
+    const catalog = GOLD_TILES.map((tile) => tile.id);
+    for (const id of queue) expect(catalog).toContain(id);
+
+    const spawnedIds: string[] = [];
+    for (const step of [5, 9, 13, 17, 21]) {
+      const at: GameState = {
+        ...state,
+        phase: "roundStart",
+        movedThisRound: [],
+        pendingCalendarEvent: null,
+        public: { ...state.public, calendar: getCalendarInfo(step) },
+      };
+      const result = preparedRound(at);
+      state = result.state;
+      spawnedIds.push(ofType(result.events, "gold:spawned")[0]!.payload.gold.goldId);
+    }
+    expect(spawnedIds).toEqual(queue);
+    expect(new Set(spawnedIds).size).toBe(5);
+    expect(state.board.goldQueue).toEqual([]);
+  });
+
+  it("antrean Petak Emas berbeda antar game (seed berbeda) tetapi tetap deterministik per seed", () => {
+    const make = (seed: number) =>
+      createGame(IDS, "g", new SequenceRandomSource([seed, 0.5, 0.9, 0.3, 0.7])).state.board.goldQueue;
+    expect(make(0.1)).toEqual(make(0.1));
+    const queues = new Set([0.05, 0.25, 0.45, 0.65, 0.85, 0.99].map((seed) => make(seed).join(",")));
+    expect(queues.size).toBeGreaterThan(1);
+  });
+
   it("Petak Emas yang diambil tidak mengembalikan petak asli saat Petak Emas berikutnya muncul", () => {
     const opened = preparedRound(gameAtStep(5)).state;
     const gold1 = opened.public.gold!;
@@ -597,6 +632,7 @@ describe("Petak Emas (GDD 4.7)", () => {
         ...opened.board,
         usedHexKeys: [...opened.board.usedHexKeys, hexKey(gold1.hex)],
         goldOrigin: null,
+        goldQueue: [],
       },
       public: { ...opened.public, gold: null, calendar: getCalendarInfo(9) },
       phase: "roundStart",

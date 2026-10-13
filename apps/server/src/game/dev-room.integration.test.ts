@@ -108,7 +108,7 @@ async function startDevGame(baseUrl: string, server: ReturnType<typeof createPej
   return { host, guest };
 }
 
-const FORBIDDEN_KEYS = ["decisionLog", "pendingRealities", "goldOrigin", "roundInvites", "tileId"];
+const FORBIDDEN_KEYS = ["decisionLog", "pendingRealities", "goldOrigin", "goldQueue", "roundInvites", "tileId"];
 
 function collectKeys(value: unknown, keys = new Set<string>()): Set<string> {
   if (Array.isArray(value)) {

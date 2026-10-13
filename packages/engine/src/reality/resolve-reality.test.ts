@@ -3,8 +3,8 @@ import { REALITY_POOLS, SEASON_ZONKS, TILES } from "../data";
 import { SequenceRandomSource } from "../random";
 import { resolveReality, type RealityContext } from "./resolve-reality";
 
-const LEMBUR = "overtime-project";
-const VITAMIN = "buying-vitamins";
+const LEMBUR = "side-job-jadi-admin-olshop";
+const VITAMIN = "makan-salad-overpriced";
 
 function noBurden(
   season: RealityContext["season"],
@@ -183,7 +183,7 @@ describe("resolveReality - Imunitas Sakit (GDD 3.4)", () => {
 
 describe("resolveReality - penjagaan petak tanpa Realita", () => {
   it("melempar error untuk Petak Emas", () => {
-    for (const goldId of ["full-scholarship", "winning-giveaway"]) {
+    for (const goldId of ["lolos-cpns-jalur-murni", "giveaway-tiket-vip-konser"]) {
       expect(() =>
         resolveReality(goldId, noBurden("dry"), new SequenceRandomSource([0.1])),
       ).toThrow(/tidak punya Realita/);

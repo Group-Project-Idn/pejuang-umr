@@ -293,10 +293,12 @@ function prepareRound(state: GameState, events: DomainEvent[], random: RandomSou
       });
     }
     const hex = pickGoldHex({ ...next, board }, random);
-    if (hex) {
-      const def = random.pick(GOLD_TILES);
+    // Tiap spawn memakai Petak Emas berikutnya dari antrean game (tanpa pengulangan).
+    const def = board.goldQueue.length > 0 ? GOLD_TILES.find((tile) => tile.id === board.goldQueue[0]) : undefined;
+    if (hex && def) {
       board = {
         ...board,
+        goldQueue: board.goldQueue.slice(1),
         tiles: { ...board.tiles, [hexKey(hex)]: def.id },
         goldOrigin: { hexKey: hexKey(hex), tileId: board.tiles[hexKey(hex)]! },
       };
