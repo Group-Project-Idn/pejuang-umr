@@ -103,7 +103,7 @@ function closeAllNeighbors(state: GameState, playerId: string): GameState {
 function placeGoldNear(
   state: GameState,
   playerId: string,
-  goldId = "full-scholarship",
+  goldId = "lolos-cpns-jalur-murni",
 ): { state: GameState; goldHex: HexCoord } {
   const pawn = state.public.pawns.find((p) => p.playerId === playerId)!;
   const goldHex = getEnterableHexes(state.board, pawn.hex)[0]!;
@@ -188,7 +188,7 @@ describe("startTurn", () => {
   });
 
   it("Jalan Buntu: turn:dead-end, lompat menambah Level Stress +1", () => {
-    const game0 = forceTile(makeGame(), "quick-freelance");
+    const game0 = forceTile(makeGame(), "survei-lapangan-panas-terik");
     const game = closeAllNeighbors(game0, game0.public.turnOrder[0]!);
     const { state, events, playerId, turnId } = begin(game);
     expect(state.pendingTurn!.mode).toBe("deadEnd");
@@ -266,8 +266,8 @@ describe("chooseHex", () => {
   });
 
   it("memindahkan pion, membuka heksa, dan menerapkan Rencana saja (Realita ditunda)", () => {
-    // hanging-out: Rencana Kekayaan -500rb, Realita safe tanpa efek.
-    const { state, playerId, turnId } = begin(forceTile(makeGame(), "hanging-out"));
+    // Nongkrong Skena di Blok M: Rencana Kekayaan -400rb, Realita safe tanpa efek.
+    const { state, playerId, turnId } = begin(forceTile(makeGame(), "nongkrong-skena-di-blok-m"));
     const hex = state.pendingTurn!.options[0]!;
     const result = chooseHex(state, playerId, turnId, hex, safeRandom());
     if (!result.ok) throw new Error(result.message);
@@ -282,8 +282,8 @@ describe("chooseHex", () => {
       byPlayerId: playerId,
       reality: null,
     });
-    expect(next.public.openedHexes.at(-1)!.plan).toContainEqual({ stat: "wealth", delta: -500_000 });
-    expect(next.players[playerId]!.status.wealth).toBe(7_000_000);
+    expect(next.public.openedHexes.at(-1)!.plan).toContainEqual({ stat: "wealth", delta: -400_000 });
+    expect(next.players[playerId]!.status.wealth).toBe(7_100_000);
 
     expect(ofType(result.events, "player:status")[0]!.target).toEqual({
       kind: "player",
@@ -295,7 +295,7 @@ describe("chooseHex", () => {
   });
 
   it("setelah turn:choose tidak ada tile:resolved dan state publik tidak memuat isi Realita", () => {
-    const { state, playerId, turnId } = begin(forceTile(makeGame(), "hanging-out"));
+    const { state, playerId, turnId } = begin(forceTile(makeGame(), "nongkrong-skena-di-blok-m"));
     const result = chooseHex(state, playerId, turnId, state.pendingTurn!.options[0]!, safeRandom());
     if (!result.ok) throw new Error(result.message);
     expect(ofType(result.events, "tile:resolved")).toHaveLength(0);
@@ -313,7 +313,7 @@ describe("chooseHex", () => {
     // Pemain pertama sudah menjadi Peringkat 1 di papan skor, tetapi Beban Peringkat 1
     // baru berlaku di startRound berikutnya: peluang saat memilih tanpa beban.
     const first = makeGame().public.turnOrder[0]!;
-    const base = forceTile(makeGame(), "hanging-out");
+    const base = forceTile(makeGame(), "nongkrong-skena-di-blok-m");
     const game: GameState = {
       ...base,
       public: {
@@ -373,9 +373,9 @@ describe("chooseHex", () => {
   });
 
   it("Doom tidak dijalankan saat memilih; baru di Fase Pembalikan (Level Stress >= 9)", () => {
-    // buying-vitamins tidak mengubah stress; Realita safe tanpa efek.
+    // Makan Salad Overpriced (Kekayaan -150rb) tidak mengubah stress; Realita safe tanpa efek.
     const first = makeGame().public.turnOrder[0]!;
-    const game = withStatus(forceTile(makeGame(), "buying-vitamins"), first, { stress: 10 });
+    const game = withStatus(forceTile(makeGame(), "makan-salad-overpriced"), first, { stress: 10 });
     const chosen = choose(game);
     expect(ofType(chosen.events, "doom:triggered")).toHaveLength(0);
     expect(chosen.state.players[chosen.playerId]!.status.stress).toBe(10);
@@ -387,13 +387,13 @@ describe("chooseHex", () => {
     expect(doom.payload.stressAfter).toBe(9);
     const status = revealed.state.players[chosen.playerId]!.status;
     expect(status.stress).toBe(9);
-    expect(status.wealth).toBe(7_500_000 - 250_000 - doom.payload.amount);
+    expect(status.wealth).toBe(7_500_000 - 150_000 - doom.payload.amount);
     expect(revealed.state.players[chosen.playerId]!.eliminated).toBe(false);
   });
 
   it("Doom Spending sekali per ronde per pemain", () => {
     const first = makeGame().public.turnOrder[0]!;
-    const game = withStatus(forceTile(makeGame(), "buying-vitamins"), first, { stress: 10 });
+    const game = withStatus(forceTile(makeGame(), "makan-salad-overpriced"), first, { stress: 10 });
     const chosen = choose(game);
     // Level Stress masih >= 9 setelah Doom (10 -> 9), tetapi hanya sekali.
     const revealed = reveal(chosen.state);
@@ -403,7 +403,7 @@ describe("chooseHex", () => {
 
   it("Hutang lebih dari Rp25jt di tengah ronde baru mengeliminasi di Fase Pembalikan", () => {
     const first = makeGame().public.turnOrder[0]!;
-    const game = withStatus(forceTile(makeGame(), "buying-vitamins"), first, {
+    const game = withStatus(forceTile(makeGame(), "makan-salad-overpriced"), first, {
       debt: 25_000_001,
     });
     const chosen = choose(game);
@@ -422,8 +422,8 @@ describe("chooseHex", () => {
   it("kekurangan dari Realita saat Hutang 25jt menjadi Hutang lalu Bangkrut di Fase Pembalikan", () => {
     // Rencana berlaku saat melangkah; kekurangan Realita baru menjadi Hutang saat Fase Pembalikan.
     const first = makeGame().public.turnOrder[0]!;
-    const game = withStatus(forceTile(makeGame(), "hanging-out"), first, {
-      wealth: 500_000,
+    const game = withStatus(forceTile(makeGame(), "nongkrong-skena-di-blok-m"), first, {
+      wealth: 400_000,
       debt: 25_000_000,
     });
     const chosen = choose(game, new SequenceRandomSource([0, 0]));
@@ -447,7 +447,7 @@ describe("chooseHex", () => {
 
   it("Hutang tepat Rp25jt setelah Fase Pembalikan belum Bangkrut", () => {
     const first = makeGame().public.turnOrder[0]!;
-    const game = withStatus(forceTile(makeGame(), "hanging-out"), first, {
+    const game = withStatus(forceTile(makeGame(), "nongkrong-skena-di-blok-m"), first, {
       wealth: 500_000,
       debt: 25_000_000,
     });
@@ -459,7 +459,7 @@ describe("chooseHex", () => {
 
   it("Doom saat Hutang 25jt dan Kekayaan 0 menambah Hutang; Bangkrut menunggu Pembalikan", () => {
     const first = makeGame().public.turnOrder[0]!;
-    const game = withStatus(forceTile(makeGame(), "buying-vitamins"), first, {
+    const game = withStatus(forceTile(makeGame(), "makan-salad-overpriced"), first, {
       wealth: 0,
       debt: 25_000_000,
       stress: 10,
@@ -477,7 +477,7 @@ describe("chooseHex", () => {
   it("Burnout: Kesehatan 0 setelah Rencana baru mengeliminasi di Fase Pembalikan", () => {
     // quick-freelance: Kesehatan -1 dari Kesehatan 1.
     const first = makeGame().public.turnOrder[0]!;
-    const game = withStatus(forceTile(makeGame(), "quick-freelance"), first, { health: 1 });
+    const game = withStatus(forceTile(makeGame(), "survei-lapangan-panas-terik"), first, { health: 1 });
     const chosen = choose(game);
     expect(chosen.state.players[first]!.status.health).toBe(0);
     expect(chosen.state.players[first]!.eliminated).toBe(false);
@@ -489,7 +489,7 @@ describe("chooseHex", () => {
 
   it("eliminasi membekukan skor: frozenScore di player:eliminated, PlayerState, dan Papan Skor", () => {
     const first = makeGame().public.turnOrder[0]!;
-    const game = withStatus(forceTile(makeGame(), "quick-freelance"), first, { health: 1 });
+    const game = withStatus(forceTile(makeGame(), "survei-lapangan-panas-terik"), first, { health: 1 });
     const result = reveal(choose(game).state);
     const player = result.state.players[first]!;
     const frozen = calculateWelfareScore(player.status).score;
@@ -513,7 +513,7 @@ describe("chooseHex", () => {
   });
 
   it("mengambil Petak Emas: Rencana apa adanya (tak dikali), tanpa Realita, gold kosong", () => {
-    // Beasiswa Penuh: Kekayaan +7.500.000, Level Stress -2 (nilai Multiplayer, tak dikali).
+    // Lolos CPNS Jalur Murni: Kekayaan +5.000.000, Level Stress -3 (nilai apa adanya, tak dikali).
     const base = makeGame(5);
     const first = base.public.turnOrder[0]!;
     const { state: withGold, goldHex } = placeGoldNear(base, first);
@@ -530,17 +530,17 @@ describe("chooseHex", () => {
     const result = chooseHex(state, playerId, turnId, goldHex, safeRandom());
     if (!result.ok) throw new Error(result.message);
 
-    // Rencana diterapkan apa adanya: +7.500.000 (bukan 15.000.000), Stress -2.
+    // Rencana diterapkan apa adanya: +5.000.000 (bukan 10.000.000), Stress -3.
     const status = result.state.players[playerId]!.status;
-    expect(status.wealth).toBe(before.wealth + 7_500_000);
-    expect(status.stress).toBe(3);
+    expect(status.wealth).toBe(before.wealth + 5_000_000);
+    expect(status.stress).toBe(2);
 
     // Petak Emas tak punya Realita.
     expect(ofType(result.events, "tile:resolved")).toHaveLength(0);
     expect(result.state.pendingRealities).toEqual([]);
     const opened = ofType(result.events, "tile:opened")[0]!.payload;
     expect(opened.isGold).toBe(true);
-    expect(opened.title).toBe("Beasiswa Penuh");
+    expect(opened.title).toBe("Lolos CPNS Jalur Murni");
 
     // Petak Emas terambil: public.gold kosong, heksa masuk openedHexes & dipakai.
     expect(result.state.public.gold).toBeNull();
@@ -626,7 +626,7 @@ describe("endRound (Fase Pembalikan)", () => {
 
   it("urutan event: round:reveal, tile:resolved + player:status, Doom, eliminasi, game:patch", () => {
     const order = makeGame().public.turnOrder;
-    let state = forceTile(makeGame(), "buying-vitamins");
+    let state = forceTile(makeGame(), "makan-salad-overpriced");
     state = withStatus(state, order[0]!, { stress: 10 }); // Doom
     state = withStatus(state, order[1]!, { debt: 26_000_000 }); // Bangkrut
     const random = safeRandom();
@@ -658,7 +658,7 @@ describe("endRound (Fase Pembalikan)", () => {
   });
 
   it("round:reveal hanya memuat pemain yang melangkah", () => {
-    const chosen = choose(forceTile(makeGame(), "buying-vitamins"));
+    const chosen = choose(forceTile(makeGame(), "makan-salad-overpriced"));
     const { events } = endRound(chosen.state, seeded());
     const reveal = ofType(events, "round:reveal")[0]!.payload;
     expect(reveal.order).toEqual([
@@ -669,7 +669,7 @@ describe("endRound (Fase Pembalikan)", () => {
 
   it("dua pemain tereliminasi di Fase Pembalikan yang sama diurutkan menurut skor beku", () => {
     const order = makeGame().public.turnOrder;
-    let state = forceTile(makeGame(), "quick-freelance");
+    let state = forceTile(makeGame(), "survei-lapangan-panas-terik");
     state = withStatus(state, order[0]!, { health: 1, wealth: 3_000_000 });
     state = withStatus(state, order[1]!, { health: 1, wealth: 7_500_000 });
     const random = safeRandom();
@@ -689,7 +689,7 @@ describe("endRound (Fase Pembalikan)", () => {
 
   it("langkah 24: Fase Pembalikan tetap berjalan, eliminasi dicek sebelum game:finished", () => {
     const first = makeGame(24).public.turnOrder[0]!;
-    const base = withStatus(forceTile(makeGame(24), "quick-freelance"), first, { health: 1 });
+    const base = withStatus(forceTile(makeGame(24), "survei-lapangan-panas-terik"), first, { health: 1 });
     const chosen = choose(base);
     const { events, state } = endRound(chosen.state, seeded());
     const types = events.map((e) => e.type);
@@ -739,7 +739,7 @@ describe("endRound (Fase Pembalikan)", () => {
 describe("game selesai lebih cepat (GDD 1.2 v1.10)", () => {
   it("3 pemain, dua Burnout di ronde yang sama -> selesai di Fase Pembalikan", () => {
     const order = makeGame().public.turnOrder;
-    let state = forceTile(makeGame(), "quick-freelance");
+    let state = forceTile(makeGame(), "survei-lapangan-panas-terik");
     state = withStatus(state, order[0]!, { health: 1 });
     state = withStatus(state, order[1]!, { health: 1 });
 
@@ -770,7 +770,7 @@ describe("game selesai lebih cepat (GDD 1.2 v1.10)", () => {
       phase: "turn",
       public: { ...created.public, calendar: getCalendarInfo(2) },
     };
-    state = forceTile(state, "quick-freelance");
+    state = forceTile(state, "survei-lapangan-panas-terik");
     const first = state.public.turnOrder[0]!;
     state = withStatus(state, first, { health: 1 });
     const started = begin(state);

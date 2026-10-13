@@ -46,7 +46,7 @@ const rid = () => `00000000-0000-4000-8000-${String(40_000 + ++counter).padStart
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const STAT_KEYS = new Set(["wealth", "debt", "debtLimit", "health", "stress"]);
-const FORBIDDEN_KEYS = ["decisionLog", "pendingRealities", "goldOrigin", "roundInvites", "tileId"];
+const FORBIDDEN_KEYS = ["decisionLog", "pendingRealities", "goldOrigin", "goldQueue", "roundInvites", "tileId"];
 const PRIVATE_TYPES = [
   "player:status",
   "month:summary",

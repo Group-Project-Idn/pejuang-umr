@@ -47,11 +47,69 @@ describe("createBoardState", () => {
     expect(make()).toEqual(make());
   });
 
-  it("radius 6 memunculkan ke-12 jenis petak", () => {
+  it("deterministik untuk seed sama dan berbeda untuk seed lain", () => {
+    const starts = createStartPositions(ids(4)).map(({ hex }) => hex);
+    const make = (seed: number) =>
+      createBoardState(6, starts, new SequenceRandomSource([seed, 0.5, 0.9, 0.33]));
+    expect(make(0.2)).toEqual(make(0.2));
+    expect(make(0.2).tiles).not.toEqual(make(0.8).tiles);
+  });
+
+  it("117 heksa pertama berisi 117 petak berbeda (tiap petak tepat sekali)", () => {
+    for (const count of [2, 3, 4]) {
+      const starts = createStartPositions(ids(count)).map(({ hex }) => hex);
+      const board = createBoardState(6, starts, new MathRandomSource());
+      const startKeys = new Set(starts.map(hexKey));
+      const sequence = createBoard(6)
+        .map(hexKey)
+        .filter((key) => !startKeys.has(key))
+        .map((key) => board.tiles[key]!);
+      expect(sequence.slice(0, TILES.length)).toHaveLength(117);
+      expect(new Set(sequence.slice(0, TILES.length)).size).toBe(117);
+      expect(new Set(sequence.slice(0, TILES.length))).toEqual(new Set(TILES.map((tile) => tile.id)));
+    }
+  });
+
+  it("sisa heksa melanjutkan dari awal urutan acak yang sama (wrap-around)", () => {
+    for (const [count, filled] of [[4, 123], [3, 124], [2, 125]] as const) {
+      const starts = createStartPositions(ids(count)).map(({ hex }) => hex);
+      const board = createBoardState(6, starts, new MathRandomSource());
+      const startKeys = new Set(starts.map(hexKey));
+      const sequence = createBoard(6)
+        .map(hexKey)
+        .filter((key) => !startKeys.has(key))
+        .map((key) => board.tiles[key]!);
+      expect(sequence).toHaveLength(filled);
+      for (let i = TILES.length; i < filled; i += 1) {
+        expect(sequence[i]).toBe(sequence[i - TILES.length]);
+      }
+    }
+  });
+
+  it("radius 6 memunculkan seluruh 117 jenis petak biasa", () => {
     const starts = createStartPositions(ids(4)).map(({ hex }) => hex);
     const board = createBoardState(6, starts, new MathRandomSource());
-    expect(TILES).toHaveLength(12);
-    expect(new Set(Object.values(board.tiles)).size).toBe(12);
+    expect(new Set(Object.values(board.tiles)).size).toBe(117);
+  });
+
+  it("antrean Petak Emas: 5 id unik dari 8 katalog, rahasia di BoardState", () => {
+    const starts = createStartPositions(ids(4)).map(({ hex }) => hex);
+    const board = createBoardState(6, starts, new MathRandomSource());
+    expect(board.goldQueue).toHaveLength(5);
+    expect(new Set(board.goldQueue).size).toBe(5);
+    const catalog = new Set(GOLD_TILES.map((tile) => tile.id));
+    for (const id of board.goldQueue) expect(catalog.has(id)).toBe(true);
+    for (const id of board.goldQueue) expect(Object.values(board.tiles)).not.toContain(id);
+  });
+
+  it("antrean Petak Emas berubah antar game", () => {
+    const starts = createStartPositions(ids(4)).map(({ hex }) => hex);
+    const queues = new Set(
+      Array.from({ length: 20 }, () =>
+        createBoardState(6, starts, new MathRandomSource()).goldQueue.join(","),
+      ),
+    );
+    expect(queues.size).toBeGreaterThan(1);
   });
 });
 
@@ -80,6 +138,8 @@ describe("createGameSetup", () => {
     for (const tile of TILES) {
       expect(json).not.toContain(tile.id);
     }
+    expect(JSON.stringify(publicState)).not.toContain("goldQueue");
+    for (const id of board.goldQueue) expect(json).not.toContain(id);
     expect(Object.keys(board.tiles)).toHaveLength(123);
     expect(board.usedHexKeys.sort()).toEqual(
       publicState.pawns.map(({ hex }) => hexKey(hex)).sort(),

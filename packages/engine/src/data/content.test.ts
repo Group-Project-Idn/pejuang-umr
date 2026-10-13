@@ -37,9 +37,9 @@ function listSourceFiles(dir: string): string[] {
 const ALL_VARIANTS = REALITY_POOLS.flatMap((pool) => pool.variants);
 
 describe("katalog data konten", () => {
-  it("memuat 12 petak biasa: 3 Kerja, 4 Sosial, 3 Kesehatan, 2 Keuangan", () => {
-    expect(TILES).toHaveLength(12);
-    const expected = { work: 3, social: 4, health: 3, finance: 2 };
+  it("memuat 117 petak biasa: 29 Kerja, 37 Sosial, 29 Kesehatan, 22 Keuangan", () => {
+    expect(TILES).toHaveLength(117);
+    const expected = { work: 29, social: 37, health: 29, finance: 22 };
     for (const [category, count] of Object.entries(expected)) {
       expect(TILES.filter((tile) => tile.category === category)).toHaveLength(
         count,
@@ -47,8 +47,8 @@ describe("katalog data konten", () => {
     }
   });
 
-  it("memuat tepat 2 Petak Emas", () => {
-    expect(GOLD_TILES).toHaveLength(2);
+  it("memuat tepat 8 Petak Emas", () => {
+    expect(GOLD_TILES).toHaveLength(8);
   });
 
   it("pool Realita berisi 72 varian awal, tiap pool punya minimal 1 varian per jenis hasil", () => {
@@ -253,15 +253,20 @@ describe("katalog data konten", () => {
     expect(data.CALENDAR_EVENTS).toHaveLength(6);
     expect(data.SEASON_ZONKS).toHaveLength(9);
     expect(data.INVITE_PLANS).toHaveLength(4);
-    expect(data.TILES).toHaveLength(12);
-    expect(data.GOLD_TILES).toHaveLength(2);
+    expect(data.TILES).toHaveLength(117);
+    expect(data.GOLD_TILES).toHaveLength(8);
   });
 });
 
 describe("nilai konten 1x (GDD 1.3 v1.12)", () => {
-  it("Lembur Proyek: Rencana wealth +2.500.000 apa adanya", () => {
-    const lembur = TILES.find((tile) => tile.id === "overtime-project");
-    expect(lembur?.plan).toEqual([{ stat: "wealth", delta: 2_500_000 }]);
+  it("Lembur Dikejar Deadline: Rencana apa adanya dari katalog master", () => {
+    const lembur = TILES.find((tile) => tile.id === "lembur-dikejar-deadline");
+    expect(lembur?.plan).toEqual([
+      { stat: "wealth", delta: 1_500_000 },
+      { stat: "health", delta: -1 },
+      { stat: "stress", delta: 1 },
+    ]);
+    expect(lembur?.baseZonkPct).toBe(35);
   });
 
   it("'Bos marah': stress +3, health -2 apa adanya", () => {
@@ -292,44 +297,6 @@ describe("nilai konten 1x (GDD 1.3 v1.12)", () => {
     expect(effects.filter((e) => e.stat === "debt" && e.delta < 0)).toEqual([]);
   });
 
-  it("petak Jalan-jalan (day-trip) sesuai GDD 5.1 dan 5.2", () => {
-    expect(TILES.find((tile) => tile.id === "paying-debt")).toBeUndefined();
-    const trip = TILES.find((tile) => tile.id === "day-trip");
-    expect(trip).toMatchObject({
-      category: "social",
-      title: "Jalan-jalan",
-      baseZonkPct: 20,
-      plan: [
-        { stat: "wealth", delta: -1_000_000 },
-        { stat: "health", delta: 1 },
-        { stat: "stress", delta: -2 },
-      ],
-    });
-    expect(ALL_VARIANTS.filter((r) => r.id.startsWith("day-trip-")).map((r) => [
-        r.outcome,
-        r.text,
-        r.effects,
-      ])).toEqual([
-      ["zonk", "Macet parah di jalan", [{ stat: "stress", delta: 2 }]],
-      [
-        "zonk",
-        "Harga tiket dan makan di tempat wisata mahal",
-        [{ stat: "wealth", delta: -500_000 }],
-      ],
-      [
-        "zonk",
-        "Kehujanan di jalan pulang",
-        [
-          { stat: "health", delta: -1 },
-          { stat: "stress", delta: 1 },
-        ],
-      ],
-      ["safe", "Jalan-jalan sesuai rencana", []],
-      ["safe", "Pulang capek tapi senang", []],
-      ["lucky", "Dapat promo tiket", [{ stat: "wealth", delta: 250_000 }]],
-    ]);
-  });
-
   it("Zonk Musim memakai id dan fokus GDD 3.4 v1.12", () => {
     expect(SEASON_ZONKS.map((zonk) => zonk.id)).toEqual([
       "rainy-flooded-motorbike",
@@ -358,12 +325,6 @@ describe("nilai konten 1x (GDD 1.3 v1.12)", () => {
       { stat: "wealth", delta: -250_000 },
       { stat: "stress", delta: -1 },
     ]);
-  });
-
-  it("Jalan-jalan menggantikan Bayar Hutang dan Kondangan berlaku Rp250.000", () => {
-    expect(TILES.some((tile) => tile.id === "paying-debt")).toBe(false);
-    expect(TILES.find((tile) => tile.id === "day-trip")).toMatchObject({ category: "social", baseZonkPct: 20, plan: [{ stat: "wealth", delta: -1_000_000 }, { stat: "health", delta: 1 }, { stat: "stress", delta: -2 }] });
-    expect(CALENDAR_EVENTS.find((event) => event.id === "wedding")?.choices.join.effects).toContainEqual({ stat: "wealth", delta: -250_000 });
   });
 });
 

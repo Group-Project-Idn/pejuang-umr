@@ -31,15 +31,15 @@ function chanceOf(
 }
 
 describe("calculateZonkChance (GDD 4.5)", () => {
-  it("Lembur Proyek 30% di kemarau tanpa beban -> 30, medium", () => {
-    const result = chanceOf("Lembur Proyek", "dry");
+  it("Side Job Admin Olshop 30% di kemarau tanpa beban -> 30, medium", () => {
+    const result = chanceOf("Side Job Jadi Admin Olshop", "dry");
     expect(result.pct).toBe(30);
     expect(getRiskLevel(result.pct)).toBe("medium");
     expect(getRiskTags(result)).toEqual([]);
   });
 
-  it("Lembur Proyek di musim hujan (kerja rawan) -> 40, high", () => {
-    const result = chanceOf("Lembur Proyek", "rainy");
+  it("Side Job Admin Olshop di musim hujan (kerja rawan) -> 40, high", () => {
+    const result = chanceOf("Side Job Jadi Admin Olshop", "rainy");
     expect(result.pct).toBe(40);
     expect(result.seasonApplied).toBe(true);
     expect(result.immune).toBe(false);
@@ -49,8 +49,8 @@ describe("calculateZonkChance (GDD 4.5)", () => {
     ]);
   });
 
-  it("Nongkrong 20% di kemarau + Beban Peringkat 1 -> 45, high, dua tag", () => {
-    const result = chanceOf("Nongkrong", "dry", { isRankOneBurden: true });
+  it("Nongkrong Blok M 20% di kemarau + Beban Peringkat 1 -> 45, high, dua tag", () => {
+    const result = chanceOf("Nongkrong Skena di Blok M", "dry", { isRankOneBurden: true });
     expect(result.pct).toBe(45);
     expect(result.rankOneApplied).toBe(true);
     expect(result.seasonApplied).toBe(true);
@@ -61,8 +61,8 @@ describe("calculateZonkChance (GDD 4.5)", () => {
     ]);
   });
 
-  it("Pinjol 35% + beban + kemarau (keuangan rawan) -> 60", () => {
-    const result = chanceOf("Pinjol / Paylater", "dry", {
+  it("Gestun 35% + beban + kemarau (keuangan rawan) -> 60", () => {
+    const result = chanceOf("Gestun (Tarik Tunai CC)", "dry", {
       isRankOneBurden: true,
     });
     expect(result.pct).toBe(60);
@@ -90,16 +90,16 @@ describe("calculateZonkChance (GDD 4.5)", () => {
     expect(getRiskLevel(result.pct)).toBe("low");
   });
 
-  it("Ketemu Teman Lama 10% -> low", () => {
-    const result = chanceOf("Ketemu Teman Lama", "rainy");
+  it("Mabar ML 10% -> low", () => {
+    const result = chanceOf("Mabar ML di Warkop", "rainy");
     expect(result.pct).toBe(10);
     expect(getRiskLevel(result.pct)).toBe("low");
   });
 });
 
 describe("Imunitas Sakit (GDD 3.4, 4.5)", () => {
-  it("Beli Vitamin 10% di Pancaroba, Kesehatan 7 -> 20 (kesehatan rawan)", () => {
-    const result = chanceOf("Beli Vitamin", "transition", { health: 7 });
+  it("Makan Salad 10% di Pancaroba, Kesehatan 7 -> 20 (kesehatan rawan)", () => {
+    const result = chanceOf("Makan Salad Overpriced", "transition", { health: 7 });
     expect(result.pct).toBe(20);
     expect(result.immune).toBe(false);
     expect(getRiskTags(result)).toEqual([
@@ -107,8 +107,8 @@ describe("Imunitas Sakit (GDD 3.4, 4.5)", () => {
     ]);
   });
 
-  it("Beli Vitamin di Pancaroba, Kesehatan 8 -> 10, immune true, tanpa tag season", () => {
-    const result = chanceOf("Beli Vitamin", "transition", { health: 8 });
+  it("Makan Salad di Pancaroba, Kesehatan 8 -> 10, immune true, tanpa tag season", () => {
+    const result = chanceOf("Makan Salad Overpriced", "transition", { health: 8 });
     expect(result.pct).toBe(10);
     expect(result.immune).toBe(true);
     expect(result.seasonApplied).toBe(false);
@@ -118,7 +118,7 @@ describe("Imunitas Sakit (GDD 3.4, 4.5)", () => {
   });
 
   it("Kesehatan >= 8 tetap kena Beban Peringkat 1 saat Pancaroba", () => {
-    const result = chanceOf("Beli Vitamin", "transition", {
+    const result = chanceOf("Makan Salad Overpriced", "transition", {
       health: 9,
       isRankOneBurden: true,
     });
@@ -132,13 +132,13 @@ describe("Imunitas Sakit (GDD 3.4, 4.5)", () => {
   });
 
   it("kategori selain health tidak pernah immune, meski Pancaroba dan Kesehatan >= 8", () => {
-    const result = chanceOf("Lembur Proyek", "transition", { health: 10 });
+    const result = chanceOf("Side Job Jadi Admin Olshop", "transition", { health: 10 });
     expect(result.immune).toBe(false);
     expect(getRiskTags(result).some((tag) => tag.type === "immune")).toBe(false);
   });
 
   it("imunitas hanya berlaku di Pancaroba, bukan di musim lain", () => {
-    const result = chanceOf("Beli Vitamin", "rainy", { health: 10 });
+    const result = chanceOf("Makan Salad Overpriced", "rainy", { health: 10 });
     expect(result.immune).toBe(false);
     expect(result.pct).toBe(10);
     expect(getRiskTags(result)).toEqual([]);
