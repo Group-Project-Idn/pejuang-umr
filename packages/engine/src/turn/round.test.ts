@@ -30,6 +30,22 @@ function gameAtStep(step: number): GameState {
 
 const rand = () => new SequenceRandomSource([0.5]);
 
+/** Majukan popup awal ronde tanpa aksi pemain untuk memeriksa persiapan giliran. */
+function preparedRound(game: GameState) {
+  let { state, events } = startRound(game, rand());
+  if (state.phase === "monthChange") {
+    const closed = closeMonthChange(state, rand());
+    state = closed.state;
+    events = [...events, ...closed.events];
+  }
+  if (state.phase === "calendarEvent") {
+    const closed = closeCalendarEvent(state, rand());
+    state = closed.state;
+    events = [...events, ...closed.events];
+  }
+  return { state, events };
+}
+
 function ofType<T extends DomainEvent["type"]>(events: DomainEvent[], type: T) {
   return events.filter((e): e is Extract<DomainEvent, { type: T }> => e.type === type);
 }
@@ -114,7 +130,7 @@ describe("startRound", () => {
 
   it("popup Harbolnas punya tiga pilihan dengan efek apa adanya (1×)", () => {
     const opened = startRound(gameAtStep(21), rand());
-    const { events } = closeMonthChange(opened.state);
+    const { events } = closeMonthChange(opened.state, rand());
     const choices = ofType(events, "calendar:event")[0]!.payload.choices;
     expect(choices.map((c) => c.id)).toEqual(["join", "joinPaylater", "skip"]);
     expect(choices[0]?.effects).toContainEqual({
@@ -137,9 +153,12 @@ function withStatus(
 }
 
 describe("Ganti Bulan (GDD 2.4 v1.12)", () => {
-  it("urutan Fase Kalender: kalender, musim, Petak Emas, Kartu Ajakan, Beban Peringkat 1, month:summary", () => {
+  it("popup Ganti Bulan dan Event Tanggal selesai sebelum Kartu Ajakan dan Petak Emas", () => {
     for (const step of [5, 21]) {
-      const { events } = startRound(gameAtStep(step), rand());
+      const opened = startRound(gameAtStep(step), rand());
+      expect(ofType(opened.events, "gold:spawned")).toHaveLength(0);
+      expect(ofType(opened.events, "invite:card")).toHaveLength(0);
+      const { events } = preparedRound(gameAtStep(step));
       const index = (match: (e: DomainEvent) => boolean) => events.findIndex(match);
       const calendar = index(
         (e) => e.type === "game:patch" && e.payload.ops.some((op) => op.type === "calendar"),
@@ -152,13 +171,15 @@ describe("Ganti Bulan (GDD 2.4 v1.12)", () => {
       const summary = index((e) => e.type === "month:summary");
       expect(calendar).toBe(0);
       for (const found of [gold, card, burden, summary]) expect(found).toBeGreaterThan(-1);
-      expect(gold).toBeLessThan(card);
-      expect(card).toBeLessThan(burden);
       expect(burden).toBeLessThan(summary);
+      expect(summary).toBeLessThan(card);
+      expect(card).toBeLessThan(gold);
+      const calendarEvent = index((e) => e.type === "calendar:event");
+      if (calendarEvent !== -1) expect(calendarEvent).toBeLessThan(card);
       const season = index((e) => e.type === "season:changed");
       if (season !== -1) {
         expect(season).toBeGreaterThan(calendar);
-        expect(season).toBeLessThan(gold);
+        expect(season).toBeLessThan(summary);
       }
     }
   });
@@ -213,7 +234,7 @@ describe("Ganti Bulan (GDD 2.4 v1.12)", () => {
       const paid = answerMonthPayment(state, "a", 2, 1_000);
       if (!paid.ok) throw new Error(paid.message);
       expect(code(answerMonthPayment(paid.state, "a", 2, 1_000))).toBe("PAYMENT_CLOSED");
-      const closed = closeMonthChange(paid.state).state;
+      const closed = closeMonthChange(paid.state, rand()).state;
       expect(code(answerMonthPayment(closed, "b", 2, 0))).toBe("PAYMENT_CLOSED");
     });
 
@@ -274,7 +295,7 @@ describe("Ganti Bulan (GDD 2.4 v1.12)", () => {
     it("timeout: debtor yang belum menjawab dianggap bayar 0, lalu giliran", () => {
       const opened = startRound(withStatus(gameAtStep(3), "a", { debt: 4_000_000 }), rand()).state;
       const before = opened.players.a!.status;
-      const { state, events } = closeMonthChange(opened);
+      const { state, events } = closeMonthChange(opened, rand());
       expect(state.players.a!.status).toEqual(before);
       expect(state.pendingMonth).toBeNull();
       expect(state.phase).toBe("turn");
@@ -293,7 +314,7 @@ describe("Ganti Bulan (GDD 2.4 v1.12)", () => {
         expect(types).not.toContain("calendar:event");
         expect(opened.state.phase).toBe("monthChange");
 
-        const closed = closeMonthChange(opened.state);
+        const closed = closeMonthChange(opened.state, rand());
         expect(closed.state.phase).toBe("calendarEvent");
         expect(closed.state.public.phase).toBe("calendar");
         expect(closed.state.pendingCalendarEvent).toEqual({ eventId, answers: {} });
@@ -305,7 +326,7 @@ describe("Ganti Bulan (GDD 2.4 v1.12)", () => {
 
     it("tidak melakukan apa-apa di luar phase monthChange", () => {
       const state = gameAtStep(3);
-      expect(closeMonthChange(state)).toEqual({ state, events: [] });
+      expect(closeMonthChange(state, rand())).toEqual({ state, events: [] });
     });
   });
 });
@@ -406,7 +427,7 @@ describe("Petak Emas (GDD 4.7)", () => {
 
   it("gold:spawned hanya di langkah 1,5,9,13,17,21; posisi <= 4 dari pusat dan tidak bersebelahan dengan pion", () => {
     for (let step = 1; step <= 24; step += 1) {
-      const { events } = startRound(gameAtStep(step), rand());
+      const { events } = preparedRound(gameAtStep(step));
       const spawned = ofType(events, "gold:spawned");
       if (GOLD_STEPS.includes(step)) {
         expect(spawned, `langkah ${step}`).toHaveLength(1);
@@ -423,8 +444,8 @@ describe("Petak Emas (GDD 4.7)", () => {
     }
   });
 
-  it("urutan Fase Kalender: Petak Emas sebelum Beban Peringkat 1", () => {
-    const { events } = startRound(gameAtStep(5), rand());
+  it("Beban Peringkat 1 ditetapkan sebelum Petak Emas muncul", () => {
+    const { events } = preparedRound(gameAtStep(5));
     const spawnedAt = events.findIndex((e) => e.type === "gold:spawned");
     const burdenAt = events.findIndex(
       (e) =>
@@ -432,11 +453,11 @@ describe("Petak Emas (GDD 4.7)", () => {
         e.payload.ops.some((op) => op.type === "rankOneBurden"),
     );
     expect(spawnedAt).toBeGreaterThanOrEqual(0);
-    expect(burdenAt).toBeGreaterThan(spawnedAt);
+    expect(burdenAt).toBeLessThan(spawnedAt);
   });
 
   it("Petak Emas tak diambil -> gold:expired di langkah +4, heksa kembali ke petak asli, lalu spawn baru", () => {
-    const opened = startRound(gameAtStep(1), rand()).state;
+    const opened = preparedRound(gameAtStep(1)).state;
     const gold1 = opened.public.gold!;
     expect(gold1).not.toBeNull();
     const originalTile = opened.board.goldOrigin!.tileId;
@@ -451,7 +472,7 @@ describe("Petak Emas (GDD 4.7)", () => {
       pendingCalendarEvent: null,
       public: { ...opened.public, calendar: getCalendarInfo(5) },
     };
-    const { state, events } = startRound(at5, rand());
+    const { state, events } = preparedRound(at5);
 
     const expired = ofType(events, "gold:expired");
     expect(expired).toHaveLength(1);
@@ -482,7 +503,7 @@ describe("Petak Emas (GDD 4.7)", () => {
   });
 
   it("heksa Petak Emas yang kembali bisa menyala lagi seperti heksa tertutup lain", () => {
-    const opened = startRound(gameAtStep(1), rand()).state;
+    const opened = preparedRound(gameAtStep(1)).state;
     const gold1 = opened.public.gold!;
     const at5: GameState = {
       ...opened,
@@ -491,7 +512,7 @@ describe("Petak Emas (GDD 4.7)", () => {
       pendingCalendarEvent: null,
       public: { ...opened.public, calendar: getCalendarInfo(5) },
     };
-    const { state } = startRound(at5, new SequenceRandomSource([0.5]));
+    const { state } = preparedRound(at5);
     const key = hexKey(gold1.hex);
     if (state.public.gold && hexKey(state.public.gold.hex) === key) return;
     expect(state.board.usedHexKeys).not.toContain(key);
@@ -503,7 +524,7 @@ describe("Petak Emas (GDD 4.7)", () => {
   });
 
   it("Petak Emas yang diambil tidak mengembalikan petak asli saat Petak Emas berikutnya muncul", () => {
-    const opened = startRound(gameAtStep(1), rand()).state;
+    const opened = preparedRound(gameAtStep(1)).state;
     const gold1 = opened.public.gold!;
     const taken: GameState = {
       ...opened,
@@ -517,7 +538,7 @@ describe("Petak Emas (GDD 4.7)", () => {
       movedThisRound: [],
       pendingCalendarEvent: null,
     };
-    const { state, events } = startRound(taken, rand());
+    const { state, events } = preparedRound(taken);
     expect(ofType(events, "gold:expired")).toHaveLength(0);
     expect(state.board.tiles[hexKey(gold1.hex)]).toBe(gold1.goldId);
   });
@@ -707,7 +728,7 @@ describe("Burnout dan game selesai lebih cepat", () => {
   /** Langkah 9: Ganti Bulan ditutup, lalu a memilih "Tidak ikut" (Kesehatan -1). */
   function labourDaySkipped(): GameState {
     const opened = startRound(withHealth(twoPlayers(9), "a", 1), rand()).state;
-    const calendarEvent = closeMonthChange(opened).state;
+    const calendarEvent = closeMonthChange(opened, rand()).state;
     const answered = answerCalendarEvent(calendarEvent, "a", "labour-day", "skip");
     if (!answered.ok) throw new Error("jawaban ditolak");
     return answered.state;
@@ -772,7 +793,7 @@ describe("Burnout dan game selesai lebih cepat", () => {
     expect(ofType(events, "player:eliminated")).toHaveLength(0);
     expect(ofType(events, "doom:triggered")).toHaveLength(0);
     // Bila tidak dibayar sampai Fase Pembalikan, baru Bangkrut.
-    const ended = endRound(closeMonthChange(state).state, rand());
+    const ended = endRound(closeMonthChange(state, rand()).state, rand());
     expect(ended.state.players.a?.eliminatedReason).toBe("bankrupt");
   });
 
@@ -783,7 +804,7 @@ describe("Burnout dan game selesai lebih cepat", () => {
     expect(nextAction).toBeUndefined();
     expect(state.phase).toBe("monthChange");
     expect(ofType(events, "player:eliminated")).toHaveLength(0);
-    const ended = endRound(closeMonthChange(state).state, rand());
+    const ended = endRound(closeMonthChange(state, rand()).state, rand());
     expect(ended.nextAction).toBe("finished");
     expect(ofType(ended.events, "player:eliminated")).toHaveLength(3);
     expect(ofType(ended.events, "game:finished")).toHaveLength(1);
@@ -794,7 +815,7 @@ describe("Burnout dan game selesai lebih cepat", () => {
     game.players.a = withHealth(game, "a", 0).players.a!;
     game.players.b = withHealth(game, "b", 0).players.b!;
     const { state } = startRound(game, rand());
-    const ended = endRound(closeMonthChange(state).state, rand());
+    const ended = endRound(closeMonthChange(state, rand()).state, rand());
     expect(ended.nextAction).toBe("finished");
     expect(ended.state.phase).toBe("finished");
     const ranking = ofType(ended.events, "game:finished")[0]!.payload.ranking;
@@ -805,7 +826,7 @@ describe("Burnout dan game selesai lebih cepat", () => {
 describe("startRound: Kartu Ajakan", () => {
   it("invite:card hanya di langkah 1, 5, 9, 13, 17, 21", () => {
     for (let step = 1; step <= 24; step += 1) {
-      const { events } = startRound(gameAtStep(step), rand());
+      const { events } = preparedRound(gameAtStep(step));
       const expected = [1, 5, 9, 13, 17, 21].includes(step) ? 3 : 0;
       expect(ofType(events, "invite:card"), `langkah ${step}`).toHaveLength(expected);
     }
@@ -820,7 +841,7 @@ describe("startRound: Kartu Ajakan", () => {
       eliminatedAtStep: 4,
       eliminatedReason: "bankrupt",
     };
-    const { state, events } = startRound(game, rand());
+    const { state, events } = preparedRound(game);
     const cards = ofType(events, "invite:card");
     expect(cards).toHaveLength(2);
     for (const e of cards) {
@@ -831,7 +852,7 @@ describe("startRound: Kartu Ajakan", () => {
   });
 
   it("kartu baru tersimpan di state dan sesuai payload", () => {
-    const { state, events } = startRound(gameAtStep(1), rand());
+    const { state, events } = preparedRound(gameAtStep(1));
     for (const e of ofType(events, "invite:card")) {
       const playerId = e.target.kind === "player" ? e.target.playerId : "";
       expect(state.players[playerId]?.inviteCard).toEqual(e.payload.card);
@@ -841,13 +862,12 @@ describe("startRound: Kartu Ajakan", () => {
   });
 
   it("kartu lama yang belum dipakai -> expiredCardId terisi", () => {
-    const first = startRound(gameAtStep(1), rand()).state;
+    const first = preparedRound(gameAtStep(1)).state;
     const oldIds = Object.fromEntries(
       IDS.map((id) => [id, first.players[id]!.inviteCard!.cardId]),
     );
-    const second = startRound(
+    const second = preparedRound(
       { ...first, public: { ...first.public, calendar: getCalendarInfo(5) } },
-      rand(),
     );
     for (const e of ofType(second.events, "invite:card")) {
       const playerId = e.target.kind === "player" ? e.target.playerId : "";
@@ -856,8 +876,8 @@ describe("startRound: Kartu Ajakan", () => {
     }
   });
 
-  it("urutan: Petak Emas, Kartu Ajakan, Beban Peringkat 1, Event Tanggal", () => {
-    const { events } = startRound(gameAtStep(5), rand());
+  it("urutan: Beban Peringkat 1, Kartu Ajakan, Petak Emas sesudah popup", () => {
+    const { events } = preparedRound(gameAtStep(5));
     const types = events.map((e) =>
       e.type === "game:patch" && e.payload.ops.some((op) => op.type === "rankOneBurden")
         ? "burden"
@@ -868,8 +888,8 @@ describe("startRound: Kartu Ajakan", () => {
     const lastInvite = types.lastIndexOf("invite:card");
     const burden = types.indexOf("burden");
     expect(lastGold).toBeGreaterThanOrEqual(0);
-    expect(firstInvite).toBeGreaterThan(lastGold);
-    expect(burden).toBeGreaterThan(lastInvite);
+    expect(firstInvite).toBeGreaterThan(burden);
+    expect(lastGold).toBeGreaterThan(lastInvite);
   });
 
   it("roundInvites dikosongkan di setiap startRound", () => {

@@ -69,7 +69,13 @@ export function applyGamePatch(
       case "rankOneBurden":
         return { ...next, rankOneBurden: operation.playerIds };
       case "calendar":
-        return { ...next, calendar: operation.calendar };
+        return {
+          ...next,
+          calendar: operation.calendar,
+          phase: "calendar",
+          activePlayerId: null,
+          turnDeadline: null,
+        };
       default:
         return next;
     }

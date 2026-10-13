@@ -168,7 +168,7 @@ export function playRandomGame(
         if (!answered.ok) throw new Error(`${answered.code}: ${answered.message}`);
         record(answered.state, answered.events);
       }
-      const closed = closeMonthChange(state);
+      const closed = closeMonthChange(state, engineRandom);
       record(closed.state, closed.events);
       continue;
     }
