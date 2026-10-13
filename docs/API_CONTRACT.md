@@ -1,8 +1,10 @@
 # API Contract - Pejuang UMR: Jakarta Survival (MVP)
 
-Versi 0.3 · Oktober 2026 · Sumber aturan: GDD v1.12 · Sumber stack: 03_REKOMENDASI
+Versi 0.4 · Oktober 2026 · Sumber aturan: GDD v1.13 · Sumber stack: 03_REKOMENDASI
 
 **Perubahan v0.3 (GDD v1.12):** Realita dibuka di Fase Pembalikan (`round:reveal`), Bayar Hutang lewat `month:pay-debt`, `room:pawn` diganti `room:avatar`, `turn:timer` dan `spectate:enter` dihapus, `reflection:ready` ditambah, skor 0-100, motif Ajakan hanya Tulus/Komisi, papan selalu radius 6, semua nilai 1×.
+
+**Perubahan v0.4 (sesuai kode setelah migrasi G1-G7):** kontrak ini sekarang mencerminkan kode di `packages/shared` apa adanya. Field dan event lama sudah dihapus dari kode, `avatarId` hanya menerima 4 karakter, `invite:send` wajib membawa `turnId`, dan `tile:resolved` tidak lagi membawa `turnId`. Ditambah: aturan host saat game selesai dan Main Lagi (D7), `player:status` setelah Doom, kalender selama jeda Fase Pembalikan, validasi snapshot, dan config Refleksi. Daftar event dikunci oleh tes `packages/shared/src/socket/contract-events.test.ts`.
 Scope: **Multiplayer 2-4 pemain, 24 langkah, pemain tamu.** Solo, login, dan database tidak ada di kontrak ini.
 
 **Cara membaca.** Setiap endpoint dan event ditulis dengan pola yang sama:
@@ -22,7 +24,7 @@ Kontrak hanya mendefinisikan **bentuk data**. Keputusan aturan (boleh atau tidak
 | Jenis        | Jumlah                  | Keterangan                                                                           |
 | ------------ | ----------------------- | ------------------------------------------------------------------------------------ |
 | REST         | 3                       | `POST /api/v1/guest`, `GET /api/v1/rooms/:code`, `GET /health`                       |
-| Socket.IO    | 46                      | 44 dari 03_REKOMENDASI + 2 tambahan bertanda **[+]** (`room:kicked`, `room:rematch`) |
+| Socket.IO    | 46                      | 44 dari 03_REKOMENDASI + 2 tambahan bertanda **[+]** (`room:kicked`, `room:rematch`). Di luar itu ada `ping:test` (C→S) yang hanya dipakai tes server; lihat Keputusan Terbuka #11 |
 | Server lokal | `http://localhost:3002` | REST dan Socket.IO di port yang sama                                                 |
 | Web lokal    | `http://localhost:3000` | Next.js                                                                              |
 
@@ -173,7 +175,8 @@ type Category = "work" | "social" | "health" | "finance" | "gold";
 type Outcome = "zonk" | "safe" | "lucky";
 type Risk = "low" | "medium" | "high"; // Rendah / Sedang / Tinggi
 type Season = "rainy" | "dry" | "transition";
-type AvatarId = string; // id karakter; karakter juga menjadi pion. Daftar di shared (minimal 4)
+type CharacterId = "michael" | "raka" | "sinta" | "icha"; // karakter = avatar = pion (GDD 9.3 v1.12)
+type AvatarId = CharacterId; // alias
 type TurnSeconds = 15 | 30 | 60; // v1.12
 type Motive = "sincere" | "commission"; // Tulus / Komisi (v1.12)
 
@@ -332,6 +335,7 @@ Request:
 ```
 
 - `name`: di-trim, 2-20 karakter, huruf/angka/spasi dan `.-'`, lalu disaring kata kasar.
+- `avatarId`: harus salah satu dari 4 karakter (`CharacterId`). Nilai lain ditolak `400 INVALID_PAYLOAD`. Token lama yang menyimpan avatar tidak sah tetap diterima; server menganggap pemain itu belum punya karakter dan memberi karakter kosong pertama saat masuk room.
 
 Respons `201`:
 
@@ -563,7 +567,7 @@ Ack;
 Catatan:
 
 - Host keluar sebelum game: host pindah ke pemain yang masuk paling awal. Room kosong ditutup.
-- Pemain yang **tereliminasi** lalu menekan Kembali ke Lobby: dikeluarkan dari room dan tidak ikut Main Lagi. Pionnya tetap di papan (GDD 9.4 v1.12).
+- Pemain yang **tereliminasi** lalu menekan Kembali ke Lobby: dikeluarkan dari room (pemain lain menerima `room:state`) dan tidak ikut Main Lagi. Jika ia host, peran host pindah. Pion dan heksanya tetap di papan, dan ia tetap muncul di `game:finished` dengan nama dan karakternya (GDD 9.4 v1.12).
 - Keluar saat game berjalan (`status` `playing`) oleh pemain yang belum tereliminasi: **tidak ditolak**, ack `{ ok: true }`. Diperlakukan sama seperti koneksi putus (GDD 9.4 v1.10): pemain tetap di game dan di papan, gilirannya menunggu Timer Giliran habis lalu heksa dipilih acak, popup Ganti Bulan bayar Rp0, Event Tanggal otomatis Tidak ikut, Ajakan dihitung Tolak, dan ia bisa kembali lewat `session:resume` selama game belum selesai. Pemain lain menerima `player:connection` dengan `connected: false`.
 
 ### `room:ready` · C→S
@@ -668,7 +672,9 @@ Alasan ditambahkan: tanpa event ini, pemain yang dikeluarkan hanya melihat dirin
 Ack<{ room: RoomState }>;
 ```
 
-Error: `NOT_HOST`, `INVALID_PAYLOAD` (status bukan `finished`). Sesi game lama dihapus, room kembali ke `waiting`, karakter tetap, semua `ready` jadi `false`, pemain yang tidak tersambung dikeluarkan (pemain yang tereliminasi sudah keluar lebih dulu), lalu `room:state` dikirim. Game berikutnya memulai `version` dari 1. Pemain lain yang menekan Main Lagi hanya pindah ke tampilan Room dan menunggu. Jika host sudah putus saat game selesai, peran host berpindah ke pemain paling awal yang masih tersambung (GDD 9.5 v1.11).
+Error: `NOT_HOST`, `INVALID_PAYLOAD` (status bukan `finished`), `NOT_ENOUGH_PLAYERS` (setelah pemain tereliminasi dan yang tidak tersambung dikeluarkan, tidak ada pemain tersisa; room tidak berubah). Sesi game lama dihapus, room kembali ke `waiting`, karakter tetap, semua `ready` jadi `false`, pemain yang tereliminasi dan yang tidak tersambung dikeluarkan, lalu `room:state` dikirim.
+
+**Host saat game selesai (D7, GDD 9.5 v1.13):** jika host sudah tereliminasi, peran host pindah ke pemain yang belum tereliminasi dan masih tersambung dengan peringkat terbaik di `game:finished`, lalu `room:state` dikirim. Klien harus menampilkan tombol Main Lagi mengikuti `hostId` terbaru. Game berikutnya memulai `version` dari 1. Pemain lain yang menekan Main Lagi hanya pindah ke tampilan Room dan menunggu. Jika host sudah putus saat game selesai, peran host berpindah ke pemain paling awal yang masih tersambung (GDD 9.5 v1.11).
 
 ### `room:state` · S→R
 
@@ -756,8 +762,7 @@ type GameFinishedPayload = {
     rank: number;
     playerId: string;
     name: string;
-    pawn: PawnId; // kompatibilitas pion lama sampai migrasi avatar (tahap 7)
-    avatarId?: AvatarId; // wajib setelah migrasi avatar (tahap 7)
+    avatarId: CharacterId; // karakter room saat game dimulai
     finalScore: number; // Skor Kesejahteraan desimal 0-100
     netWorth: number; // Harta Bersih (Rupiah)
     points: { finance: number; health: number; calm: number }; // wajib, masing-masing 0-100
@@ -796,6 +801,8 @@ Catatan:
   >;
 }
 ```
+
+Op `phase` sudah ada di tipe, tetapi **server belum mengirimnya**. Klien mengambil fase dari `PublicGameState.phase` (snapshot) dan dari urutan event (`turn:start`, `round:reveal`, `game:finished`). Lihat Keputusan Terbuka #12.
 
 Aturan pembagian: perubahan yang punya event sendiri (heksa terbuka, Petak Emas, eliminasi) tetap memakai event itu agar klien mudah menjalankan animasi. `game:patch` hanya untuk perubahan yang tidak punya event khusus. Semua event S→R tetap berbagi satu urutan `version`.
 
@@ -909,6 +916,8 @@ type MonthSummaryPayload = {
 ```
 
 Urutan proses mengikuti GDD 2.4 v1.12: gaji → biaya hidup → bunga → slider Bayar Hutang. Doom Spending, Bangkrut, dan Burnout **tidak** dicek di sini, tetapi di Fase Pembalikan. Jika `payDebt` `null`, popup tetap tampil sebagai ringkasan dan ditutup pemain atau otomatis saat popup pemain lain selesai.
+
+**Lama popup (D2, D5):** jika ada debtor, server menunggu sampai semua debtor menjawab atau `MONTH_PAY_SECONDS` (15 detik) habis. Debtor dengan Kekayaan 0 (`payDebt.max` = 0) tetap ditunggu; ia bisa menutup lebih cepat dengan membayar Rp0. Jika tidak ada debtor, popup ditutup setelah `MONTH_SUMMARY_ONLY_MS` (3 detik).
 
 ### `month:pay-debt` · C→S **(v1.12)**
 
@@ -1094,11 +1103,15 @@ Urutan lengkap Fase Pembalikan (GDD 4.2 v1.12):
 1. `round:reveal`
 2. `tile:resolved` untuk tiap pemain sesuai `order`, lalu `player:status` (P) ke pemain itu
 3. `invite:resolved` (P) untuk setiap Ajakan di ronde ini
-4. `doom:triggered` (P) bagi pemain dengan Level Stress ≥ 9
+4. `doom:triggered` (P) bagi pemain dengan Level Stress ≥ 9, langsung diikuti `player:status` (P) ke pemain itu
 5. `player:eliminated` untuk pemain yang Bangkrut atau Burnout
 6. `game:patch` (`scores`), lalu `game:finished` jika Langkah 24 selesai atau tersisa 1 pemain atau kurang
 
 Klien boleh mempercepat animasi, tetapi urutan event tidak berubah.
+
+**Jeda dan kalender (D1):** setelah urutan di atas, server menunggu `REVEAL_STEP_MS` (2.500 ms) × panjang `order` sebelum ronde berikutnya. Selama jeda, `phase` tetap `"reveal"` dan `calendar.step` masih langkah ronde yang baru selesai. Langkah baru baru terlihat lewat `game:patch` (`calendar`) di awal ronde berikutnya.
+
+**Ajakan terbuka (D6):** jika semua pemain sudah melangkah tetapi masih ada Ajakan yang belum dijawab, Fase Pembalikan menunggu sampai Ajakan itu dijawab atau habis waktu.
 
 ---
 
@@ -1235,7 +1248,9 @@ Catatan (GDD 6.5 v1.12):
 Ack<{ inviteId: string; deadline: number }>;
 ```
 
-Error: `GAME_FINISHED`, `NO_INVITE_CARD`, `INVITE_NOT_ALLOWED` (bukan Fase Pilihan pengirim, atau heksa sudah dipilih), `INVALID_TARGET` (diri sendiri, target tereliminasi, pengirim tereliminasi, atau target sedang punya popup Ajakan aktif).
+`turnId` wajib dan harus sama dengan `turnId` dari `turn:options` pengirim.
+
+Error: `GAME_FINISHED`, `NO_INVITE_CARD`, `INVITE_NOT_ALLOWED` (bukan Fase Pilihan pengirim, `turnId` tidak cocok, atau heksa sudah dipilih), `INVALID_TARGET` (diri sendiri, target tereliminasi, pengirim tereliminasi, atau target sedang punya popup Ajakan aktif).
 
 Aturan (GDD 4.8 v1.12): hanya di Fase Pilihan giliran pengirim, sebelum `turn:choose`. Jika Timer Giliran habis sebelum ack, Ajakan batal dan kartu tidak terpakai. Ajakan yang sudah terkirim tetap berjalan meski giliran pengirim berakhir. Target yang sedang putus tetap boleh diajak; popup tidak ditahan dan dihitung Tolak setelah 15 detik. Tidak ada batas jumlah Ajakan per ronde selain 1 kartu per pemain.
 
@@ -1344,7 +1359,7 @@ Tidak memakai `version` karena tidak mengubah state game.
 
 ## 15. Kode error dan teks UI
 
-Kode bertanda **[+]** adalah tambahan dari daftar 03_REKOMENDASI.
+Kode bertanda **[+]** adalah tambahan dari daftar 03_REKOMENDASI. Daftar ini (25 kode) sama persis dengan `ERROR_CODES` di shared dan dikunci oleh tes.
 
 | Kode                     | Arti                               | Teks UI (usulan)                                                               | Muncul di         |
 | ------------------------ | ---------------------------------- | ------------------------------------------------------------------------------ | ----------------- |
@@ -1359,7 +1374,7 @@ Kode bertanda **[+]** adalah tambahan dari daftar 03_REKOMENDASI.
 | `NOT_IN_ROOM` [+]        | Resume ke room yang bukan miliknya | "Kamu tidak terdaftar di room ini."                                            | Resume            |
 | `NOT_HOST`               | Aksi khusus host                   | "Hanya host yang bisa melakukan ini."                                          | Room, Hasil Akhir |
 | `AVATAR_TAKEN` [+]       | Karakter sudah dipakai             | "Karakter ini sudah dipilih pemain lain."                                      | Room              |
-| `NOT_ENOUGH_PLAYERS` [+] | Kurang dari 2 pemain               | "Menunggu minimal 2 pemain"                                                    | Room              |
+| `NOT_ENOUGH_PLAYERS` [+] | Kurang dari 2 pemain, atau tidak ada pemain yang bisa Main Lagi | "Menunggu minimal 2 pemain" (Main Lagi: "Tidak ada pemain yang bisa main lagi. Kembali ke Lobby.") | Room, Hasil Akhir |
 | `PLAYERS_NOT_READY` [+]  | Ada yang belum Siap                | "Menunggu pemain siap"                                                         | Room              |
 | `NOT_YOUR_TURN`          | Bukan giliranmu                    | "Belum giliranmu."                                                             | Game Board        |
 | `TILE_NOT_LIT`           | Heksa tidak menyala                | "Pilih salah satu heksa yang menyala."                                         | Detail Heksa      |
@@ -1417,7 +1432,7 @@ S→R  game:patch          { ops: [scores] }
 
 ## 17. Keputusan terbuka
 
-Status mengikuti GDD v1.12. Butir yang sudah diputuskan berlaku sebagai kontrak. Butir yang masih asumsi memakai usulan di kolom kanan sampai diputuskan.
+Status mengikuti GDD v1.13. Butir yang sudah diputuskan berlaku sebagai kontrak. Butir yang masih asumsi memakai usulan di kolom kanan sampai diputuskan.
 
 | #   | Pertanyaan                                                             | Status dan keputusan                                                                                                                                                                           |
 | --- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1431,3 +1446,7 @@ Status mengikuti GDD v1.12. Butir yang sudah diputuskan berlaku sebagai kontrak.
 | 8   | Motif Ajakan dibuka untuk siapa di Fase Pembalikan?                    | Asumsi (GDD 4.8 v1.12): hanya pengirim dan target                                                                                                                                              |
 | 9   | Tampilan skor                                                          | Asumsi (GDD 6.2 v1.12): disimpan desimal, ditampilkan bilangan bulat                                                                                                                           |
 | 10  | Provider dan model LLM untuk Refleksi AI                               | Belum dipilih. Lihat 03_REKOMENDASI Bagian 1                                                                                                                                                   |
+| 11  | `ping:test` di server produksi                                         | Event C→S yang hanya dipakai tes server (koneksi, batas laju). Usulan: hanya didaftarkan saat `NODE_ENV=test`                                                                                  |
+| 12  | Op `phase` di `game:patch`                                             | Ada di tipe, belum dikirim server. Putuskan: server mengirimnya di setiap perubahan fase, atau op ini dihapus dari kontrak                                                                     |
+| 13  | Snapshot divalidasi seperti event                                      | **Diputuskan (G6).** Setiap field popup dan refleksi di `session:snapshot` divalidasi dengan skema event aslinya; yang gagal dikirim `null` dan dicatat di log server tanpa isi payload       |
+| 14  | Config Refleksi                                                        | **Diputuskan (G6).** `REFLECTION_PROVIDER` (`none` default, `fake` hanya di luar production) dan `REFLECTION_TIMEOUT_MS` (default 15000). Maksimal 1 refleksi per pemain per game, 4 panggilan provider bersamaan |

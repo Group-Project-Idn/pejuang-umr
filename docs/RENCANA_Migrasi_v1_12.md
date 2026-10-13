@@ -2,6 +2,8 @@
 
 Revisi 2: satu jalur, prompt digabung menjadi 7 kelompok (G1-G7), dan keempat keputusan sudah disetujui.
 
+> **Status 13 Oktober 2026: SELESAI.** G1-G7 dan W1 sudah di-merge (PR #30-#39). Keputusan D1-D7 dicatat di GDD v1.13 dan API Contract v0.4. Sisa pekerjaan (fitur web W2-W6, keseimbangan angka, provider LLM) ada di `05_PROJECT_STATE.md` Bagian 7.
+
 Basis: branch `development` di commit `2e8b98b` (docs v1.12 sudah masuk). Dibandingkan dengan `docs/GDD.md` v1.12 dan `docs/API_CONTRACT.md` v0.3.
 Cara analisis: membaca kode. Tes belum dijalankan, jadi perkiraan bisa meleset.
 
