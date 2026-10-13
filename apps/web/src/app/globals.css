@@ -72,6 +72,8 @@
   box-shadow: 0 1px 0 rgba(30, 32, 24, 0.9);
 }
 .lobby-comic-btn:disabled { cursor: not-allowed; opacity: 0.55; }
+.dev-finish-btn { position: absolute; top: 12px; right: 16px; z-index: 20; display: grid; gap: 2px; padding: 6px 12px; border-radius: 8px; background: #ffd23f; color: #1e2018; font-weight: 800; border-style: dashed; cursor: pointer; }
+.dev-finish-btn small { font-size: 10px; letter-spacing: 0.1em; }
 
 /* The lobby fills a widescreen viewport; narrower screens scroll instead of clipping actions. */
 .lobby-page {

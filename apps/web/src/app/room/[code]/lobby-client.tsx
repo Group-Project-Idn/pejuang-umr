@@ -6,6 +6,8 @@ import type {
   Ack,
   CalendarEventPayload,
   DeadEndPayload,
+  DevClientToServerEvents,
+  ServerToClientEvents,
   HexCoord,
   InviteCard,
   InviteIncomingPayload,
@@ -18,6 +20,7 @@ import type {
   TurnOptionsPayload,
 } from "@pejuang/shared";
 import { CharacterIdSchema } from "@pejuang/shared";
+import type { Socket } from "socket.io-client";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import GameInterface from "@/app/components/game/GameInterface";
@@ -42,6 +45,7 @@ import {
   type TileResolved,
   type TurnStart,
 } from "@/lib/game-view";
+import { canShowDevFinish, getDevFinishMessage } from "@/lib/dev-tools";
 import { canRematch, getRematchMessage, selectRoomScreen } from "@/lib/result-screens";
 import { createRequestId } from "@/lib/request-id";
 import { clearRoomCode, writeRoomCode } from "@/lib/room-session";
@@ -338,6 +342,20 @@ export function LobbyClient({ code }: { code: string }) {
     );
   }
 
+  function finishGameForDev() {
+    if (!socket || pending) return;
+    setPending("dev-finish");
+    setMessage("");
+    // Event dev tidak ada di ClientToServerEvents produksi; hanya dikirim dari tombol yang dijaga canShowDevFinish.
+    (socket as unknown as Socket<ServerToClientEvents, DevClientToServerEvents>)
+      .timeout(3_000)
+      .emit("dev:finish-game", { requestId: createRequestId() }, (error, response) => {
+        setPending(null);
+        const result: Ack = error ? { ok: false, error: "INTERNAL" } : response;
+        if (!result.ok) setMessage(getDevFinishMessage(result.error));
+      });
+  }
+
   function emitRoomAction(
     action: string,
     emit: (gameSocket: GameSocket) => void,
@@ -532,6 +550,12 @@ export function LobbyClient({ code }: { code: string }) {
         invitePending={invitePending}
         onSendInvite={sendInvite}
         onRespondInvite={respondInvite}
+        devFinish={canShowDevFinish({
+          roomCode: room.code,
+          devToolsFlag: process.env.NEXT_PUBLIC_DEV_TOOLS,
+          hostId: room.hostId,
+          playerId: sessionView.me?.playerId ?? playerId,
+        }) ? { pending: pending === "dev-finish", onFinish: finishGameForDev } : undefined}
       />
     );
   }
