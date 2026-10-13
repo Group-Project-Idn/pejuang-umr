@@ -193,6 +193,73 @@ export function startRound(state: GameState, random: RandomSource): RoundResult 
   };
   publicState.turnOrder = orderForStep(next, step);
 
+  // GDD 4.6: Beban Peringkat 1 memakai skor terakhir sebelum proses kalender.
+  if (step >= RANK_ONE_BURDEN_START_STEP) {
+    const burdened = selectRankOneBurden(publicState.scores);
+    publicState.rankOneBurden = burdened;
+    events.push({
+      type: "game:patch",
+      target: { kind: "room" },
+      payload: { version: 0, ops: [{ type: "rankOneBurden", playerIds: burdened }] },
+    });
+  }
+
+  // GDD 2.4: proses gaji, biaya, bunga dan tampilkan popup sebelum event lain.
+  if (isMonthChangeStep(step)) {
+    const debtorIds: string[] = [];
+    for (const playerId of state.baseTurnOrder) {
+      const player = players[playerId];
+      if (!player || player.eliminated) continue;
+      const result = processMonthChange(player.status, calendar.month);
+      const hasDebt = result.status.debt > 0;
+      if (hasDebt) debtorIds.push(playerId);
+      const payload = {
+        ...result.summary,
+        payDebt: hasDebt
+          ? { max: Math.min(result.status.wealth, result.status.debt), deadline: 0 }
+          : null,
+      } as MonthSummaryPayload;
+      const target = { kind: "player", playerId } as const;
+      events.push({ type: "month:summary", target, payload });
+      events.push({ type: "player:status", target, payload: result.status });
+      players[playerId] = { ...player, status: result.status };
+    }
+    return {
+      state: withPhase(
+        { ...next, pendingMonth: { month: calendar.month, debtorIds, answers: {} } },
+        "monthChange",
+      ),
+      events,
+    };
+  }
+
+  return { state: enterCalendarEventOrTurn(next, events, random), events };
+}
+
+/** Setelah popup bulan dan Event Tanggal: Ajakan lalu Emas, baru giliran. */
+function prepareTurn(state: GameState, events: DomainEvent[], random: RandomSource): GameState {
+  const step = state.public.calendar.step;
+  const calendar = state.public.calendar;
+  const players = { ...state.players };
+  const publicState = { ...state.public };
+  let board = state.board;
+  const next: GameState = { ...state, players, public: publicState };
+
+  // GDD 4.8: bagikan Kartu Ajakan setelah popup kalender selesai.
+  if (isInviteCardStep(step)) {
+    for (const playerId of state.baseTurnOrder) {
+      const player = players[playerId];
+      if (!player || player.eliminated) continue;
+      const card = dealInviteCard({ step, month: calendar.month, playerId }, random);
+      players[playerId] = { ...player, inviteCard: card };
+      events.push({
+        type: "invite:card",
+        target: { kind: "player", playerId },
+        payload: { card, expiredCardId: player.inviteCard?.cardId ?? null },
+      });
+    }
+  }
+
   // GDD 4.7 v1.12: Petak Emas (muncul di langkah 1, 5, 9, 13, 17, 21). Petak Emas
   // lama yang belum diambil kembali ke petak aslinya (tertutup, bisa menyala lagi),
   // lalu Petak Emas baru muncul. Isi petak asli tidak pernah dikirim ke klien.
@@ -236,72 +303,13 @@ export function startRound(state: GameState, random: RandomSource): RoundResult 
     next.board = board;
   }
 
-  // GDD 4.8: Kartu Ajakan baru di Langkah 1, 5, 9, 13, 17, 21; kartu lama yang
-  // belum dipakai hangus. Motif hanya dikirim ke pemilik kartu.
-  if (isInviteCardStep(step)) {
-    for (const playerId of state.baseTurnOrder) {
-      const player = players[playerId];
-      if (!player || player.eliminated) continue;
-      const card = dealInviteCard({ step, month: calendar.month, playerId }, random);
-      players[playerId] = { ...player, inviteCard: card };
-      events.push({
-        type: "invite:card",
-        target: { kind: "player", playerId },
-        payload: { card, expiredCardId: player.inviteCard?.cardId ?? null },
-      });
-    }
-  }
-
-  // GDD 4.6: Beban Peringkat 1 mulai Bulan 3 (Langkah 5). Pemain dengan Skor
-  // Sementara tertinggi di antara yang belum tereliminasi menanggung beban;
-  // jika seri, semua yang seri kena. Sebelum Langkah 5 beban selalu kosong.
-  if (step >= RANK_ONE_BURDEN_START_STEP) {
-    const burdened = selectRankOneBurden(publicState.scores);
-    publicState.rankOneBurden = burdened;
-    events.push({
-      type: "game:patch",
-      target: { kind: "room" },
-      payload: { version: 0, ops: [{ type: "rankOneBurden", playerIds: burdened }] },
-    });
-  }
-
-  // GDD 2.4 v1.12: Ganti Bulan memproses gaji, biaya, dan bunga, lalu menunggu
-  // slider Bayar Hutang. Event Tanggal (bila ada) menyusul setelah popup ditutup.
-  if (isMonthChangeStep(step)) {
-    const debtorIds: string[] = [];
-    for (const playerId of state.baseTurnOrder) {
-      const player = players[playerId];
-      if (!player || player.eliminated) continue;
-      const result = processMonthChange(player.status, calendar.month);
-      const hasDebt = result.status.debt > 0;
-      if (hasDebt) debtorIds.push(playerId);
-      const payload = {
-        ...result.summary,
-        payDebt: hasDebt
-          ? { max: Math.min(result.status.wealth, result.status.debt), deadline: 0 } // deadline diisi server
-          : null,
-      } as MonthSummaryPayload;
-      const target = { kind: "player", playerId } as const;
-      events.push({ type: "month:summary", target, payload });
-      events.push({ type: "player:status", target, payload: result.status });
-      players[playerId] = { ...player, status: result.status };
-    }
-    return {
-      state: withPhase(
-        { ...next, pendingMonth: { month: calendar.month, debtorIds, answers: {} } },
-        "monthChange",
-      ),
-      events,
-    };
-  }
-
-  return { state: enterCalendarEventOrTurn(next, events), events };
+  return next;
 }
 
 /** Event Tanggal bila ada di langkah ini (phase calendarEvent + calendar:event), selain itu giliran. */
-function enterCalendarEventOrTurn(state: GameState, events: DomainEvent[]): GameState {
+function enterCalendarEventOrTurn(state: GameState, events: DomainEvent[], random: RandomSource): GameState {
   const def = getCalendarEventAtStep(state.public.calendar.step);
-  if (!def) return withPhase(state, "turn");
+  if (!def) return withPhase(prepareTurn(state, events, random), "turn");
   events.push(buildCalendarEvent(def));
   return withPhase(
     { ...state, pendingCalendarEvent: { eventId: def.id, answers: {} } },
@@ -388,7 +396,7 @@ export function allMonthPaymentsAnswered(state: GameState): boolean {
  * Menutup popup Ganti Bulan: debtor yang belum menjawab dianggap bayar 0, lalu
  * lanjut ke Event Tanggal (bila ada di langkah ini) atau giliran.
  */
-export function closeMonthChange(state: GameState): RoundResult {
+export function closeMonthChange(state: GameState, random: RandomSource): RoundResult {
   if (state.phase !== "monthChange") return { state, events: [] };
   const events: DomainEvent[] = [];
   // Debtor yang tidak menjawab dicatat membayar Rp0.
@@ -405,7 +413,7 @@ export function closeMonthChange(state: GameState): RoundResult {
       cleared: false,
     });
   }
-  const next = enterCalendarEventOrTurn({ ...state, decisionLog, pendingMonth: null }, events);
+  const next = enterCalendarEventOrTurn({ ...state, decisionLog, pendingMonth: null }, events, random);
   return { state: next, events };
 }
 
@@ -492,7 +500,7 @@ export function closeCalendarEvent(state: GameState, random: RandomSource): Roun
     events.push({ type: "player:status", target, payload: status });
   }
   return {
-    state: withPhase({ ...state, players, decisionLog, pendingCalendarEvent: null }, "turn"),
+    state: withPhase(prepareTurn({ ...state, players, decisionLog, pendingCalendarEvent: null }, events, random), "turn"),
     events,
   };
 }

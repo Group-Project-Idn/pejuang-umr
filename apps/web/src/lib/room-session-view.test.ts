@@ -98,7 +98,7 @@ describe("room session recovery", () => {
     }).state;
     const summary: MonthSummaryPayload = {
       month: 2, salary: 5_730_000, livingCost: 4_600_000,
-      interest: 30_000, interestAddedToDebt: 0, doomAmount: null,
+      interest: 30_000, interestAddedToDebt: 0,
       before: { ...newerStatus, debt: 1_000_000 },
       after: { ...newerStatus, debt: 1_000_000, wealth: 8_100_000 },
       payDebt: { max: 1_000_000, deadline: 25_000 },

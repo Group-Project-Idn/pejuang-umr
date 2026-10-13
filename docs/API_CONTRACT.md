@@ -915,7 +915,7 @@ type MonthSummaryPayload = {
 };
 ```
 
-Urutan proses mengikuti GDD 2.4 v1.12: gaji → biaya hidup → bunga → slider Bayar Hutang. Doom Spending, Bangkrut, dan Burnout **tidak** dicek di sini, tetapi di Fase Pembalikan. Jika `payDebt` `null`, popup tetap tampil sebagai ringkasan dan ditutup pemain atau otomatis saat popup pemain lain selesai.
+Urutan proses mengikuti GDD 2.4 v1.12: gaji → biaya hidup → bunga → slider Bayar Hutang. Doom Spending, Bangkrut, dan Burnout **tidak** dicek di sini, tetapi di Fase Pembalikan. Jika `payDebt` `null`, popup tetap tampil sebagai ringkasan dan ditutup otomatis saat popup pemain lain selesai (atau setelah sekitar 3 detik bila tidak ada debitur). Saat reconnect selama popup terbuka, `snapshot.me.pendingMonth` memuat ringkasan untuk semua pemain hidup; pemain tanpa Hutang atau yang sudah menjawab menerima `payDebt: null` sehingga tidak bisa membayar ulang. Setelah popup selesai, Event Tanggal (jika ada) dimulai, lalu kartu Ajakan dibagikan dan Petak Emas muncul sebelum giliran pertama.
 
 **Lama popup (D2, D5):** jika ada debtor, server menunggu sampai semua debtor menjawab atau `MONTH_PAY_SECONDS` (15 detik) habis. Debtor dengan Kekayaan 0 (`payDebt.max` = 0) tetap ditunggu; ia bisa menutup lebih cepat dengan membayar Rp0. Jika tidak ada debtor, popup ditutup setelah `MONTH_SUMMARY_ONLY_MS` (3 detik).
 

@@ -378,7 +378,7 @@ export class GameSession {
   private closeMonth(): void {
     if (this.finished || this.state.phase !== "monthChange") return;
     this.clearMonthTimer();
-    const result = closeMonthChange(this.state);
+    const result = closeMonthChange(this.state, this.random);
     this.applyRoundResult(result);
     this.lastMonth.clear();
     this.afterCalendarPhase();
@@ -643,14 +643,16 @@ export class GameSession {
     });
   }
 
-  /** month:summary terakhir bila popup Ganti Bulan masih terbuka dan pemain ini debtor yang belum menjawab. */
+  /** Ringkasan untuk semua pemain selama popup terbuka; debtor yang sudah menjawab tidak dapat membayar ulang. */
   pendingMonthFor(playerId: string): PendingMonthPayload | null {
     const pending = this.state.pendingMonth;
     if (this.state.phase !== "monthChange" || !pending) return null;
-    if (!pending.debtorIds.includes(playerId) || playerId in pending.answers) return null;
     const stored = this.lastMonth.get(playerId);
     if (!stored) return null;
-    return this.forSnapshot("pendingMonth", stored, (v) => MonthSummaryPayloadSchema.safeParse(v));
+    const summary = pending.debtorIds.includes(playerId) && !(playerId in pending.answers)
+      ? stored
+      : { ...stored, payDebt: null };
+    return this.forSnapshot("pendingMonth", summary, (v) => MonthSummaryPayloadSchema.safeParse(v));
   }
 
   pendingCalendarFor(playerId: string): PendingCalendarPayload | null {

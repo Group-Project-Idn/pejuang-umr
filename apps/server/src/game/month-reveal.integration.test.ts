@@ -326,20 +326,32 @@ describe("Ganti Bulan: month:pay-debt", () => {
     expect(resumed.snapshot.me.pendingMonth?.payDebt?.deadline).toBe(summary.payDebt.deadline);
     expect(resumed.snapshot.game?.phase).toBe("calendar");
 
-    // Pemain tanpa Hutang tidak mendapat pendingMonth.
+    // Pemain tanpa Hutang tetap melihat ringkasan, tanpa aksi pembayaran.
     const guestResume = await ctx.guest.socket.emitWithAck("session:resume", {
       requestId: rid(),
       roomCode: "UMR-1234",
     });
-    expect(guestResume.ok && guestResume.snapshot.me.pendingMonth).toBeNull();
+    expect(guestResume.ok && guestResume.snapshot.me.pendingMonth).toMatchObject({ month: 2, payDebt: null });
 
-    // Setelah menjawab, snapshot tidak lagi memuatnya.
-    expect(
-      await socket.emitWithAck("month:pay-debt", { requestId: rid(), month: 2, amount: 0 }),
-    ).toMatchObject({ ok: true });
+    // Popup tertutup setelah deadline; snapshot tak lagi memuat ringkasan.
+    advanceToTimer(ctx, MONTH_PAY_SECONDS * 1000 + 501);
     await until(() => ctx.session.state.phase !== "monthChange", "popup tertutup");
     const after = await socket.emitWithAck("session:resume", { requestId: rid(), roomCode: "UMR-1234" });
     expect(after.ok && after.snapshot.me.pendingMonth).toBeNull();
+  });
+
+  it("reconnect setelah menjawab tidak membuka slider lagi selama debtor lain belum selesai", async () => {
+    const ctx = await setup();
+    await openMonthChange(ctx, [
+      [ctx.host.playerId, { debt: 4_000_000 }],
+      [ctx.guest.playerId, { debt: 2_000_000 }],
+    ]);
+    expect(await pay(ctx.host, 2, 0)).toMatchObject({ ok: true });
+    const resumed = await ctx.host.socket.emitWithAck("session:resume", { requestId: rid(), roomCode: "UMR-1234" });
+    expect(resumed.ok && resumed.snapshot.me.pendingMonth).toMatchObject({ month: 2, payDebt: null });
+    expect(await pay(ctx.host, 2, 0)).toMatchObject({ ok: false, error: "PAYMENT_CLOSED" });
+    const guest = await ctx.guest.socket.emitWithAck("session:resume", { requestId: rid(), roomCode: "UMR-1234" });
+    expect(guest.ok && guest.snapshot.me.pendingMonth?.payDebt).toMatchObject({ max: 2_000_000 });
   });
 
   it("Langkah 9: month:summary lebih dulu, baru calendar:event", async () => {
@@ -349,6 +361,8 @@ describe("Ganti Bulan: month:pay-debt", () => {
     // Popup Ganti Bulan masih terbuka: Event Tanggal belum dikirim.
     const labour = () => ctx.host.log.findIndex((e) => e.type === "calendar:event" && e.payload.eventId === "labour-day");
     expect(labour()).toBe(-1);
+    const cardCount = ctx.find(ctx.host, "invite:card").length;
+    const goldCount = ctx.find(ctx.host, "gold:spawned").length;
 
     advanceToTimer(ctx, MONTH_SUMMARY_ONLY_MS);
     await until(() => labour() !== -1, "calendar:event labour-day");
@@ -356,8 +370,19 @@ describe("Ganti Bulan: month:pay-debt", () => {
     expect(summaryIndex).toBeGreaterThan(-1);
     expect(summaryIndex).toBeLessThan(labour());
     expect(ctx.session.state.phase).toBe("calendarEvent");
+    expect(ctx.find(ctx.host, "invite:card")).toHaveLength(cardCount);
+    expect(ctx.find(ctx.host, "gold:spawned")).toHaveLength(goldCount);
     const calendarTimer = latestTimer(ctx, 15_000 + 501);
     expect(ctx.find(ctx.host, "calendar:event").at(-1)!.payload.deadline).toBe(calendarTimer.at + 15_000);
+    advanceToTimer(ctx, 15_000 + 501);
+    await until(() => ctx.find(ctx.host, "invite:card").length > cardCount, "Kartu Ajakan setelah kalender");
+    await until(() => ctx.find(ctx.host, "gold:spawned").length > goldCount, "Emas setelah kalender");
+    const cardAt = lastIndexWhere(ctx.host.log, (e) => e.type === "invite:card");
+    const goldAt = lastIndexWhere(ctx.host.log, (e) => e.type === "gold:spawned");
+    const turnAt = lastIndexWhere(ctx.host.log, (e) => e.type === "turn:start");
+    expect(labour()).toBeLessThan(cardAt);
+    expect(cardAt).toBeLessThan(goldAt);
+    expect(goldAt).toBeLessThan(turnAt);
   }, 20_000);
 });
 

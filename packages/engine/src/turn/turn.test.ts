@@ -17,7 +17,7 @@ import type { GameState } from "../game/game-state";
 import { getEnterableHexes } from "../board/movement";
 import { SequenceRandomSource } from "../random";
 import { resolveReality } from "../reality/resolve-reality";
-import { startRound } from "./round";
+import { closeCalendarEvent, closeMonthChange, startRound } from "./round";
 import { chooseHex, endRound, finishGame, startTurn, timeoutTurn } from "./turn";
 
 const IDS = ["a", "b", "c"];
@@ -564,7 +564,9 @@ describe("chooseHex", () => {
   });
 
   it("akhir game menghanguskan Petak Emas yang belum diambil dan memulihkan isi rahasia", () => {
-    const { state } = startRound({ ...makeGame(21), phase: "roundStart" }, seeded());
+    let { state } = startRound({ ...makeGame(21), phase: "roundStart" }, seeded());
+    state = closeMonthChange(state, seeded()).state;
+    state = closeCalendarEvent(state, seeded()).state;
     const gold = state.public.gold!;
     const original = state.board.goldOrigin!.tileId;
     const finished = finishGame(state);

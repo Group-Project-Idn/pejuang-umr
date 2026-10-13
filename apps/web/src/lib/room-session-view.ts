@@ -299,7 +299,7 @@ export function applySessionMonthSummary(
   payload: MonthSummaryPayload,
 ): RoomSessionView {
   const game = current.gameView.game;
-  if (!current.me || !game || game.calendar.month !== payload.month || game.phase !== "calendar" || current.me.isSpectator || current.me.pendingCalendar) return current;
+  if (!current.me || !game || game.calendar.month !== payload.month || game.phase !== "calendar" || game.eliminated.includes(current.me.playerId) || current.me.pendingCalendar) return current;
   return {
     ...current,
     me: { ...current.me, pendingMonth: payload, pendingCalendar: null },
