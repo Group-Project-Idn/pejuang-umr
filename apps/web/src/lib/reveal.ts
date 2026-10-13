@@ -23,14 +23,13 @@ export const OUTCOME_LABEL = {
   lucky: "Hoki",
 } as const;
 
-export const REVEAL_FLIP_MS = 700;
-
 /**
  * Durasi animasi balik satu heksa (ms). Heksa berstatus aktif dari `startsAt`
  * sampai `startsAt + min(REVEAL_FLIP_MS, stepMs * 0.4)`, lalu masuk `flippedKeys`
  * dan tetap terbuka sampai fase berakhir. Batas 0.4 × stepMs menjaga jendela
  * aktif tidak pernah tumpang tindih dengan heksa berikutnya.
  */
+export const REVEAL_FLIP_MS = 700;
 
 /** Waktu dibagi rata: heksa ke-i mulai di endsAt - (n - i) × stepMs (stepMs dari server). */
 export function buildRevealSchedule(

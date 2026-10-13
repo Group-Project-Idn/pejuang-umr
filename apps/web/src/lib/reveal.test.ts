@@ -129,14 +129,52 @@ describe("jadwal animasi Fase Pembalikan", () => {
     const stepMs = 1_000;
     const schedule = buildRevealSchedule(order2, endsAt, stepMs);
     const first = schedule.steps[0];
-    // Tepat setelah jendela flip heksa pertama (400 ms): p1 tampil, p2 (menunggu) disembunyikan.
-    const progress = getRevealProgress(schedule, first.startsAt + stepMs * 0.4);
+    // Ambang flip sama seperti implementasi: min(REVEAL_FLIP_MS, stepMs * 0.4).
+    // Di sini 0.4 × 1000 = 400 < 700 sehingga ambangnya 400 ms.
+    const flipMs = Math.min(REVEAL_FLIP_MS, stepMs * 0.4);
+    expect(flipMs).toBe(400);
+    // Tepat setelah jendela flip heksa pertama: p1 tampil, p2 (menunggu) disembunyikan.
+    const progress = getRevealProgress(schedule, first.startsAt + flipMs);
     expect(progress.flippedKeys.has(first.key)).toBe(true);
     const masked = maskUnrevealed(game, schedule, progress);
     const byPlayer = (id: string) =>
       masked.openedHexes.find((o) => o.byPlayerId === id && o.step === 5 && o.category !== "gold")!;
     expect(byPlayer("p1").reality?.outcome).toBe("zonk");
     expect(byPlayer("p2").reality).toBeNull();
+  });
+
+  it("dengan stepMs 2500 (default server), heksa terakhir terbuka ±1,8 detik sebelum fase berakhir", () => {
+    const serverStepMs = 2_500;
+    const schedule = buildRevealSchedule(order, ENDS, serverStepMs);
+    const last = schedule.steps[schedule.steps.length - 1];
+    // Ambang flip: min(700, 0.4 × 2500) = 700, jadi heksa terakhir terbuka 1800 ms sebelum ENDS.
+    const expectedFlipMs = Math.min(REVEAL_FLIP_MS, serverStepMs * 0.4);
+    expect(expectedFlipMs).toBe(REVEAL_FLIP_MS);
+    expect(last.startsAt + expectedFlipMs).toBe(ENDS - serverStepMs + REVEAL_FLIP_MS);
+    const progress = getRevealProgress(schedule, last.startsAt + expectedFlipMs);
+    expect(progress.flippedKeys.has(last.key)).toBe(true);
+    expect(ENDS - (last.startsAt + expectedFlipMs)).toBe(1_800);
+  });
+
+  it("jendela aktif antar-heksa tidak pernah tumpang tindih", () => {
+    for (const serverStepMs of [500, 1_000, 1_800, 2_500, 4_000]) {
+      const schedule = buildRevealSchedule(order, ENDS, serverStepMs);
+      const flipMs = Math.min(REVEAL_FLIP_MS, serverStepMs * 0.4);
+      // Heksa berikutnya mulai setelah jendela flip heksa sebelumnya selesai.
+      expect(flipMs).toBeLessThanOrEqual(serverStepMs);
+      for (let i = 0; i + 1 < schedule.steps.length; i += 1) {
+        expect(schedule.steps[i + 1].startsAt).toBeGreaterThanOrEqual(
+          schedule.steps[i].startsAt + flipMs,
+        );
+      }
+      // Di tengah jendela flip heksa kedua, heksa pertama sudah terbuka dan
+      // tidak ada heksa ketiga yang ikut aktif.
+      const middle = schedule.steps[1].startsAt + flipMs / 2;
+      const progress = getRevealProgress(schedule, middle);
+      expect(progress.flippedKeys.has(schedule.steps[0].key)).toBe(true);
+      expect(progress.activeKey).toBe(schedule.steps[1].key);
+      expect(progress.flippedKeys.has(schedule.steps[2].key)).toBe(false);
+    }
   });
 });
 
