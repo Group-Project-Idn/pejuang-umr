@@ -516,7 +516,7 @@ button { font: inherit; }
 .comic-effect { width: fit-content; margin: 0; padding: 6px 10px; border: 2px solid #483629; border-radius: 8px; background: #f5c542; font-size: 12px; font-weight: 800; }
 .comic-invite-detail { margin: 0; font-size: 12px; line-height: 1.5; }
 .comic-dialog-compact { position: fixed; top: 16px; right: 16px; z-index: 40; display: grid; gap: 12px; width: min(320px, calc(100vw - 32px)); max-height: 85dvh; overflow-y: auto; padding: 26px 16px 16px; transform: rotate(.4deg); box-shadow: 6px 8px 0 rgba(45,27,17,.3); }
-@media (max-width: 639px) { .comic-dialog-backdrop { align-items: end; padding: 0; }.comic-dialog-card { align-self: end; width: 100%; max-height: 85dvh; border-radius: 12px 12px 0 0; }.comic-dialog-compact { top: 12px; right: 12px; } }
+@media (max-width: 639px) { .comic-dialog-backdrop { align-items: end; padding: 0; }.comic-dialog-card { align-self: end; width: 100%; max-height: 85dvh; border-radius: 12px 12px 0 0; }.comic-dialog-scroll { padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }.comic-dialog-compact { top: 12px; right: 12px; } }
 .reveal-popup-wrap { position: absolute; inset: 0; z-index: 20; display: grid; place-items: center; padding: 12px; pointer-events: none; }
 .reveal-popup { pointer-events: auto; align-self: auto; display: flex; flex-direction: column; width: min(420px, 100%); max-height: 100%; transform: rotate(-.5deg); box-shadow: 6px 8px 0 rgba(45,27,17,.3), inset 0 0 24px rgba(136,82,23,.13); }
 .reveal-popup-scroll { display: grid; align-content: start; gap: 8px; min-height: 0; overflow-y: auto; padding: 20px 16px 14px; position: relative; z-index: 1; }
