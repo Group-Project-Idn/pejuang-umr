@@ -3,6 +3,7 @@ import type {
   InviteIncomingPayload,
   InviteResolvedPayload,
   PublicGameState,
+  RoomState,
   Snapshot,
 } from "@pejuang/shared";
 import { describe, expect, it } from "vitest";
@@ -15,6 +16,7 @@ import {
   getDisabledInvitePawnIds,
   getInviteErrorMessage,
   getInvitePopup,
+  getSelectableInviteTargetIds,
   isInviteExpired,
   isInviteTargetSelectable,
   resolveInviteFlow,
@@ -107,6 +109,8 @@ describe("pilih target", () => {
     expect(isInviteTargetSelectable(game, "p1", "p3")).toBe(false);
     expect(isInviteTargetSelectable(game, "p1", "p4")).toBe(true);
     expect(getDisabledInvitePawnIds(game, "p1")).toEqual(["p1", "p2", "p3"]);
+    const room = { players: ["p1", "p2", "p3", "p4", "p5"].map((playerId) => ({ playerId })) } as RoomState;
+    expect(getSelectableInviteTargetIds(game, room, "p1")).toEqual(["p4"]);
   });
 
   it("konfirmasi memakai nama dan Rencana", () => {

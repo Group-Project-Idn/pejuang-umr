@@ -3,13 +3,19 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import CalendarEventView from "./CalendarEventView";
-import { InviteCardSheet, InviteConfirmSheet, InviteIncomingView, InviteResultsView } from "./invites";
+import { InviteCardSheet, InviteConfirmSheet, InviteIncomingView, InvitePickBanner, InviteResultsView } from "./invites";
 
 const card: InviteCard = {
   cardId: "card-1", plan: "hangout", planEffects: [], motive: "sincere", expiresAtMonth: 2,
 };
 
 describe("dialog event dan ajakan bergaya komik", () => {
+  it("memberi petunjuk dua cara memilih target dan tombol batal", () => {
+    const markup = renderToStaticMarkup(createElement(InvitePickBanner, { onCancel: () => undefined }));
+    expect(markup).toContain("Pilih pemain yang ingin diajak: klik karakternya di papan atau namanya di Papan Skor");
+    expect(markup).toContain("paper-panel invite-pick-banner");
+    expect(markup).toContain("Batal");
+  });
   it("event menampilkan stempel, tanggal, radio native, centang, catatan dan tombol kirim", () => {
     const event = {
       version: 1, eventId: "event-1", name: "Kondangan Teman", dateLabel: "15 Mei", deadline: 10_000,

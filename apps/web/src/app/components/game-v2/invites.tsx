@@ -44,12 +44,12 @@ export function InviteCardSheet({
   );
 }
 
-/** Petunjuk memilih pion target; tidak menutupi papan. */
+/** Petunjuk memilih target di atas papan; tidak menutupi papan. */
 export function InvitePickBanner({ onCancel }: { onCancel: () => void }) {
   return (
-    <div className="game-action-message" role="status">
-      Ketuk pion pemain yang ingin diajak{" "}
-      <button type="button" className="underline" onClick={onCancel}>Batal</button>
+    <div className="paper-panel invite-pick-banner" role="status">
+      <span>Pilih pemain yang ingin diajak: klik karakternya di papan atau namanya di Papan Skor</span>
+      <button type="button" className="comic-btn-secondary" onClick={onCancel}>Batal</button>
     </div>
   );
 }
