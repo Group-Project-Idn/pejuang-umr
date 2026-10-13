@@ -12,6 +12,8 @@ export const RAW_COLORS = {
   coral500: "#e0614a",
   coral200: "#f4b7ae",
   coral50: "#fae2dc",
+  pink500: "#d6527f",
+  dangerOrange: "#d9381e",
   coral800: "#7c2a19",
   navy700: "#243040",
   navy950: "#0a1422",
@@ -33,6 +35,8 @@ export const SEMANTIC_TOKENS = {
   indicatorWealth: RAW_COLORS.yellow500,
   indicatorHealth: RAW_COLORS.green500,
   indicatorStress: RAW_COLORS.coral500,
+  progressStress: RAW_COLORS.pink500,
+  progressDanger: RAW_COLORS.dangerOrange,
   dangerSoft: RAW_COLORS.coral200,
   surface: RAW_COLORS.navy950,
   surfaceRaised: RAW_COLORS.navy800,
@@ -71,3 +75,15 @@ export function scoreToPercent(score: number): number {
 
 /** Batas aman hutang sesuai GDD: Rp25.000.000. */
 export const DEBT_LIMIT = 25_000_000;
+
+export type GaugeKind = "kesehatan" | "stres";
+export type GaugeTone = "aman" | "bahaya";
+
+/**
+ * Zona bar Kesehatan/Level Stress (GDD v1.14). Nilai di-clamp ke 0-10.
+ * Stres bahaya di 8-10; Kesehatan bahaya di 0-3.
+ */
+export function getGaugeTone(kind: GaugeKind, value: number): GaugeTone {
+  const v = Math.max(0, Math.min(10, value));
+  return kind === "stres" ? (v >= 8 ? "bahaya" : "aman") : v < 4 ? "bahaya" : "aman";
+}

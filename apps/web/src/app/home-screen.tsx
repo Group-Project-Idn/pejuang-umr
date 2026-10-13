@@ -87,7 +87,7 @@ export function HomeScreen() {
           <div className="flex min-w-0 flex-col items-center gap-1">
             <p
               role="status"
-              className={`rounded-full px-3 py-1 text-[11px] font-extrabold uppercase tracking-wide ${
+              className={`rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-wide ${
                 server === "bermasalah" ? "bg-[#f4b7ae] text-[#7c2a19]" : "bg-black/75 text-white"
               }`}
             >
@@ -122,7 +122,7 @@ export function HomeScreen() {
         </div>
       </div>
 
-      <footer className="relative w-full bg-black/80 px-3 py-1.5 text-center text-[11px] font-semibold">
+      <footer className="relative w-full bg-black/80 px-3 py-1.5 text-center text-xs font-semibold">
         Gaji UMR DKI 2026 • Hindari Pinjol &amp; Kopi Kekinian • Tetap Waras di Jam Sibuk
       </footer>
     </main>

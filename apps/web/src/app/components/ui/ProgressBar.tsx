@@ -1,4 +1,4 @@
-import { scoreToPercent } from "@/design/tokens";
+import { getGaugeTone, scoreToPercent } from "@/design/tokens";
 
 export type ProgressKind = "kekayaan" | "kesehatan" | "stres";
 
@@ -32,22 +32,29 @@ export default function ProgressBar({ kind, value, icon, max = 100, valueText }:
       ? Math.max(0, Math.min(100, (value / Math.max(1, max)) * 100))
       : scoreToPercent(value);
   const label = KIND_LABEL[kind];
+  const danger = kind !== "kekayaan" && getGaugeTone(kind, value) === "bahaya";
+  const fillClass = danger
+    ? "bg-progress-bahaya"
+    : kind === "stres"
+      ? "bg-progress-stress"
+      : FILL_CLASSES[kind];
   return (
     <div className="grid gap-1">
       <p className="flex items-center gap-1 text-label font-bold text-teks-utama">
         <span aria-hidden="true">{icon}</span>
         <span>{label}</span>
+        {danger ? <span role="img" aria-label="bahaya">⚠️</span> : null}
         {valueText ? <b className="ml-auto tabular-nums">{valueText}</b> : null}
       </p>
       <div
         role="progressbar"
-        aria-label={label}
+        aria-label={danger ? `${label}, bahaya` : label}
         aria-valuemin={0}
         aria-valuemax={kind === "kekayaan" ? max : 10}
         aria-valuenow={Math.round(kind === "kekayaan" ? value : Math.max(0, Math.min(10, value)))}
         className="ui-meter"
       >
-        <div className={FILL_CLASSES[kind]} style={{ width: `${percent}%` }} />
+        <div className={fillClass} style={{ width: `${percent}%` }} />
       </div>
     </div>
   );
