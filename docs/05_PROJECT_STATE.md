@@ -59,7 +59,7 @@ Di repo, semua dokumen ada di `docs/`: `GDD.md` (salinan GDD terbaru), `02_DESIG
 
 - Web app responsif, fokus utama desktop (GDD v1.12). Papan dirender **3D** dengan Three.js. Perangkat tanpa WebGL mendapat pemberitahuan dan tidak bisa bermain. Mode hemat dan akses keyboard ditunda.
 - Gaya visual: ilustrasi komik bertema kantor/HRD (map kuning, sticky note, stempel, kubikel). Detail di 02_DESIGN.md.
-- Home: tombol yang ditunda (Singel, Ajang Flexing, ikon Portal/Masuk) tetap tampil tanpa efek klik dan tanpa label.
+- Home: tombol yang ditunda (Singel, Ajang Flexing, ikon profil (Portal/Masuk/Daftar)) tetap tampil tanpa efek klik dan tanpa label.
 - Pengganti login: popup "Masuk sebagai tamu" (nama dan avatar/karakter). Lobby memakai tombol "Edit Profile". Pion = karakter, unik per room. Pengaturan tanpa Akun dan tanpa Aturan Mabar. Tidak ada pause dan tidak ada mode penonton.
 
 **Teknis**

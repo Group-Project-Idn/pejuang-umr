@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { BackButton } from "./back-button";
 
 export const metadata: Metadata = {
   title: "Cara Main — Pejuang UMR",
@@ -27,12 +27,7 @@ export default function CaraMainPage() {
             <li key={step}>{step}</li>
           ))}
         </ol>
-        <Link
-          href="/lobby"
-          className="lobby-comic-btn w-fit rounded-lg bg-[#8bd450] px-4 py-2 font-bold text-[#2d5a12]"
-        >
-          ← Kembali ke Lobby
-        </Link>
+        <BackButton />
       </div>
     </main>
   );

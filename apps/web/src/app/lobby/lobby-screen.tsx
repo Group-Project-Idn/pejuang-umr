@@ -7,6 +7,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { AVATAR_OPTIONS, getAvatarSrc } from "@/lib/avatars";
 import { createOrUpdateGuest, getHealth, lookupRoom } from "@/lib/api-client";
 import { readGuestSession, writeGuestSession, clearGuestSession } from "@/lib/guest-session";
+import { markInternalNavigation } from "@/lib/back-target";
 import { createRequestId } from "@/lib/request-id";
 import { readRoomCode, writeRoomCode } from "@/lib/room-session";
 import { connectGameSocket, disconnectSocket } from "@/lib/socket";
@@ -34,7 +35,7 @@ export function toRoomErrorMessage(code: string): string {
   }
 }
 
-export function LobbyScreen({ initialCode = "", hideHomeButton = false }: { initialCode?: string; hideHomeButton?: boolean }) {
+export function LobbyScreen({ initialCode = "" }: { initialCode?: string }) {
   const router = useRouter();
   const [session, setSession] = useState<GuestResponse | null>(null);
   const [guestName, setGuestName] = useState("");
@@ -211,7 +212,7 @@ export function LobbyScreen({ initialCode = "", hideHomeButton = false }: { init
       <div className="lobby-viewport mx-auto w-full">
         <div className="lobby-window overflow-hidden border-2 border-[#3b2a12]/70 bg-[#2b3a4e]">
           <div className="grid gap-2 border-b border-black/20 bg-[#2b3a4e] px-3 py-2 sm:flex sm:items-center sm:justify-between">
-            {hideHomeButton ? null : (<button type="button" onClick={() => router.push("/lobby")} className="lobby-comic-btn w-fit rounded-lg bg-[#f5a623] px-3 py-2 text-sm font-bold">← Kembali ke Lobby</button>)}
+            <button type="button" onClick={() => router.push("/")} className="lobby-comic-btn w-fit rounded-lg bg-[#f5a623] px-3 py-2 text-sm font-bold">← Kembali ke Home</button>
             <p role="status" className={`w-fit rounded-lg px-3 py-1.5 text-sm font-semibold ${serverTrouble ? "bg-[#f4b7ae] text-[#7c2a19]" : "bg-[#cde9cf] text-[#1e4622]"}`}>
               Server Jakarta Pusat: {serverLabel}
             </p>
@@ -263,7 +264,7 @@ export function LobbyScreen({ initialCode = "", hideHomeButton = false }: { init
                   {codeError ? (<p id="kode-room-error" role="alert" className="rounded-lg bg-[#fae2dc] px-3 py-2 text-sm font-semibold text-[#7c2a19]">{codeError}</p>) : null}
                 </form>
                 <div className="flex items-center justify-between gap-2">
-                  <button type="button" onClick={() => router.push("/cara-main")} className="min-h-11 rounded-lg px-4 py-2 font-semibold underline decoration-2 underline-offset-4">Cara Main</button>
+                  <button type="button" onClick={() => { markInternalNavigation(); router.push("/cara-main"); }} className="min-h-11 rounded-lg px-4 py-2 font-semibold underline decoration-2 underline-offset-4">Cara Main</button>
                   {serverTrouble ? (<button type="button" onClick={retryServer} className="lobby-comic-btn min-h-11 rounded-lg bg-[#f5a623] px-4 py-2 font-bold">Coba lagi</button>) : null}
                 </div>
                 {message ? (<p role="status" className="rounded-lg bg-[#3b2a12]/85 px-3 py-2 text-sm font-medium text-[#fbe6b1]">{message}</p>) : null}
