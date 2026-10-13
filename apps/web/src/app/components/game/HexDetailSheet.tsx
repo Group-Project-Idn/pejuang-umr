@@ -5,7 +5,7 @@ import type { HexDetailView } from "@/lib/hex-detail";
 import { OUTCOME_LABEL } from "@/lib/reveal";
 import Button from "../ui/Button";
 import SidePanel from "../ui/SidePanel";
-import CategoryIcon from "./CategoryIcon";
+import CategoryIcon from "./HexCategoryIcon";
 import { RiskIndicator } from "./legends";
 
 const STAT_LABEL: Record<Effect["stat"], string> = {
