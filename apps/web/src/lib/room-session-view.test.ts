@@ -122,7 +122,7 @@ describe("room session recovery", () => {
       expect(updated.state.gameView.game?.activePlayerId).toBeNull();
       expect(updated.state.gameView.game?.turnDeadline).toBeNull();
       const summary: MonthSummaryPayload = {
-        month: 2, salary: 5_730_000, livingCost: 4_600_000,
+        month: 2, salary: 5_730_000, livingCost: 5_200_000, passiveStress: 1,
         interest: 30_000, interestAddedToDebt: 0, batchId: "game-1-step3", deadline: 25_000,
         before: { ...newerStatus, debt: 1_000_000 },
         after: { ...newerStatus, debt: 1_000_000 }, payDebt,
@@ -147,7 +147,7 @@ describe("room session recovery", () => {
       ops: [{ type: "calendar", calendar: { ...initial.gameView.game!.calendar, month: 2, step: 3 } }],
     }).state;
     const summary: MonthSummaryPayload = {
-      month: 2, salary: 5_730_000, livingCost: 4_600_000,
+      month: 2, salary: 5_730_000, livingCost: 5_200_000, passiveStress: 1,
       interest: 30_000, interestAddedToDebt: 0, batchId: "game-1-step3", deadline: 25_000,
       before: { ...newerStatus, debt: 1_000_000 },
       after: { ...newerStatus, debt: 1_000_000, wealth: 8_100_000 },
@@ -668,7 +668,7 @@ describe("pemberitahuan sementara", () => {
 
 describe("batch popup serentak di sesi", () => {
   const month = (extra: Partial<MonthSummaryPayload> = {}): MonthSummaryPayload => ({
-    month: 2, salary: 5_730_000, livingCost: 4_600_000, interest: 0, interestAddedToDebt: 0,
+    month: 2, salary: 5_730_000, livingCost: 5_200_000, passiveStress: 1, interest: 0, interestAddedToDebt: 0,
     batchId: "game-1-step3", deadline: 25_000, before: newerStatus, after: newerStatus, payDebt: null, ...extra,
   });
   const calendarEvent = (): CalendarEventPayload => ({

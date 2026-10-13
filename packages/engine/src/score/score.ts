@@ -1,7 +1,5 @@
 import type { PrivateStatus } from "@pejuang/shared";
-
-/** Harta Bersih per 1 poin Keuangan (GDD 6.2 v1.12). */
-const NET_WORTH_PER_POINT = 500_000;
+import { DEFAULT_FINANCE_DIVISOR } from "../economy/balance";
 
 /** Poin per komponen Skor Kesejahteraan (GDD 6.2 v1.12), masing-masing 0-100. */
 export interface WelfarePoints {
@@ -36,10 +34,13 @@ export function calculateNetWorth(status: PrivateStatus): number {
  * Poin Ketenangan = (10 - Level Stress) x 10
  * Skor            = rata-rata ketiganya, disimpan sebagai desimal.
  */
-export function calculateWelfareScore(status: PrivateStatus): WelfareScore {
+export function calculateWelfareScore(
+  status: PrivateStatus,
+  financeDivisor: number = DEFAULT_FINANCE_DIVISOR,
+): WelfareScore {
   const rawNetWorth = status.wealth - status.debt * 1.5;
   const points: WelfarePoints = {
-    finance: Math.min(100, Math.max(0, 50 + rawNetWorth / NET_WORTH_PER_POINT)),
+    finance: Math.min(100, Math.max(0, 50 + rawNetWorth / financeDivisor)),
     health: status.health * 10,
     calm: (10 - status.stress) * 10,
   };

@@ -216,7 +216,7 @@ function applyChoice(
   // tersembunyi sampai Fase Pembalikan. Petak Emas tidak punya Realita (GDD 4.7).
   const pendingRealities = [...state.pendingRealities];
   if (!option.isGold) {
-    const reality = resolveReality(tileId, context, random);
+    const reality = resolveReality(tileId, context, random, state.balance);
     pendingRealities.push({
       playerId,
       hex,
@@ -466,7 +466,7 @@ export function endRound(state: GameState, random: RandomSource): RoundResult {
         ? "burnout"
         : null;
     if (!reason) continue;
-    const frozenScore = calculateWelfareScore(player.status).score;
+    const frozenScore = calculateWelfareScore(player.status, state.balance?.financeDivisor).score;
     eliminationReasons.push({ playerId, reason });
     players[playerId] = {
       ...player,
@@ -496,7 +496,7 @@ export function endRound(state: GameState, random: RandomSource): RoundResult {
   }
 
   // f. Skor Sementara hanya berubah di akhir ronde.
-  const scores = toScoreRows(rankingEntries(players, state.baseTurnOrder));
+  const scores = toScoreRows(rankingEntries(players, state.baseTurnOrder), state.balance?.financeDivisor);
   events.push({
     type: "game:patch",
     target: room,
@@ -559,7 +559,7 @@ export function finishGame(
     target: { kind: "room" },
     payload: { version: 0, goldId: gold.goldId, hex: gold.hex },
   }] : [];
-  const ranked = rankPlayers(rankingEntries(state.players, state.baseTurnOrder));
+  const ranked = rankPlayers(rankingEntries(state.players, state.baseTurnOrder), state.balance?.financeDivisor);
   const characters = CharacterIdSchema.options;
   const ranking = ranked.map((player) => {
     const index = state.baseTurnOrder.indexOf(player.playerId);

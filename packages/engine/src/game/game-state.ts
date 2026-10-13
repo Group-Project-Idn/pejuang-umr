@@ -2,6 +2,7 @@ import type { Effect, HexCoord, InviteCard, InvitePlan, Outcome, PrivateStatus, 
 import type { BoardState } from "../board/board-state";
 import type { InviteMotive } from "../data";
 import type { DecisionLog } from "../log/decision-log";
+import type { BalanceParams } from "../economy/balance";
 import type { EliminationReason } from "../economy/elimination";
 
 export type CalendarChoiceId = "join" | "joinPaylater" | "skip";
@@ -108,4 +109,6 @@ export interface GameState {
   decisionLog: DecisionLog;
   /** Realita tersembunyi ronde ini; dikosongkan setelah Fase Pembalikan. */
   pendingRealities: PendingReality[];
+  /** Opsi keseimbangan untuk simulasi; kosong berarti nilai resmi GDD v1.15. */
+  balance?: Partial<BalanceParams>;
 }

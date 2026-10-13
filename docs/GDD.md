@@ -1,10 +1,10 @@
 # Pejuang UMR: Jakarta Survival
 
-### Game Design Document (GDD) Ringkas - v1.14
+### Game Design Document (GDD) Ringkas - v1.15
 
 > **Logline:** Game simulasi kehidupan berbasis papan heksagonal di mana pemain harus bertahan hidup selama 12 bulan dengan menyeimbangkan uang, kesehatan, dan kewarasan mental di tengah kejamnya realita finansial Jakarta.
 
-Bagian yang baru atau berubah ditandai **[v1.14]** (perubahan terbaru), **[v1.13]**, **[v1.12]**, **[v1.11]**, **[v1.10]**, **[v1.9]**, **[v1.8]**, **[v1.7]**, atau **[v1.6]**. Ringkasan perubahan dan daftar asumsi ada di Bagian 10. Dokumen ini adalah versi terkonsolidasi: aturan game dari v1.6, scope MVP dan alur Room dari v1.7, dan ide dari konsep awal "Jatah" yang dicatat sebagai backlog.
+Bagian yang baru atau berubah ditandai **[v1.15]** (perubahan terbaru), **[v1.14]**, **[v1.13]**, **[v1.12]**, **[v1.11]**, **[v1.10]**, **[v1.9]**, **[v1.8]**, **[v1.7]**, atau **[v1.6]**. Ringkasan perubahan dan daftar asumsi ada di Bagian 10. Dokumen ini adalah versi terkonsolidasi: aturan game dari v1.6, scope MVP dan alur Room dari v1.7, dan ide dari konsep awal "Jatah" yang dicatat sebagai backlog.
 
 ### Konsep Inti: Petak adalah Kartu **[v1.6]**
 
@@ -87,7 +87,7 @@ Target Multiplayer 4 pemain adalah **sekitar 30 menit** pada Timer 30 detik. Kar
 
 3 menit tambahan = pembuka dan layar skor. Timer 60 detik adalah mode **Santai** dan melewati target 30 menit untuk 4 pemain. Popup awal ronde (Ganti Bulan, Event Tanggal, notifikasi musim, Petak Emas, Beban Peringkat 1) tampil serentak dalam satu grid dengan satu hitung mundur: 8 detik jika hanya informasi, 15 detik jika ada keputusan (4.2) **[v1.14]**. Kartu hasil pribadi di akhir ronde (4.2) ikut menambah beberapa detik. Keduanya menambah sekitar 3-5 menit. Fase Pembalikan (animasi ±2-3 detik per pemain tiap ronde) menambah sekitar 3-5 menit untuk 4 pemain. Ajakan (4.8) berjalan bersamaan dengan giliran dan tidak menjeda timer. Timer 15 detik memperpendek durasi, tetapi angkanya belum diestimasi **[v1.12]**. Tanpa tarik kartu, waktu per giliran mungkin lebih singkat dari estimasi. Semua perlu playtest.
 
-**Pengali Multiplayer dihapus [v1.12]:** semua nilai (petak, Realita, Zonk Musim, Event Tanggal, Ajakan, Petak Emas, Doom Spending) dipakai apa adanya (1×), sama di Solo dan Multiplayer. Batas ±3 per efek juga dihapus. Karena Multiplayer hanya 24 langkah, total dampak petak sepanjang game lebih kecil daripada Solo, sehingga angka wajib dicek dengan simulasi bot sebelum dikunci.
+**Pengali Multiplayer dihapus [v1.12]:** semua nilai (petak, Realita, Zonk Musim, Event Tanggal, Ajakan, Petak Emas, Doom Spending) dipakai apa adanya (1×), sama di Solo dan Multiplayer. Batas ±3 per efek juga dihapus. **[v1.15]** Satu pengecualian: nominal Realita yang berhasil Zonk dikali 2 (4.4). Karena Multiplayer hanya 24 langkah, total dampak petak sepanjang game lebih kecil daripada Solo, sehingga angka wajib dicek dengan simulasi bot sebelum dikunci.
 
 ### 1.4 Kondisi Kalah Dini (Sudden Death)
 
@@ -135,11 +135,13 @@ Kesehatan dan Level Stress dibatasi (clamp) pada rentang 0-10.
 | Parameter             | Nilai                                    | Keterangan                                                                                                                                                                            |
 | --------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Gaji**              | Rp 5.730.000 / bulan                     | Mengacu UMP DKI Jakarta 2026 (Rp5.729.876), dibulatkan. Otomatis masuk ke Kekayaan setiap ganti bulan.                                                                                |
-| **Biaya Hidup Wajib** | Rp 4.600.000 / bulan                     | Kos Rp1.500.000, makan Rp1.800.000, transport dan bensin Rp600.000, listrik/internet/kebutuhan lain Rp700.000. Dipotong otomatis tiap ganti bulan.                                    |
+| **Biaya Hidup Wajib** | Rp 5.200.000 / bulan **[v1.15]**         | Kos Rp1.700.000, makan Rp2.000.000, transport dan bensin Rp700.000, listrik/internet/kebutuhan lain Rp800.000 (sebelumnya Rp4.600.000 di v1.14). Dipotong otomatis tiap ganti bulan.                                    |
 | **Bunga Hutang**      | 3% dari total Hutang / bulan **[v1.12]** | Mendekati batas OJK 2026 untuk pinjaman konsumtif (0,1% per hari). Dipotong dari Kekayaan saat ganti bulan; jika Kekayaan kurang, kekurangannya menjadi Hutang (aturan transaksi #1). |
 | **Limit Hutang**      | Rp 25.000.000 total                      | Batas Bangkrut: Hutang lebih dari angka ini saat dicek di Fase Pembalikan berarti tereliminasi (1.4). Bukan batas pinjaman **[v1.12]**.                                               |
 
-Sisa gaji bersih per bulan hanya sekitar **Rp 1.130.000** (±20% dari gaji), sama proporsinya dengan versi sebelumnya. Biaya Hidup Wajib adalah **asumsi desain** (kisaran sumber: kos Rp1-4 juta, makan Rp1,3-2 juta, transport dan utilitas ratusan ribu) dan boleh disesuaikan.
+Sisa gaji bersih per bulan hanya sekitar **Rp 530.000** (±9% dari gaji) **[v1.15, sebelumnya Rp1.130.000]**. Biaya Hidup Wajib adalah **asumsi desain** hasil simulasi keseimbangan (`docs/audit/BALANCE_REPORT.md`) (kisaran sumber: kos Rp1-4 juta, makan Rp1,3-2 juta, transport dan utilitas ratusan ribu) dan boleh disesuaikan.
+
+**Tekanan bulanan [v1.15]:** setiap ganti bulan, Level Stress **+1** untuk semua pemain hidup (batas 10), setelah gaji, Biaya Hidup Wajib, dan bunga. Tampil sebagai baris "Tekanan bulanan" di popup Ganti Bulan. Bulan Januari tidak kena karena tidak ada ganti bulan. Total tekanan di satu game: 11 poin Level Stress yang harus dipulihkan lewat petak, Event Tanggal, atau lunas Hutang.
 
 **Stress Hutang [v1.12]:** setiap kali total Hutang naik **melewati** kelipatan Rp5.000.000 (lebih dari Rp5 juta, Rp10 juta, Rp15 juta, dan seterusnya), Level Stress +1. Hutang tepat di kelipatan belum dihitung. Satu transaksi yang melewati dua kelipatan memberi +2. Jika Hutang turun lalu naik melewati kelipatan yang sama lagi, Level Stress +1 lagi. Contoh: Hutang Rp4.500.000 naik Rp6.000.000 menjadi Rp10.500.000, melewati Rp5 juta dan Rp10 juta, sehingga Level Stress +2.
 
@@ -162,14 +164,15 @@ Contoh: Kekayaan Rp300.000 dan Hutang Rp4.800.000, lalu menginjak petak dengan e
 Ganti bulan terjadi di Fase Kalender dan tampil sebagai **popup Ganti Bulan** ke semua pemain bersamaan:
 
 1. Gaji masuk (+Rp 5.730.000)
-2. Biaya Hidup Wajib dipotong (-Rp 4.600.000)
+2. Biaya Hidup Wajib dipotong (-Rp 5.200.000) **[v1.15]**
 3. Bunga Hutang dipotong (3% dari Hutang)
-4. Popup menampilkan rincian 1-3 dan Kekayaan baru. Jika Hutang lebih dari 0, popup juga berisi **slider Bayar Hutang** (Rp0 sampai `min(Kekayaan, Hutang)`). Popup ini tampil bersama popup awal ronde lain dengan satu hitung mundur bersama (4.2): **15 detik** bagi pemain berhutang (popup bertag "Butuh keputusanmu!" dan tanpa tombol X). Waktu habis atau pemain putus = bayar Rp0. Jika Hutang 0, popup tampil tanpa slider sebagai informasi (ada tombol X). Popup ditutup lebih cepat jika semua keputusan sudah dijawab. Jika tidak ada keputusan sama sekali, hitung mundur 8 detik **[v1.14, menggantikan jeda sekitar 3 detik dari v1.12]**. Pemain yang berhutang tetapi Kekayaannya Rp0 tetap ditunggu seperti pemain berhutang lain; ia bisa menutup popup lebih cepat dengan membayar Rp0 **[v1.13]**.
-5. Jika pembayaran membuat Hutang **lunas** (dari lebih dari 0 menjadi 0), Level Stress -2.
+4. Tekanan bulanan: Level Stress +1 (batas 10) **[v1.15]**
+5. Popup menampilkan rincian 1-4 dan Kekayaan baru. Jika Hutang lebih dari 0, popup juga berisi **slider Bayar Hutang** (Rp0 sampai `min(Kekayaan, Hutang)`). Popup ini tampil bersama popup awal ronde lain dengan satu hitung mundur bersama (4.2): **15 detik** bagi pemain berhutang (popup bertag "Butuh keputusanmu!" dan tanpa tombol X). Waktu habis atau pemain putus = bayar Rp0. Jika Hutang 0, popup tampil tanpa slider sebagai informasi (ada tombol X). Popup ditutup lebih cepat jika semua keputusan sudah dijawab. Jika tidak ada keputusan sama sekali, hitung mundur 8 detik **[v1.14, menggantikan jeda sekitar 3 detik dari v1.12]**. Pemain yang berhutang tetapi Kekayaannya Rp0 tetap ditunggu seperti pemain berhutang lain; ia bisa menutup popup lebih cepat dengan membayar Rp0 **[v1.13]**.
+6. Jika pembayaran membuat Hutang **lunas** (dari lebih dari 0 menjadi 0), Level Stress -2.
 
 Doom Spending, Bangkrut, dan Burnout tidak dicek di sini, tetapi di Fase Pembalikan (4.2).
 
-**Jadwal ganti bulan Multiplayer [v1.8]:** ganti bulan terjadi **11 kali**, di awal Langkah 3, 5, 7, ..., 23 (1 Februari sampai 1 Desember), pada Fase Kalender. Bulan Januari memakai Kekayaan awal Rp7.500.000 tanpa gaji dan tanpa Biaya Hidup Wajib. Tidak ada proses ganti bulan setelah Langkah 24. Skor akhir dihitung setelah Fase Pembalikan ronde terakhir **[v1.12]**.
+**Jadwal ganti bulan Multiplayer [v1.8]:** ganti bulan terjadi **11 kali**, di awal Langkah 3, 5, 7, ..., 23 (1 Februari sampai 1 Desember), pada Fase Kalender. Bulan Januari memakai Kekayaan awal Rp7.500.000 tanpa gaji, tanpa Biaya Hidup Wajib, dan tanpa Tekanan bulanan. Tidak ada proses ganti bulan setelah Langkah 24. Skor akhir dihitung setelah Fase Pembalikan ronde terakhir **[v1.12]**.
 
 ### 2.5 Doom Spending
 
@@ -371,6 +374,8 @@ Cara kerjanya:
 | **Zonk** | Konsekuensi negatif. Beberapa varian per tumpukan kategori.                  |
 | **Aman** | Tidak terjadi apa-apa tambahan (hanya teks suasana).                         |
 | **Hoki** | Bonus kecil. Peluang tetap 10% di semua petak.                               |
+
+**Pengali Zonk [v1.15]:** semua efek Realita yang hasilnya **Zonk** (varian tumpukan maupun Zonk Musim) dikali **2**: nominal Kekayaan/Hutang (dibulatkan ke Rp50.000), Kesehatan, dan Level Stress. Contoh: "Bos marah" (Level Stress +3, Kesehatan -2) menjadi Level Stress +6, Kesehatan -4; "Motor Mogok Terendam Banjir" (Kekayaan -Rp500.000, Level Stress +1) menjadi Kekayaan -Rp1.000.000, Level Stress +2. Angka yang tertulis di tabel Realita di bawah dan di katalog adalah nilai dasar. Efek Aman dan Hoki, Rencana petak, dan Event Tanggal tidak dikali (ukuran efek Realita secara umum tetap 1×).
 
 Jenis hasil dan variannya **diundi saat heksa dipilih**, memakai Beban Peringkat 1, Musim, dan imunitas pada saat itu (sama dengan ikon risiko yang dilihat pemain), lalu **dibuka di Fase Pembalikan** dan terlihat semua pemain **[v1.12]**. Struktur tumpukan ada di Bagian 5; isi varian ditulis pada tahap konten berikutnya **[v1.14]**.
 
@@ -674,6 +679,7 @@ Skor Kesejahteraan = (Poin Keuangan + Poin Kesehatan + Poin Ketenangan) / 3
 - Harta Bersih Rp25.000.000 atau lebih = 100 poin. Harta Bersih -Rp25.000.000 atau kurang = 0 poin. Uang di atas Harta Bersih Rp25 juta tidak menambah skor.
 - Skor Kesejahteraan berada di rentang 0-100. Disimpan sebagai angka desimal, ditampilkan dibulatkan ke bilangan bulat _(asumsi)_.
 - Skor awal: Harta Bersih Rp7.500.000 (65 poin), Kesehatan 10 (100), Level Stress 0 (100) = **88**.
+- **[v1.15]** Pembagi Rp500.000 tidak berubah (dicoba sampai Rp1.500.000 di simulasi; tidak dipilih). Dengan Biaya Hidup, Tekanan bulanan, dan pengali Zonk baru, simulasi bot di meja campuran memberi skor rata-rata sekitar 61-64 (target 55-70). Skor awal tetap 88, tetapi angka ini turun cepat sepanjang game.
 - Modifier Kesehatan dan Stress versi lama (penalti -50%, bonus +20%) dihapus.
 
 #### Simulasi Skor: 3 Skenario **[v1.12]**
@@ -859,6 +865,19 @@ Bagian ini mengatur apa yang terjadi sebelum, selama, dan sesudah game Multiplay
 
 ## 10. Ringkasan Revisi
 
+### v1.15 (angka keseimbangan hasil simulasi bot)
+
+Angka diukur di engine sungguhan dengan tiga jenis bot (cerdas, acak, pengambil risiko), 500 game per jumlah pemain; laporan lengkap di `docs/audit/BALANCE_REPORT.md`. Aturan v1.14 menghasilkan skor sekitar 80, eliminasi di bawah 3%, dan Doom di bawah 5%, jauh dari target.
+
+| # | Keputusan | Bagian |
+|---|---|---|
+| 1 | Biaya Hidup Wajib Rp4.600.000 menjadi Rp5.200.000 (sisa gaji bersih Rp530.000 per bulan) | 2.3, 2.4 |
+| 2 | Tekanan bulanan: Level Stress +1 setiap ganti bulan, tampil sebagai baris "Tekanan bulanan" di popup Ganti Bulan | 2.3, 2.4 |
+| 3 | Pengali Zonk 2: efek Realita yang hasilnya Zonk dikali 2 (Aman dan Hoki tetap 1×) | 1.3, 4.4 |
+| 4 | Pembagi Poin Keuangan tetap Rp500.000; ukuran efek Realita umum tetap 1× | 6.2 |
+
+Hasil meja campuran bot (skor / eliminasi / Doom pemain): 2 pemain 64,0 / 9,8% / 26,4%; 3 pemain 62,8 / 8,3% / 28,0%; 4 pemain 60,9 / 10,6% / 32,6%. Skor dan Doom masuk target (skor 55-70, Doom 25-40%); eliminasi sedikit di bawah 10% untuk 2 dan 3 pemain. Angka ini hasil bot dan belum diuji dengan pemain nyata.
+
 ### v1.14 (keputusan dari playtest internal dan revisi katalog)
 
 | # | Keputusan | Bagian |
@@ -874,7 +893,7 @@ Bagian ini mengatur apa yang terjadi sebelum, selama, dan sesudah game Multiplay
 | 9 | Papan 3D (Three.js); sebutan papan datar lama dihapus dari dokumen | Seluruh dokumen |
 | 10 | Room uji UMR-0099 dan event `dev:finish-game` (hanya pengembangan, di luar aturan game dan di luar 46 event produksi) | 03_REKOMENDASI, API_CONTRACT |
 
-Catatan: Level Stress pasif per Ganti Bulan dan Biaya Hidup baru hanya opsi yang menunggu simulasi (Prompt 16), bukan keputusan.
+Catatan: Level Stress pasif per Ganti Bulan dan Biaya Hidup baru menunggu simulasi; sudah diputuskan di v1.15.
 
 ### v1.13 (keputusan selama migrasi kode G1-G7)
 
@@ -1050,14 +1069,14 @@ Aturan inti game (Bagian 2 sampai 6) **tidak berubah** dari v1.6.
 - **Bonus lunas (v1.12):** Level Stress -2 saat lunas bisa diulang (pinjam kecil lalu langsung dilunasi). Pantau saat playtest.
 - **Pengali 1× (v1.12):** total dampak petak sepanjang 24 langkah lebih kecil dari desain sebelumnya. Wajib dicek dengan simulasi bot sebelum angka dikunci.
 - **Mekanisme Tumpukan Realita:** jenis hasil tetap ditentukan dulu lewat peluang Zonk, lalu varian diambil acak. Dengan begitu rumus Beban Peringkat 1 dan Musim tetap berlaku.
-- **Biaya Hidup Rp4.600.000, nilai ×5, ambang gelar, dan angka Ajakan** adalah usulan awal.
+- **Biaya Hidup Rp5.200.000 [v1.15], nilai ×5, ambang gelar, dan angka Ajakan** adalah usulan awal; Biaya Hidup, Tekanan bulanan, dan pengali Zonk 2 hasil simulasi bot, belum diuji pemain nyata.
 - Estimasi durasi Multiplayer (1.3) belum diuji. Timer 60 detik melewati target 30 menit untuk 4 pemain.
 - **Imunitas Sakit (v1.5):** hanya menghapus bonus +10 poin persen dan Zonk Musim Sakit. Zonk bawaan petak yang mengurangi Kesehatan tetap bisa terjadi.
 - **Heksa menyala (v1.6):** 3 heksa diundi di awal Fase Pilihan tiap pemain, jadi detail hanya bisa dibuka di giliran sendiri (tidak bisa mengintip saat menunggu). Jika Timer habis, heksa dipilih acak dari 3 yang menyala. Bobot undian sama untuk semua heksa yang bisa dimasuki.
 - **Jalan Buntu (v1.6):** lompatan menggantikan langkah biasa (menghabiskan langkah) dan petak tujuan dijalankan. Sebelumnya tertulis "tidak menghabiskan langkah"; ubah jika maksudnya berbeda.
 - **Jadwal Petak Emas (v1.6, diubah v1.14):** diubah ke Langkah 5, 9, 13, 17, 21 supaya tiap Petak Emas benar-benar bertahan 4 ronde (Langkah 1 dihapus di v1.14, jadi 5 kali). Jadwal lama (3, 7, ..., 23) membuat Petak Emas terakhir hanya sempat 2 ronde. Posisi Petak Emas dipindah ke sisi dalam di v1.12.
 - **Isi papan (v1.6, diubah v1.14):** urutan acak seeded dari 117 petak, diulang dari awal jika heksa lebih banyak. Aturan agar jenis tidak menumpuk di satu area belum dibuat.
-- **Level Stress pasif per Ganti Bulan dan Biaya Hidup baru (v1.14):** hanya opsi yang menunggu simulasi (Prompt 16), belum menjadi aturan.
+- **Level Stress pasif per Ganti Bulan dan Biaya Hidup baru (v1.14):** diputuskan di v1.15 (Tekanan bulanan +1, Biaya Hidup Rp5.200.000).
 - **Simulasi skor (6.2):** angka skenario adalah ilustrasi, bukan hasil playtest. Rumus diganti di v1.12.
 
 ### v1.3

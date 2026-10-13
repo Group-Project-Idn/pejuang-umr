@@ -434,11 +434,11 @@ describe("chooseHex", () => {
     const revealed = reveal(chosen.state);
     const resolved = ofType(revealed.events, "tile:resolved")[0]!.payload;
     expect(resolved.outcome).toBe("zonk");
-    expect(resolved.effects).toContainEqual({ stat: "wealth", delta: -750_000 });
+    expect(resolved.effects).toContainEqual({ stat: "wealth", delta: -1_500_000 }); // Zonk 750rb x2 (v1.15)
     expect(resolved.round).toBe(2);
     const player = revealed.state.players[first]!;
     expect(player.status.wealth).toBe(0);
-    expect(player.status.debt).toBe(25_750_000);
+    expect(player.status.debt).toBe(26_500_000);
     expect(player.eliminated).toBe(true);
     expect(player.eliminatedReason).toBe("bankrupt");
     expect(ofType(revealed.events, "player:eliminated")[0]!.payload.reason).toBe("bankrupt");

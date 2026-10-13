@@ -213,7 +213,7 @@ export function startRound(state: GameState, random: RandomSource): RoundResult 
     for (const playerId of state.baseTurnOrder) {
       const player = roundPlayers[playerId];
       if (!player || player.eliminated) continue;
-      const result = processMonthChange(player.status, calendar.month);
+      const result = processMonthChange(player.status, calendar.month, state.balance);
       const hasDebt = result.status.debt > 0;
       if (hasDebt) debtorIds.push(playerId);
       const payload = {

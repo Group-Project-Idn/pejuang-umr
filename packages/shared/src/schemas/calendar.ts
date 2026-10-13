@@ -45,7 +45,9 @@ export const CalendarResultPayloadSchema = z.strictObject({
 export const MonthSummaryPayloadSchema = z.strictObject({
   month: z.number().int().min(1).max(12),
   salary: z.literal(5_730_000),
-  livingCost: z.literal(4_600_000),
+  livingCost: z.literal(5_200_000),
+  /** Tekanan bulanan (Level Stress pasif per Ganti Bulan, GDD v1.15). */
+  passiveStress: z.number().int().min(0).max(1),
   interest: z.number().int(),
   interestAddedToDebt: z.number().int(),
   /** Popup serentak awal ronde (GDD 4.2 v1.14): sama dengan batchId calendar:event di ronde yang sama. */

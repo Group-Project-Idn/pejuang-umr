@@ -33,11 +33,11 @@ describe("resolveReality (GDD 4.4)", () => {
     expect(result.seasonal).toBe(false);
     expect(result.zonkPct).toBe(30);
 
-    // "Bos marah": stress +3, health -2 apa adanya (GDD 1.3 v1.12).
+    // "Bos marah": stress +3, health -2, dikali pengali Zonk 2 (GDD 4.4 v1.15).
     expect(result.text).toBe("Bos marah");
     expect(result.effects).toEqual([
-      { stat: "stress", delta: 3 },
-      { stat: "health", delta: -2 },
+      { stat: "stress", delta: 6 },
+      { stat: "health", delta: -4 },
     ]);
     expect(result.variantId).toBe("overtime-project-zonk-1");
   });
@@ -102,11 +102,11 @@ describe("resolveReality - Zonk Musim (GDD 3.4, 4.5)", () => {
     );
     expect(rainyTitles).toContain(result.text);
 
-    // "Motor Mogok Terendam Banjir": wealth -500rb, stress +1 apa adanya.
+    // "Motor Mogok Terendam Banjir": wealth -500rb, stress +1, dikali pengali Zonk 2 (GDD 4.4 v1.15).
     expect(result.text).toBe("Motor Mogok Terendam Banjir");
     expect(result.effects).toEqual([
-      { stat: "wealth", delta: -500_000 },
-      { stat: "stress", delta: 1 },
+      { stat: "wealth", delta: -1_000_000 },
+      { stat: "stress", delta: 2 },
     ]);
     expect(result.variantId).toBe("rainy-flooded-motorbike");
   });
