@@ -147,11 +147,11 @@ Peluang Zonk (dasar +15 +10, maksimal 80), Hoki tetap 10%, Zonk Musim 50% di kat
 | W4 | Rendah | Warna Tailwind bawaan (stone/amber) dan latar terang di game, bukan token desain. | apps/web/src/app/globals.css:3-6; apps/web/src/app/page.tsx:154 | Token `colors.*`, dark mode default (02_DESIGN Colors aturan 1; Catatan Implementasi) |
 | W5 | Rendah | Tipe `HealthResponse` ditulis manual tanpa skema Zod di shared. | apps/web/src/lib/api-client.ts:9-14 | Tipe dari skema (.clinerules:7) |
 
-### 1.13 Web: Papan heksa 2D
+### 1.13 Web: Papan heksa datar
 
 | # | Tingkat | Temuan | Lokasi (file:baris) | Seharusnya (dokumen + bagian) |
 | --- | --- | --- | --- | --- |
-| B1 | Tinggi | Papan dirender **3D** dengan Three.js (`Canvas`, `OrbitControls`, `RoundedBox`, bayangan), diberi label "Papan permainan heksagonal 3D", dengan petunjuk "drag untuk memutar · scroll untuk zoom". Detail library ada di Bagian 4. | apps/web/src/app/components/game/GameBoard.tsx:5-8, 180-187, 201-209; apps/web/src/app/components/game/GameInterface.tsx:126 | "Papan dirender 2D (heksa datar tampak atas dengan karakter sprite), bukan 3D" (GDD baris 13; v1.7 #3); 03 §1; 05 §4 |
+| B1 | Tinggi | Papan dirender **3D** dengan Three.js (`Canvas`, `OrbitControls`, `RoundedBox`, bayangan), diberi label "Papan permainan heksagonal 3D", dengan petunjuk "drag untuk memutar · scroll untuk zoom". Detail library ada di Bagian 4. | apps/web/src/app/components/game/GameBoard.tsx:5-8, 180-187, 201-209; apps/web/src/app/components/game/GameInterface.tsx:126 | "Papan dirender datar (heksa datar tampak atas dengan karakter sprite), bukan 3D" (GDD baris 13; v1.7 #3); 03 §1; 05 §4 |
 | B2 | Sedang | Pion memakai sprite karakter, bukan pasangan warna dan bentuk. Warna aksen juga tidak cocok: `cream-circle` hijau, `mint-triangle` ungu. | apps/web/src/data/game.ts:16-36; apps/web/src/app/components/game/GameCharacters.tsx:26-31 | Pasangan krem-lingkaran, biru es-kotak, mint-segitiga, salmon-wajik (GDD 9.3 [v1.8]; 02_DESIGN Colors aturan 6) |
 | B3 | Sedang | Skor Sementara ditampilkan sebagai "… poin". | apps/web/src/app/components/game/Scoreboard.tsx:47 | Skor Sementara dalam Rupiah (API_CONTRACT §3 `ScoreRow`), format Rupiah (02_DESIGN Typography) |
 | B4 | Sedang | Empat PNG karakter disalin dari repo lain yang tidak punya lisensi. Izin redistribusi belum dikonfirmasi. | apps/web/public/characters/README.md:12-14; apps/web/public/characters/*.png | Risiko hak cipta sebelum rilis publik (dicatat sendiri oleh README tersebut) |
@@ -205,7 +205,7 @@ Peluang Zonk (dasar +15 +10, maksimal 80), Hoki tetap 10%, Zonk Musim 50% di kat
 
 | # | Pertentangan | Dokumen A | Dokumen B |
 | --- | --- | --- | --- |
-| I1 | Papan 2D atau 3D | GDD baris 13 dan v1.7 #3 (2D, bukan 3D); 03 §1; 05 §1 dan §4; 04_UI §3 baris 38 ("Tidak perlu Three.js"); CLAUDE.md baris 3 | 02_DESIGN baris 250 ("papan permainan 3D berada di belakangnya") dan baris 262 ("Papan 3D: gaya maket low-poly") |
+| I1 | Papan datar atau 3D | GDD baris 13 dan v1.7 #3 (datar, bukan 3D); 03 §1; 05 §1 dan §4; 04_UI §3 baris 38 ("Tidak perlu Three.js"); CLAUDE.md baris 3 | 02_DESIGN baris 250 ("papan permainan 3D berada di belakangnya") dan baris 262 ("Papan 3D: gaya maket low-poly") |
 | I2 | Game berakhir lebih cepat jika tinggal 1 pemain hidup | GDD 10 v1.9 "Belum diputuskan … engine tetap berjalan sampai Langkah 24" | API_CONTRACT §8 `game:finished` (Aksi) dan §17 #3 ("Ya") |
 | I3 | Nilai Beasiswa Penuh | GDD 5.1 dan 5.2: Rp7.500.000 (nilai Multiplayer, tidak dikali, v1.8) | 04_UI §4.8 varian B: "Kekayaan +Rp10.000.000" |
 | I4 | Alat workspace | 05 §4 dan CLAUDE.md: npm workspaces | 03 §2: `pnpm-workspace.yaml` |
@@ -220,7 +220,7 @@ Peluang Zonk (dasar +15 +10, maksimal 80), Hoki tetap 10%, Zonk Musim 50% di kat
 
 ## 4. Stack di luar daftar
 
-Stack yang terdokumentasi (03 §1, 05 §5): Next.js, React, TypeScript, Tailwind, socket.io dan socket.io-client, zod, vitest, `@types/node`. Render papan 2D dengan DOM/SVG di balik antarmuka `BoardRenderer`, lalu PixiJS jika FPS kurang. Three.js hanya jika kamera 3D memang diinginkan.
+Stack yang terdokumentasi (03 §1, 05 §5): Next.js, React, TypeScript, Tailwind, socket.io dan socket.io-client, zod, vitest, `@types/node`. Render papan datar dengan DOM/SVG di balik antarmuka `BoardRenderer`, lalu PixiJS jika FPS kurang. Three.js hanya jika kamera 3D memang diinginkan.
 
 | Library | Versi | Dipakai di | Fungsi | Bertentangan dengan |
 | --- | --- | --- | --- | --- |
@@ -241,9 +241,9 @@ Ukuran yang terukur dari build saat ini: chunk terbesar apps/web/.next/static/ch
 Langkah:
 1. docs/GDD.md: ubah catatan Platform di baris 13 dan Profil Game, lalu tambah entri revisi (v1.10) yang menyatakan papan 3D dengan sprite karakter. Catatan v1.7 #3 tetap disimpan sebagai riwayat. **Kecil.**
 2. docs/03_REKOMENDASI_Stack_Struktur_dan_Kontrak.md: ubah §1 (Render papan, Three.js) dan §9 baris 192, lalu tambahkan three, @react-three/fiber, dan @react-three/drei ke stack. **Kecil.**
-3. docs/05_PROJECT_STATE.md: ubah §1 "(2D)", §4 Antarmuka baris 49, daftar versi baris 72, dan §7 langkah 4. **Kecil.**
+3. docs/05_PROJECT_STATE.md: ubah §1 (label papan datar), §4 Antarmuka baris 49, daftar versi baris 72, dan §7 langkah 4. **Kecil.**
 4. docs/02_DESIGN.md: baris 250 dan 262 sudah 3D. Selaraskan "Arah Visual Aktual" baris 180 ("papan heksa datar tampak atas"), lalu tambahkan aturan performa (dpr, bayangan, opsi kurangi gerakan) dan fallback saat WebGL tidak tersedia. **Kecil.**
-5. docs/04_UI_Screens_dan_Prompts.md §3 baris 38 dan CLAUDE.md baris 3: ganti "2D" atau "Tidak perlu Three.js". **Kecil.**
+5. docs/04_UI_Screens_dan_Prompts.md §3 baris 38 dan CLAUDE.md baris 3: ganti label papan datar atau "Tidak perlu Three.js". **Kecil.**
 6. Putuskan nasib zustand: dicatat di stack atau dibiarkan tidak dipakai. **Kecil.**
 7. Tambahan teknis yang dibutuhkan agar 3D memenuhi aturan lain di 02_DESIGN: navigasi keyboard Tab/Enter ke heksa di dalam canvas, label pembaca layar, fallback tanpa WebGL, dan uji FPS di Android menengah. **Sedang.**
 
@@ -251,13 +251,13 @@ Konsekuensi:
 - Bundle: chunk three sekitar 255 KB gzip tetap ada. Waktu muat awal di jaringan seluler lebih lama.
 - HP: render WebGL dengan `shadows`, shadow map 1024, `dpr` sampai 1,6, dan `powerPreference: "high-performance"` (GameBoard.tsx:153-154, 203-206) berisiko panas dan boros baterai saat main sekitar 30 menit. Dampak nyata tidak bisa dipastikan tanpa uji perangkat.
 - Kartu yang belum dikerjakan (heksa menyala dan klik Detail Heksa, glow Petak Emas, Heksa Mati retak, animasi Reveal Realita, tooltip istilah, akses keyboard) harus dibangun di dalam scene 3D: raycasting, `Html` drei, dan shader atau material untuk glow. Pekerjaan ini umumnya lebih rumit daripada DOM/SVG.
-- Gambar desain yang sudah dibuat bergaya 2D datar (04_UI §3), sehingga aset visual perlu disesuaikan atau dibuat ulang untuk sudut kamera 3D.
+- Gambar desain yang sudah dibuat bergaya datar (04_UI §3), sehingga aset visual perlu disesuaikan atau dibuat ulang untuk sudut kamera 3D.
 - Pekerjaan yang sudah ada (GameBoard, CharacterSprite, uji data/game.ts) tidak terbuang.
 
-#### Jalur B: ganti ke implementasi sesuai dokumen (papan 2D SVG/DOM)
+#### Jalur B: ganti ke implementasi sesuai dokumen (papan datar SVG/DOM)
 
 Langkah:
-1. Buat renderer 2D (SVG) di balik antarmuka `BoardRenderer` (03 §1) untuk menggantikan apps/web/src/app/components/game/GameBoard.tsx. Gunakan heksa flat-top, 4 state (tertutup, menyala, terbuka, mati), dan ikon kategori. **Sedang.**
+1. Buat renderer datar (SVG) di balik antarmuka `BoardRenderer` (03 §1) untuk menggantikan apps/web/src/app/components/game/GameBoard.tsx. Gunakan heksa flat-top, 4 state (tertutup, menyala, terbuka, mati), dan ikon kategori. **Sedang.**
 2. Ganti apps/web/src/app/components/game/GameCharacters.tsx dan CharacterSprite.tsx dengan pion SVG (`<image>` sprite PNG atau bentuk warna) beserta transisi CSS untuk gerak pion. **Kecil sampai sedang.**
 3. apps/web/src/data/game.ts: ganti `hexToWorld` dan ukuran meja dengan `hexToPixel` (axial ke piksel flat-top), lalu perbarui apps/web/src/data/game.test.ts. **Kecil.**
 4. apps/web/src/app/components/game/GameInterface.tsx:126 (petunjuk drag/zoom) dan apps/web/src/app/globals.css (`.board-canvas`): sesuaikan. **Kecil.**
@@ -267,7 +267,7 @@ Langkah:
 Konsekuensi:
 - Bundle: chunk three sekitar 255 KB gzip hilang. Besar penghematan pastinya baru diketahui setelah build ulang.
 - HP: SVG dengan sekitar 127 elemen umumnya ringan dan tidak memerlukan GPU khusus. 03 §1 menyediakan jalan ke PixiJS jika nanti FPS kurang.
-- Kartu yang belum dikerjakan lebih mudah: heksa SVG bisa diberi `tabIndex`, `aria-label`, dan event klik langsung untuk Detail Heksa, akses keyboard, dan tooltip. Glow, retak, dan animasi cukup dengan CSS. Hasilnya cocok dengan gambar desain 2D yang sudah ada.
+- Kartu yang belum dikerjakan lebih mudah: heksa SVG bisa diberi `tabIndex`, `aria-label`, dan event klik langsung untuk Detail Heksa, akses keyboard, dan tooltip. Glow, retak, dan animasi cukup dengan CSS. Hasilnya cocok dengan gambar desain datar yang sudah ada.
 - Rotasi dan zoom kamera, bayangan, serta tampilan meja 3D hilang. Komponen 3D yang sudah ditulis (sekitar 400 baris) tidak terpakai.
 
 ---
@@ -283,7 +283,7 @@ Urutan dari yang paling mendesak. Semua temuan Tinggi dan Sedang, satu baris per
 | 3 | G1 | Tinggi | Putar urutan giliran dari urutan bulan sebelumnya yang sudah tanpa pemain tereliminasi | Engine: Giliran, kalender, musim |
 | 4 | G2 | Tinggi | Cek Burnout Total setelah efek Event Tanggal | Engine: Giliran, kalender, musim |
 | 5 | T1 | Tinggi | Jangan percaya `X-Forwarded-For` kecuali di balik proxy yang dikonfigurasi | Server: Sesi tamu (REST) |
-| 6 | B1 | Tinggi | Putuskan Jalur A atau Jalur B (Bagian 4) | Web: Papan heksa 2D |
+| 6 | B1 | Tinggi | Putuskan Jalur A atau Jalur B (Bagian 4) | Web: Papan heksa datar |
 | 7 | M6 | Sedang | Simpan `GameState` engine lengkap (`createGame`), kirim `player:status` awal, isi `me.status` di snapshot | Server: Room (lanjutan, sebelum kartu game loop server) |
 | 8 | S1 | Sedang | Samakan port server di config, .env.example, CI, dan dokumen | Setup: Monorepo dan uji sambungan |
 | 9 | M3 | Sedang | Bentuk respons `GET /api/v1/rooms/:code` sesuai kontrak, tanpa daftar pemain; perbarui tes | Server: Room |
@@ -296,7 +296,7 @@ Urutan dari yang paling mendesak. Semua temuan Tinggi dan Sedang, satu baris per
 | 16 | W2 | Sedang | Peta kode error ke teks UI API_CONTRACT §15 | Web: Fondasi UI dan klien socket |
 | 17 | T2 | Sedang | Tolak ubah nama saat pemain berada di Room atau game | Server: Sesi tamu (REST) |
 | 18 | M7 | Sedang | Rate limit event Socket.IO | Server: Room |
-| 19 | B2 | Sedang | Pion dengan pasangan warna dan bentuk tetap | Web: Papan heksa 2D |
-| 20 | B3 | Sedang | Tampilkan Skor Sementara dalam format Rupiah | Web: Papan heksa 2D |
-| 21 | B4 | Sedang | Konfirmasi lisensi aset karakter atau ganti aset | Web: Papan heksa 2D |
+| 19 | B2 | Sedang | Pion dengan pasangan warna dan bentuk tetap | Web: Papan heksa datar |
+| 20 | B3 | Sedang | Tampilkan Skor Sementara dalam format Rupiah | Web: Papan heksa datar |
+| 21 | B4 | Sedang | Konfirmasi lisensi aset karakter atau ganti aset | Web: Papan heksa datar |
 | 22 | O1 | Sedang | Lengkapi Home dan Lobby sesuai GDD 9.1-9.2 | Web: Home |

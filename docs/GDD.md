@@ -1,16 +1,16 @@
 # Pejuang UMR: Jakarta Survival
 
-### Game Design Document (GDD) Ringkas - v1.13
+### Game Design Document (GDD) Ringkas - v1.14
 
 > **Logline:** Game simulasi kehidupan berbasis papan heksagonal di mana pemain harus bertahan hidup selama 12 bulan dengan menyeimbangkan uang, kesehatan, dan kewarasan mental di tengah kejamnya realita finansial Jakarta.
 
-Bagian yang baru atau berubah ditandai **[v1.13]** (perubahan terbaru), **[v1.12]**, **[v1.11]**, **[v1.10]**, **[v1.9]**, **[v1.8]**, **[v1.7]**, atau **[v1.6]**. Ringkasan perubahan dan daftar asumsi ada di Bagian 10. Dokumen ini adalah versi terkonsolidasi: aturan game dari v1.6, scope MVP dan alur Room dari v1.7, dan ide dari konsep awal "Jatah" yang dicatat sebagai backlog.
+Bagian yang baru atau berubah ditandai **[v1.14]** (perubahan terbaru), **[v1.13]**, **[v1.12]**, **[v1.11]**, **[v1.10]**, **[v1.9]**, **[v1.8]**, **[v1.7]**, atau **[v1.6]**. Ringkasan perubahan dan daftar asumsi ada di Bagian 10. Dokumen ini adalah versi terkonsolidasi: aturan game dari v1.6, scope MVP dan alur Room dari v1.7, dan ide dari konsep awal "Jatah" yang dicatat sebagai backlog.
 
 ### Konsep Inti: Petak adalah Kartu **[v1.6]**
 
 Pejuang UMR bukan game kartu biasa. **Petak heksagon itu sendiri adalah kartunya.** Tidak ada deck yang ditarik, tidak ada kartu di tangan, dan tidak ada kartu yang dibuang. Sejak permainan dimulai, setiap heksa di papan sudah berisi satu petak (kartu) tertutup. Di tiap giliran, **3 heksa di sekeliling pion menyala secara acak**. Pemain mengklik heksa yang menyala untuk membuka popup detail, lalu menekan **Pilih** untuk melangkah ke sana **[v1.12]**. Heksa yang dipilih menentukan efek sekaligus arah. Satu-satunya kartu yang dipegang pemain adalah **Kartu Ajakan** (4.8).
 
-**Platform:** web app responsif, dimainkan di browser pada HP, tablet, dan desktop. Papan dirender **3D** (meja dan heksa low-poly dengan karakter sprite, kamera bisa diputar dan di-zoom) **[v1.10]**. Fokus utama MVP adalah web di desktop, tetapi tampilan diusahakan responsif sebaik mungkin di HP dan tablet **[v1.12]**. Perangkat atau browser tanpa WebGL (teknologi browser untuk grafis 3D) tidak bisa memainkan game dan mendapat pemberitahuan bahwa perangkatnya belum didukung. Tidak ada papan cadangan. Mode hemat, akses keyboard, dan label pembaca layar ditunda (bukan prioritas MVP) **[v1.12]**. Keputusan sebelumnya (2D, v1.7) diganti karena papan 3D sudah dibangun dan hasilnya dinilai menarik.
+**Platform:** web app responsif, dimainkan di browser pada HP, tablet, dan desktop. Papan dirender **3D** (meja dan heksa low-poly dengan karakter sprite, kamera bisa diputar dan di-zoom) **[v1.10]**. Fokus utama MVP adalah web di desktop, tetapi tampilan diusahakan responsif sebaik mungkin di HP dan tablet **[v1.12]**. Perangkat atau browser tanpa WebGL (teknologi browser untuk grafis 3D) tidak bisa memainkan game dan mendapat pemberitahuan bahwa perangkatnya belum didukung. Tidak ada papan cadangan. Mode hemat, akses keyboard, dan label pembaca layar ditunda (bukan prioritas MVP) **[v1.12]**. Keputusan sebelumnya (papan datar, v1.7) diganti karena papan 3D sudah dibangun dan hasilnya dinilai menarik.
 
 ### Scope MVP **[v1.7]**
 
@@ -85,7 +85,7 @@ Target Multiplayer 4 pemain adalah **sekitar 30 menit** pada Timer 30 detik. Kar
 | 3      | 72                       | ±19 + 3 = **±22 menit**                  | ±36 + 3 = **±39 menit**                  |
 | 4      | 96                       | ±26 + 3 = **±29 menit**                  | ±48 + 3 = **±51 menit**                  |
 
-3 menit tambahan = pembuka dan layar skor. Timer 60 detik adalah mode **Santai** dan melewati target 30 menit untuk 4 pemain. Event Tanggal (6 kali, maksimal 15 detik) dan popup Ganti Bulan (11 kali, maksimal 15 detik), keduanya serentak untuk semua pemain, menambah sekitar 3-5 menit. Fase Pembalikan (animasi ±2-3 detik per pemain tiap ronde) menambah sekitar 3-5 menit untuk 4 pemain. Ajakan (4.8) berjalan bersamaan dengan giliran dan tidak menjeda timer. Timer 15 detik memperpendek durasi, tetapi angkanya belum diestimasi **[v1.12]**. Tanpa tarik kartu, waktu per giliran mungkin lebih singkat dari estimasi. Semua perlu playtest.
+3 menit tambahan = pembuka dan layar skor. Timer 60 detik adalah mode **Santai** dan melewati target 30 menit untuk 4 pemain. Popup awal ronde (Ganti Bulan, Event Tanggal, notifikasi musim, Petak Emas, Beban Peringkat 1) tampil serentak dalam satu grid dengan satu hitung mundur: 8 detik jika hanya informasi, 15 detik jika ada keputusan (4.2) **[v1.14]**. Kartu hasil pribadi di akhir ronde (4.2) ikut menambah beberapa detik. Keduanya menambah sekitar 3-5 menit. Fase Pembalikan (animasi ±2-3 detik per pemain tiap ronde) menambah sekitar 3-5 menit untuk 4 pemain. Ajakan (4.8) berjalan bersamaan dengan giliran dan tidak menjeda timer. Timer 15 detik memperpendek durasi, tetapi angkanya belum diestimasi **[v1.12]**. Tanpa tarik kartu, waktu per giliran mungkin lebih singkat dari estimasi. Semua perlu playtest.
 
 **Pengali Multiplayer dihapus [v1.12]:** semua nilai (petak, Realita, Zonk Musim, Event Tanggal, Ajakan, Petak Emas, Doom Spending) dipakai apa adanya (1×), sama di Solo dan Multiplayer. Batas ±3 per efek juga dihapus. Karena Multiplayer hanya 24 langkah, total dampak petak sepanjang game lebih kecil daripada Solo, sehingga angka wajib dicek dengan simulasi bot sebelum dikunci.
 
@@ -164,7 +164,7 @@ Ganti bulan terjadi di Fase Kalender dan tampil sebagai **popup Ganti Bulan** ke
 1. Gaji masuk (+Rp 5.730.000)
 2. Biaya Hidup Wajib dipotong (-Rp 4.600.000)
 3. Bunga Hutang dipotong (3% dari Hutang)
-4. Popup menampilkan rincian 1-3 dan Kekayaan baru. Jika Hutang lebih dari 0, popup juga berisi **slider Bayar Hutang** (Rp0 sampai `min(Kekayaan, Hutang)`). Batas waktu **15 detik**, ditampilkan di popup. Waktu habis atau pemain putus = bayar Rp0. Jika Hutang 0, popup tampil tanpa slider. Popup ditutup lebih cepat jika semua pemain yang berhutang sudah membayar. Jika tidak ada satu pun pemain yang berhutang, popup hanya ringkasan dan game lanjut setelah sekitar 3 detik **[v1.12]**. Pemain yang berhutang tetapi Kekayaannya Rp0 tetap ditunggu seperti pemain berhutang lain; ia bisa menutup popup lebih cepat dengan membayar Rp0 **[v1.13]**.
+4. Popup menampilkan rincian 1-3 dan Kekayaan baru. Jika Hutang lebih dari 0, popup juga berisi **slider Bayar Hutang** (Rp0 sampai `min(Kekayaan, Hutang)`). Popup ini tampil bersama popup awal ronde lain dengan satu hitung mundur bersama (4.2): **15 detik** bagi pemain berhutang (popup bertag "Butuh keputusanmu!" dan tanpa tombol X). Waktu habis atau pemain putus = bayar Rp0. Jika Hutang 0, popup tampil tanpa slider sebagai informasi (ada tombol X). Popup ditutup lebih cepat jika semua keputusan sudah dijawab. Jika tidak ada keputusan sama sekali, hitung mundur 8 detik **[v1.14, menggantikan jeda sekitar 3 detik dari v1.12]**. Pemain yang berhutang tetapi Kekayaannya Rp0 tetap ditunggu seperti pemain berhutang lain; ia bisa menutup popup lebih cepat dengan membayar Rp0 **[v1.13]**.
 5. Jika pembayaran membuat Hutang **lunas** (dari lebih dari 0 menjadi 0), Level Stress -2.
 
 Doom Spending, Bangkrut, dan Burnout tidak dicek di sini, tetapi di Fase Pembalikan (4.2).
@@ -198,7 +198,7 @@ Layar permainan selalu menampilkan: tanggal dan bulan berjalan, nomor langkah (x
 
 ### 3.3 Event Tanggal
 
-Saat langkah mencapai periode sebuah event, **popup Event Tanggal muncul ke semua pemain secara bersamaan** di awal ronde (Fase Kalender), tanpa menunggu giliran masing-masing **[v1.6]**. Tiap pemain memilih **ikut atau tidak** secara mandiri dalam **15 detik** (terpisah dari Timer Giliran, batas waktu ditampilkan di popup). Jika di ronde yang sama ada ganti bulan, popup Event Tanggal muncul setelah popup Ganti Bulan selesai **[v1.12]**. Jika waktu habis, otomatis **tidak ikut**. Keduanya punya konsekuensi. Efek langsung berlaku dan **tidak menghabiskan langkah**: setelah memilih, pemain tetap melangkah seperti biasa di gilirannya. Di Solo tidak ada batas waktu.
+Saat langkah mencapai periode sebuah event, **popup Event Tanggal muncul ke semua pemain secara bersamaan** di awal ronde (Fase Kalender), tanpa menunggu giliran masing-masing **[v1.6]**. Tiap pemain memilih **ikut atau tidak** secara mandiri dalam **15 detik** (terpisah dari Timer Giliran, batas waktu ditampilkan di popup). Popup Event Tanggal tampil bersamaan dengan popup awal ronde lain (Ganti Bulan dan seterusnya) dalam satu grid dan satu hitung mundur bersama (4.2), bertag "Butuh keputusanmu!" dan tanpa tombol X **[v1.14, menggantikan urutan berurutan dari v1.12]**. Jika waktu habis, otomatis **tidak ikut**. Keduanya punya konsekuensi. Efek langsung berlaku dan **tidak menghabiskan langkah**: setelah memilih, pemain tetap melangkah seperti biasa di gilirannya. Di Solo tidak ada batas waktu.
 
 Nilai di bawah sudah disesuaikan ke skala gaji Jakarta (×5 dari v1.3, dibulatkan) dan **tanpa Poin Sosial [v1.4]**.
 
@@ -257,7 +257,7 @@ Semua pemain berjalan di **satu papan heksagon bersama**. Papan tersusun dari he
 
 **Isi papan:**
 
-- Di awal permainan, sistem mengisi semua heksa (kecuali heksa titik awal) dengan jenis petak acak dari katalog (Bagian 5), bobot sama untuk tiap jenis. Papan Multiplayer **selalu 127 heksa** untuk 2-4 pemain **[v1.12]**, berisi 127 dikurangi jumlah titik awal (**123-125 petak**), jadi tiap jenis dari 12 petak biasa muncul sekitar 10 kali.
+- Di awal permainan, sistem mengisi semua heksa (kecuali heksa titik awal) dari katalog **117 petak biasa** (Bagian 5) **[v1.14]**. Urutan petak diacak dengan seed, lalu tiap heksa mengambil petak berikutnya dalam urutan itu. Jika heksa lebih banyak dari petak, pengambilan lanjut dari awal urutan yang sama. Papan Multiplayer **selalu 127 heksa** untuk 2-4 pemain **[v1.12]**, berisi 127 dikurangi jumlah titik awal: 4 pemain 123 petak, 3 pemain 124, 2 pemain 125. Jadi tiap petak muncul sekali, dan 6 (4 pemain) sampai 8 (2 pemain) petak pertama dalam urutan muncul dua kali.
 - Petak Emas tidak ada di papan awal. Ia muncul menggantikan isi satu heksa yang belum diinjak (4.7).
 
 | Mode     | Radius | Jumlah heksa | Heksa terpakai (titik awal + langkah) | Tingkat isi akhir |
@@ -294,34 +294,41 @@ Heksa Mati dihapus **[v1.12]**.
 - **Jalan Buntu:** jika semua heksa di sekeliling pion sudah terinjak, pemain mendapat **3 pilihan heksa untuk melompat**, yaitu 3 heksa tertutup terdekat dari posisinya, berapa pun jaraknya (jika jaraknya seri, dipilih acak di antara yang seri; jika tersedia kurang dari 3, semuanya ditampilkan). Detail ketiganya dibuka dengan klik seperti biasa, dan **tidak ada pengambilan kartu**. Pemain memilih satu dan pindah ke sana, **Level Stress +1** (kena macet dan nyasar). Lompatan ini menggantikan langkah biasa pada giliran tersebut, dan petak di heksa tujuan dijalankan seperti biasa (Rencana dan Realita).
 - **Strategi blocking:** pemain boleh sengaja menutup jalur lawan, terutama saat berebut Petak Emas.
 
-### 4.2 Urutan Fase **[v1.12]**
+### 4.2 Urutan Fase **[v1.12, diperbarui v1.14]**
 
 **Di awal ronde (Fase Kalender, untuk semua pemain):**
 
 1. HUD diperbarui. Beban Peringkat 1 ditetapkan dari Skor Sementara terakhir (4.6).
-2. Di awal bulan baru (Langkah 3, 5, ..., 23): popup Ganti Bulan dengan slider Bayar Hutang (2.4).
-3. Jika ada Event Tanggal: popup Event Tanggal (3.3).
-4. Di awal Bulan 1, 3, 5, 7, 9, dan 11: tiap pemain menerima Kartu Ajakan (4.8).
-5. Jika Petak Emas dijadwalkan muncul: Petak Emas muncul dan semua pemain mendapat notifikasi (4.7).
+2. Di awal Bulan 1, 3, 5, 7, 9, dan 11: tiap pemain menerima Kartu Ajakan (4.8).
+3. Jika Petak Emas dijadwalkan muncul: Petak Emas muncul di papan (4.7).
+4. **Popup serentak [v1.14]:** semua popup awal ronde tampil bersamaan dalam **satu grid** dengan **satu hitung mundur bersama**: Ganti Bulan dengan slider Bayar Hutang (2.4, awal Langkah 3, 5, ..., 23), Event Tanggal (3.3), notifikasi musim (3.4), notifikasi Petak Emas (4.7), dan Beban Peringkat 1 (4.6, hanya untuk pemain yang menanggungnya, _asumsi_).
 
-Popup tampil berurutan (Ganti Bulan, lalu Event Tanggal). Giliran pertama dimulai setelah semua pemain menjawab atau waktunya habis.
+**Aturan popup serentak [v1.14]:**
+
+- **Popup yang butuh keputusan** (Bayar Hutang bagi pemain berhutang, pilihan Event Tanggal) diberi tag **"Butuh keputusanmu!"** dan **tanpa tombol X**.
+- **Popup informasi** punya tombol **X**. X hanya menutup popup di layar pemain itu sendiri, tidak memengaruhi hitung mundur atau pemain lain.
+- **Durasi:** jika semua popup hanya informasi, hitung mundur **8 detik**. Jika ada satu keputusan atau lebih, hitung mundur **15 detik**. Selesai lebih cepat jika semua keputusan sudah dijawab.
+- **Waktu habis:** Bayar Hutang = Rp0, Event Tanggal dianggap **Tidak ikut**. Pemain yang putus diperlakukan sama.
+- Giliran pertama dimulai setelah hitung mundur bersama selesai.
+- Aturan ini menggantikan "popup tampil berurutan" (v1.12) dan jeda sekitar 3 detik untuk Ganti Bulan tanpa pemain berhutang (D2).
 
 **Di giliran tiap pemain:**
 
-6. **Fase Pilihan:** Timer Giliran berjalan. 3 heksa di sekeliling pion menyala. Pemain mengklik heksa yang menyala untuk membuka popup detail, lalu menekan **Pilih**. Ajakan hanya bisa dikirim di fase ini, sebelum heksa dipilih (4.8).
-7. **Fase Berjalan:** pion pindah, heksa terbuka untuk semua pemain dengan sisi Rencana, dan efek **Rencana langsung diterapkan**. Hasil Realita sudah diundi saat heksa dipilih (4.4), tetapi masih tersembunyi.
+5. **Fase Pilihan:** Timer Giliran berjalan. 3 heksa di sekeliling pion menyala. Pemain mengklik heksa yang menyala untuk membuka popup detail, lalu menekan **Pilih**. Ajakan hanya bisa dikirim di fase ini, sebelum heksa dipilih (4.8).
+6. **Fase Berjalan:** pion pindah, heksa terbuka untuk semua pemain dengan sisi Rencana, dan efek **Rencana langsung diterapkan**. Hasil Realita sudah diundi saat heksa dipilih (4.4), tetapi masih tersembunyi.
 
 **Di akhir ronde (Fase Pembalikan, untuk semua pemain):**
 
-8. Realita tiap pemain dibuka satu per satu sesuai urutan giliran (animasi membalik heksa), lalu efeknya diterapkan.
-9. Hasil semua Ajakan di ronde itu diterapkan dan motifnya dibuka (4.8).
-10. Cek Doom Spending (2.5).
-11. Cek eliminasi: Bangkrut dan Burnout Total (1.4).
-12. Skor Sementara diperbarui (4.6). Jika tersisa 1 pemain atau kurang, game selesai (1.2).
+7. **Animasi papan [v1.14]:** semua heksa yang pernah terinjak berputar bergelombang, berawal dari heksa-heksa yang diinjak di ronde ini. Heksa ronde ini berakhir di **sisi Realita** (heksa dari ronde sebelumnya kembali ke sisi yang tampil sebelumnya, _asumsi_). Petak Emas yang masih aktif berkilau dengan animasi. Efek Realita tiap pemain diterapkan sesuai urutan giliran.
+8. Hasil semua Ajakan di ronde itu diterapkan dan motifnya dibuka (4.8).
+9. Cek Doom Spending (2.5).
+10. Cek eliminasi: Bangkrut dan Burnout Total (1.4).
+11. Skor Sementara diperbarui (4.6). Jika tersisa 1 pemain atau kurang, game selesai (1.2).
+12. **Kartu hasil pribadi [v1.14]:** setelah animasi papan, kartu hasil pribadi (hasil Ajakan, Doom Spending, Eliminasi) tampil serentak dengan aturan yang sama seperti popup serentak di atas. Kartu ini hanya informasi, jadi punya tombol X dan hitung mundur 8 detik. Pemain tanpa kartu tidak melihat apa pun.
 
 Di Langkah 24, skor akhir dihitung setelah Fase Pembalikan. **Saran Lisan** boleh kapan saja.
 
-Server mengirim seluruh hasil Fase Pembalikan sekaligus, lalu memberi jeda animasi sekitar 2,5 detik per pemain sebelum ronde berikutnya dimulai, supaya semua pemain melihat urutan yang sama **[v1.12]**. Selama jeda itu, kalender masih menunjukkan langkah ronde yang baru selesai; tanggal baru tampil saat ronde berikutnya dimulai **[v1.13]**.
+Server mengirim seluruh hasil Fase Pembalikan sekaligus, lalu memberi jeda animasi sekitar 2,5 detik per pemain sebelum ronde berikutnya dimulai, supaya semua pemain melihat urutan yang sama **[v1.12]**. Kartu hasil pribadi (langkah 12) tampil setelah animasi papan selesai **[v1.14]**. Selama jeda itu, kalender masih menunjukkan langkah ronde yang baru selesai; tanggal baru tampil saat ronde berikutnya dimulai **[v1.13]**.
 
 Jika semua pemain sudah melangkah tetapi masih ada Ajakan yang belum dijawab, Fase Pembalikan menunggu sampai Ajakan itu dijawab atau habis waktu (maksimal 15 detik) **[v1.13]**.
 
@@ -352,20 +359,20 @@ Contoh tampilan sisi Rencana:
 
 ### 4.4 Realita (RNG dengan Tumpukan Realita) **[v1.4, diperbarui v1.12]**
 
-Sisi belakang petak kini bernama **Realita**. Setiap jenis petak punya **Tumpukan Realita** berisi **6 varian** (3 Zonk, 2 Aman, 1 Hoki), supaya pemain tidak bisa menghafal apa yang akan terjadi.
+Sisi belakang petak kini bernama **Realita**. Realita diambil dari **Tumpukan Realita per kategori** (Kerja, Sosial, Kesehatan, Keuangan, ditambah satu pool `finance-debt` untuk petak Keuangan yang menambah Hutang), bukan lagi 6 varian per petak **[v1.14]**. Tumpukan yang besar membuat pemain tidak bisa menghafal apa yang akan terjadi.
 
 Cara kerjanya:
 
 1. Sistem menentukan **jenis hasil** memakai peluang di 4.5 (Zonk / Aman / Hoki).
-2. Sistem mengambil **satu varian acak** dari jenis tersebut di Tumpukan Realita petak itu. Tumpukan dikocok ulang setiap kali dipakai.
+2. Sistem mengambil **satu varian acak** dari jenis tersebut di Tumpukan Realita kategori petak itu. Pool ditentukan oleh **petak**, bukan kondisi pemain: petak Keuangan yang Rencananya menambah Hutang (efek Hutang lebih dari 0) memakai pool `finance-debt`, tanpa memandang apakah pemain yang menginjaknya sedang berhutang; petak Keuangan lain memakai pool `finance`. Tumpukan dikocok ulang setiap kali dipakai.
 
 | Hasil    | Keterangan                                                                   |
 | -------- | ---------------------------------------------------------------------------- |
-| **Zonk** | Konsekuensi negatif. Ada 3 varian per petak.                                 |
-| **Aman** | Tidak terjadi apa-apa tambahan (hanya teks suasana). Ada 2 varian per petak. |
-| **Hoki** | Bonus kecil. Ada 1 varian per petak. Peluang tetap 10% di semua petak.       |
+| **Zonk** | Konsekuensi negatif. Beberapa varian per tumpukan kategori.                  |
+| **Aman** | Tidak terjadi apa-apa tambahan (hanya teks suasana).                         |
+| **Hoki** | Bonus kecil. Peluang tetap 10% di semua petak.                               |
 
-Jenis hasil dan variannya **diundi saat heksa dipilih**, memakai Beban Peringkat 1, Musim, dan imunitas pada saat itu (sama dengan ikon risiko yang dilihat pemain), lalu **dibuka di Fase Pembalikan** dan terlihat semua pemain **[v1.12]**. Daftar lengkap 72 varian ada di Bagian 5.
+Jenis hasil dan variannya **diundi saat heksa dipilih**, memakai Beban Peringkat 1, Musim, dan imunitas pada saat itu (sama dengan ikon risiko yang dilihat pemain), lalu **dibuka di Fase Pembalikan** dan terlihat semua pemain **[v1.12]**. Struktur tumpukan ada di Bagian 5; isi varian ditulis pada tahap konten berikutnya **[v1.14]**.
 
 ### 4.5 Peluang Zonk
 
@@ -400,17 +407,19 @@ Peluang Hoki tetap 10%. Sisanya menjadi Aman. Jika Zonk muncul pada petak katego
 - Jika beberapa pemain seri di peringkat 1, semuanya kena beban.
 - Tujuannya agar pemain yang unggul tetap berisiko dan pemain di belakang punya peluang menyusul.
 
-### 4.7 Petak Emas (Rebutan Petak) - Khusus Multiplayer **[v1.6]**
+### 4.7 Petak Emas (Rebutan Petak) - Khusus Multiplayer **[v1.6, diperbarui v1.14]**
 
-**Petak Emas** adalah event langka (misal "Beasiswa Penuh" atau "Menang Giveaway") yang ditempatkan sistem **menggantikan isi satu heksa yang belum diinjak**.
+**Petak Emas** adalah event langka (misal "Lolos CPNS Jalur Murni" atau "Menang Undian Bank BUMN") yang ditempatkan sistem **menggantikan isi satu heksa yang belum diinjak**.
 
-- Muncul di awal Langkah **1, 5, 9, 13, 17, 21** (tiap 4 langkah, total 6 kali) dan terlihat oleh semua pemain beserta isinya dan posisinya di papan. Semua pemain mendapat notifikasi di ronde kemunculannya **[v1.12]**.
+- Muncul di awal Langkah **5, 9, 13, 17, 21** (tiap 4 langkah, total **5 kali**; Langkah 1 dihapus **[v1.14]**) dan terlihat oleh semua pemain beserta isinya dan posisinya di papan. Semua pemain mendapat notifikasi di ronde kemunculannya **[v1.12]**.
 - **Hanya satu Petak Emas yang aktif dalam satu waktu. Petak Emas bertahan 4 ronde** dan hilang saat Petak Emas berikutnya muncul (atau saat permainan berakhir). Petak yang tidak diambil **kembali menjadi petak aslinya** (isi sebelum Petak Emas muncul) dan bisa menyala seperti heksa tertutup lain **[v1.12]**.
 - **Posisi [v1.12]:** heksa tertutup di radius ≤ 4 yang tidak bersebelahan dengan pion mana pun. Dari kandidat itu, dipilih yang selisih antara jarak terjauh dan jarak terdekat ke pemain yang masih bertahan paling kecil. Jika seri, dipilih acak.
 - Pemain mengambilnya dengan **memilih heksa tersebut** saat pionnya bersebelahan. Petak Emas yang bersebelahan dan bisa dimasuki **selalu menyala** (mengisi satu dari 3 slot), sedangkan slot lain diundi seperti biasa, supaya usaha menuju Petak Emas tidak gagal karena undian **[v1.11]**. Petak Emas juga boleh muncul di opsi Jalan Buntu jika termasuk heksa tertutup terdekat. Karena tiap heksa hanya bisa diinjak sekali, hanya 1 pemain yang mendapatkannya, yaitu yang gilirannya lebih dulu.
 - **Dilema:** 4 ronde cukup untuk mengubah rute dan benar-benar berebut, tapi pemain harus meninggalkan petak bagus di sekitarnya demi berjalan ke arah Petak Emas. Karena Petak Emas hilang saat kemunculan berikutnya tiba, FOMO tetap terjaga dan papan tetap rapi.
-- Hadiah dijaga seimbang (kira-kira Rp 5.000.000-10.000.000 atau perbaikan status) supaya tidak menentukan pemenang sendirian. Angkanya masih angka playtest dan disesuaikan dengan nilai petak, Realita, Ajakan, dan Event lain **[v1.12]**.
+- Hadiah dijaga seimbang: **maksimal Rp10.000.000** **[v1.14]** (Bonus Kinerja 2x Gaji diturunkan dari Rp11.460.000 ke Rp10.000.000) supaya tidak menentukan pemenang sendirian. Angkanya masih angka playtest dan disesuaikan dengan nilai petak, Realita, Ajakan, dan Event lain **[v1.12]**.
 - Petak Emas hanya punya Rencana, **tidak punya Realita**.
+- **Pilihan per game [v1.14]:** katalog punya 8 Petak Emas (Bagian 5). Tiap game memakai **5 dari 8**, diundi **tanpa pengulangan**, satu untuk tiap kemunculan.
+- Kemunculan Petak Emas tampil sebagai notifikasi dalam popup serentak awal ronde (4.2) dan, di sisi papan, sebagai heksa berkilau.
 
 ### 4.8 Ajakan (Interaksi Antar Pemain) **[v1.12]**
 
@@ -458,34 +467,56 @@ Ajakan tidak berlaku di mode Solo.
 
 ---
 
-## 5. Katalog Petak Awal & Tumpukan Realita **[v1.4]**
+## 5. Katalog Petak & Tumpukan Realita **[v1.4, diperbarui v1.14]**
 
-Katalog kini berisi **14 petak**: 12 petak biasa (masing-masing punya Tumpukan Realita 6 varian; 3 Kerja, 4 Sosial, 3 Kesehatan, 2 Keuangan, karena Bayar Hutang diganti Jalan-jalan **[v1.12]**) dan 2 Petak Emas. Kategori Usaha dihapus.
+Katalog berisi **117 petak biasa** dan **8 Petak Emas** **[v1.14]**. Daftar lengkap Rencana (efek dan Zonk dasar) ada di `docs/katalog_master_sisi_rencana.md`, dengan perubahan di `docs/revisi_kesulitan_katalog.md` (38 petak disesuaikan). Bila dua dokumen itu berbeda dengan angka di sini, GDD ini yang berlaku. Judul katalog master menyebut "125 petak" karena 117 petak biasa ditambah 8 Petak Emas.
 
-**Catatan [v1.6]:** 14 petak ini adalah **katalog awal (starter set) untuk playtest**, bukan jumlah final. Karena papan 4 pemain butuh 123 petak terisi, tiap jenis akan muncul sekitar 10 kali. Target pengembangan adalah **24-30 jenis petak biasa** (6-8 per kategori, sekitar 150-180 varian Realita) supaya papan lebih bervariasi (lihat Bagian 8).
+| Kategori  | Jumlah petak | Catatan                                                 |
+| --------- | ------------ | ------------------------------------------------------- |
+| Kerja     | 29           | Mengorbankan Kesehatan atau Level Stress demi Kekayaan  |
+| Sosial    | 37           | Mengeluarkan uang demi Level Stress turun               |
+| Kesehatan | 29           | Memulihkan Kesehatan, sering dengan biaya               |
+| Keuangan  | 22           | Pinjaman, tabungan, jual-beli, dan efek Hutang          |
+| Emas      | 8            | Rencana saja, tanpa Zonk dan Realita (4.7)              |
 
-Nilai di bawah berlaku sama di semua mode (1×) **[v1.12]**. Angka masih usulan awal untuk playtest. Batas maksimal 3 efek per kartu agar mudah dibaca sekilas.
+Nilai berlaku sama di semua mode (1×) **[v1.12]**. Angka masih usulan awal untuk playtest. Batas maksimal 3 efek per kartu agar mudah dibaca sekilas.
 
-### 5.1 Ringkasan Rencana
+### 5.1 Aturan Katalog **[v1.14]**
 
-| Kategori  | Petak                   | Efek Rencana (Sisi Depan)                                   | Zonk Dasar |
-| --------- | ----------------------- | ----------------------------------------------------------- | ---------- |
-| Kerja     | Lembur Proyek           | Kekayaan +Rp2.500.000                                       | 30%        |
-| Kerja     | Freelance Kilat         | Kekayaan +Rp1.500.000, Kesehatan -1                         | 20%        |
-| Kerja     | Dinas Luar Kota         | Kekayaan +Rp2.000.000, Level Stress +1                      | 25%        |
-| Sosial    | Nongkrong               | Kekayaan -Rp500rb, Level Stress -2                          | 20%        |
-| Sosial    | Ketemu Teman Lama       | Kekayaan -Rp250rb, Level Stress -1                          | 10%        |
-| Sosial    | Arisan                  | Kekayaan -Rp750rb, Level Stress -1                          | 25%        |
-| Sosial    | Jalan-jalan **[v1.12]** | Kekayaan -Rp1.000.000, Kesehatan +1, Level Stress -2        | 20%        |
-| Kesehatan | Beli Vitamin            | Kekayaan -Rp250rb, Kesehatan +2                             | 10%        |
-| Kesehatan | Olahraga Pagi           | Kesehatan +1, Level Stress -1                               | 20%        |
-| Kesehatan | Istirahat Penuh         | Kesehatan +2, Level Stress -1                               | 10%        |
-| Keuangan  | Pinjol / Paylater       | Kekayaan +Rp5.000.000, Hutang +Rp5.000.000, Level Stress +1 | 35%        |
-| Keuangan  | Belanja Self-Reward     | Kekayaan -Rp1.000.000, Level Stress -2                      | 30%        |
-| Emas      | Beasiswa Penuh          | Kekayaan +Rp7.500.000, Level Stress -2                      | -          |
-| Emas      | Menang Giveaway         | Kekayaan +Rp5.000.000, Kesehatan +1                         | -          |
+Aturan harga Level Stress dari `docs/revisi_kesulitan_katalog.md` (berlaku untuk petak biasa; dicek oleh tes data):
 
-### 5.2 Tumpukan Realita per Petak (3 Zonk, 2 Aman, 1 Hoki)
+1. Pemulihan Level Stress -2 hanya untuk petak berbiaya minimal Rp400.000 dan Zonk dasar minimal 20%.
+2. Petak murah (biaya Rp250.000 ke bawah) maksimal Level Stress -1.
+3. **Level Stress -3 hanya untuk Petak Emas.** Petak biasa maksimal -2.
+4. **Tidak ada efek Kekayaan Rp0.**
+5. Kesehatan +2 tidak boleh berbiaya Rp150.000 ke bawah, kecuali ada harga Level Stress.
+6. Tidak ada petak yang menaikkan Kekayaan sekaligus menurunkan Level Stress tanpa harga (kecuali Nemu Uang Kembalian Jaket yang sengaja kecil).
+7. Pengecualian topik sensitif: Konsultasi Psikolog tidak dinaikkan Zonk-nya.
+
+**Isi papan:** urutan acak seeded dari 117 petak, tiap heksa mengambil petak berikutnya, dan lanjut dari awal urutan yang sama jika heksa lebih banyak dari petak (papan 4 pemain butuh 123, 3 pemain 124, 2 pemain 125; lihat 4.1).
+
+**Petak Emas:** 8 petak di katalog master, hadiah maksimal Rp10.000.000. Bonus Kinerja 2x Gaji diturunkan dari Rp11.460.000 ke **Rp10.000.000**. Tiap game memakai 5 dari 8 tanpa pengulangan (4.7).
+
+### 5.2 Tumpukan Realita per Kategori **[v1.14]**
+
+Tumpukan Realita **per kategori** menggantikan "6 varian per petak":
+
+| Tumpukan                      | Dipakai oleh                                                                 |
+| ----------------------------- | ---------------------------------------------------------------------------- |
+| Kerja                         | Semua petak Kerja                                                            |
+| Sosial                        | Semua petak Sosial                                                           |
+| Kesehatan                     | Semua petak Kesehatan                                                        |
+| Keuangan (`finance`)          | Petak Keuangan yang Rencananya tidak menambah Hutang                         |
+| `finance-debt` (pool khusus)  | Petak Keuangan yang Rencananya menambah Hutang (efek Hutang lebih dari 0), siapa pun pemainnya |
+
+- Jenis hasil (Zonk / Aman / Hoki) tetap ditentukan dulu lewat Peluang Zonk petak (4.5), lalu satu varian acak diambil dari jenis itu di tumpukan yang sesuai (4.4).
+- Tiap tumpukan wajib punya varian untuk ketiga jenis hasil. Jumlah varian per jenis ditetapkan saat konten ditulis (belum diputuskan).
+- Teks Realita ditulis umum untuk satu kategori, bukan merujuk satu petak tertentu.
+- Petak Emas tidak punya Realita.
+
+### 5.3 Arsip: Realita per Petak (v1.13)
+
+Bagian ini **bukan lagi sumber aturan**. Isinya hanya bahan teks dari katalog lama (12 petak × 6 varian: 3 Zonk, 2 Aman, 1 Hoki) yang boleh dipilih, disesuaikan, dan dipindah ke tumpukan kategori.
 
 **Kerja**
 
@@ -615,13 +646,6 @@ _Belanja Self-Reward_
 | Aman | Dipakai sekali lalu disimpan |
 | Hoki | Voucher dan cashback: Kekayaan +Rp500.000 |
 
-**Emas** (Petak Emas hanya punya Rencana, tidak punya Realita)
-
-| Petak           | Efek                                   |
-| --------------- | -------------------------------------- |
-| Beasiswa Penuh  | Kekayaan +Rp7.500.000, Level Stress -2 |
-| Menang Giveaway | Kekayaan +Rp5.000.000, Kesehatan +1    |
-
 ---
 
 ## 6. Sistem Penilaian Akhir (Scoring & Rapor)
@@ -724,7 +748,7 @@ Total **77 istilah inti** dalam **21 kelompok** **[v1.12]**. Perubahan v1.12: Fa
 | C   | Indikator status         | 4      | Kekayaan, Hutang, Kesehatan, Level Stress                                                                                                                                             |
 | D   | Parameter ekonomi        | 4      | Gaji (UMP Jakarta), Biaya Hidup Wajib, Bunga Hutang, Limit Hutang                                                                                                                     |
 | E   | Jenis petak (= kartu)    | 5      | Kerja, Sosial, Kesehatan, Keuangan, Emas                                                                                                                                              |
-| F   | Bagian petak             | 3      | Rencana (info terbuka, sisi petak saat dipilih), Realita (hasil RNG, disebut juga petak terbalik), Tumpukan Realita (6 varian per petak)                                              |
+| F   | Bagian petak             | 3      | Rencana (info terbuka, sisi petak saat dipilih), Realita (hasil RNG, disebut juga petak terbalik), Tumpukan Realita (per kategori) **[v1.14]**                                             |
 | G   | Fase giliran             | 4      | Fase Kalender, Fase Pilihan, Fase Berjalan, Fase Pembalikan **[v1.12]**                                                                                                               |
 | H   | Hasil Realita            | 3      | Zonk, Aman, Hoki                                                                                                                                                                      |
 | I   | Jenis kejadian           | 5      | Kejadian Petak (RNG), Event Tanggal, Event Musim, Doom Spending, Event Petak Emas                                                                                                     |
@@ -745,13 +769,14 @@ Total **77 istilah inti** dalam **21 kelompok** **[v1.12]**. Perubahan v1.12: Fa
 
 | Konten                                                        | Jumlah                                                                                      |
 | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Petak contoh (katalog awal / starter set, target 24-30 jenis) | 14 (3 Kerja, 4 Sosial, 3 Kesehatan, 2 Keuangan, 2 Emas) **[v1.12]**                         |
-| Petak terisi di papan                                         | 123-125 (127 heksa dikurangi titik awal), tiap jenis ±10 kali                               |
-| Varian Realita                                                | 72 (12 petak × 6: 3 Zonk, 2 Aman, 1 Hoki)                                                   |
+| Petak biasa **[v1.14]**                                       | 117 (29 Kerja, 37 Sosial, 29 Kesehatan, 22 Keuangan)                                        |
+| Petak Emas **[v1.14]**                                        | 8 di katalog, 5 dipakai per game tanpa pengulangan                                          |
+| Petak terisi di papan                                         | 123-125 (127 heksa dikurangi titik awal); katalog diulang dari awal urutan jika kurang **[v1.14]** |
+| Tumpukan Realita **[v1.14]**                                  | 5 (Kerja, Sosial, Kesehatan, Keuangan, `finance-debt`); isi varian menyusul             |
 | Kartu Ajakan                                                  | 4 Rencana × 2 Motif **[v1.12]**; tiap pemain menerima 6 kartu per permainan (1 per 2 bulan) |
 | Event Tanggal                                                 | 6                                                                                           |
 | Zonk Musim                                                    | 9 (3 varian per musim, sesuai Fokus Zonk)                                                   |
-| Kemunculan Petak Emas per permainan                           | 6                                                                                           |
+| Kemunculan Petak Emas per permainan                           | 5 (Langkah 5, 9, 13, 17, 21) **[v1.14]**                                                    |
 | Gelar solo                                                    | 6                                                                                           |
 | Kondisi kalah                                                 | 2                                                                                           |
 | Heksa papan                                                   | 127 (2-4 pemain), 61 (Solo) **[v1.12]**                                                     |
@@ -776,7 +801,7 @@ Total **77 istilah inti** dalam **21 kelompok** **[v1.12]**. Perubahan v1.12: Fa
 - **Onboarding bertahap:** Bulan 1-2 hanya menampilkan Kekayaan, Kesehatan, dan Level Stress; Hutang dimunculkan bertahap.
 - **Achievement Solo:** "Tanpa Hutang Sama Sekali", "Bertahan dengan Kesehatan 1", "Datang ke Semua Event".
 - **Ajakan lanjutan:** variasi Rencana Ajakan dan motif tambahan jika Ajakan terbukti seru saat playtest.
-- **Perluasan katalog petak [v1.6]:** dari 12 petak biasa menjadi 24-30 jenis (6-8 per kategori) dengan 6 varian Realita tiap jenis, atau tambahkan varian nominal (misal Lembur +Rp1,5jt / +Rp2,5jt / +Rp4jt dengan Zonk dasar yang naik mengikuti nominal).
+- **Perluasan katalog petak [v1.6]:** sudah dilakukan di v1.14 (117 petak biasa dan 8 Petak Emas, Bagian 5). Yang tersisa: menulis isi Tumpukan Realita per kategori.
 
 ---
 
@@ -825,13 +850,31 @@ Bagian ini mengatur apa yang terjadi sebelum, selama, dan sesudah game Multiplay
 ### 9.5 Akhir game
 
 - Game berakhir setelah Langkah 24 atau lebih cepat jika tinggal 1 pemain yang belum tereliminasi (1.2) **[v1.10]**.
-- Layar **Hasil Akhir Multiplayer:** podium dan peringkat Skor Kesejahteraan, rincian skor yang bisa dibuka (Harta Bersih dan tiga poin skor) **[v1.12]**, **Refleksi AI** pribadi (6.5) **[v1.12]**, serta tombol **Main Lagi** (kembali ke Room yang sama), **Kembali ke Lobby**, dan **Bagikan hasil** (gambar dibuat di sisi klien).
+- Layar **Hasil Akhir Multiplayer:** podium dan peringkat Skor Kesejahteraan, rincian skor yang bisa dibuka (Harta Bersih dan tiga poin skor) **[v1.12]**, **Kartu Refleksi AI** pribadi (6.5) **[v1.12, v1.14]**, serta tombol **Main Lagi** (kembali ke Room yang sama, hanya aktif untuk host), **Kembali ke Lobby**, dan **Bagikan hasil** (gambar dibuat di sisi klien).
+- **Tampilan skor [v1.14]:** skor adalah Skor Kesejahteraan 0-100 bilangan bulat, bukan Rupiah. Rincian hanya Harta Bersih dan tiga poin (Keuangan, Kesehatan, Ketenangan). Kekayaan dan Hutang hanya tampil untuk diri sendiri. Tidak ada Modifier.
 - **Main Lagi [v1.11]:** dikendalikan host. Room kembali ke ruang tunggu dengan pion yang sama, semua pemain selain host perlu menekan Siap lagi, dan pemain yang sedang putus dikeluarkan. Pemain yang tereliminasi tidak ikut **[v1.12]**: yang sudah menekan Kembali ke Lobby sudah keluar, dan sisanya dikeluarkan saat Main Lagi **[v1.13]**. Jika host sudah putus, peran host berpindah ke pemain paling awal yang masih tersambung.
 - **Host yang tereliminasi [v1.13]:** saat game selesai, jika host sudah tereliminasi, peran host pindah ke pemain yang belum tereliminasi dan masih tersambung dengan peringkat terbaik, supaya Main Lagi tetap bisa dimulai. Jika tidak ada pemain yang memenuhi syarat (semua tereliminasi atau putus), Main Lagi ditolak dan semua pemain kembali ke Lobby.
 
 ---
 
 ## 10. Ringkasan Revisi
+
+### v1.14 (keputusan dari playtest internal dan revisi katalog)
+
+| # | Keputusan | Bagian |
+|---|---|---|
+| 1 | Petak Emas muncul di Langkah 5, 9, 13, 17, 21 (5 kali, bertahan 4 ronde). Langkah 1 dihapus; semua jadwal dan angka "6 kali" lama diganti | 4.7, 1.3, 7 |
+| 2 | Popup awal ronde serentak dalam satu grid dengan satu hitung mundur (Ganti Bulan, Event Tanggal, notifikasi musim, Petak Emas, Beban Peringkat 1). Butuh keputusan: tag "Butuh keputusanmu!", tanpa X. Informasi: ada X (hanya menutup di layar sendiri). Hanya informasi 8 detik, ada keputusan 15 detik. Menggantikan "popup berurutan" dan keputusan D2 | 2.4, 3.3, 4.2 |
+| 3 | Fase Pembalikan: animasi gelombang dari heksa ronde itu (berakhir di sisi Realita), Petak Emas berkilau; lalu kartu hasil pribadi (Ajakan, Doom Spending, Eliminasi) serentak | 4.2 |
+| 4 | Katalog 117 petak biasa (Kerja 29, Sosial 37, Kesehatan 29, Keuangan 22) dan 8 Petak Emas. Aturan harga Level Stress (-3 hanya Emas, tanpa Kekayaan Rp0). Isi papan: urutan acak seeded, diulang dari awal | 4.1, 5 |
+| 5 | Tiap game memakai 5 dari 8 Petak Emas tanpa pengulangan; hadiah maksimal Rp10.000.000 (Bonus Kinerja 2x Gaji turun ke Rp10.000.000) | 4.7, 5 |
+| 6 | Tumpukan Realita per kategori (ditambah pool `finance-debt` untuk petak Keuangan yang menambah Hutang), menggantikan 6 varian per petak | 4.4, 5.2 |
+| 7 | Warna indikator: Level Stress merah mulai 8 ke atas (dengan ikon peringatan), Kesehatan merah di bawah 4 | 02_DESIGN |
+| 8 | Hasil Akhir: skor 0-100 bilangan bulat, rincian Harta Bersih dan tiga poin, Kartu Refleksi AI, Main Lagi hanya host | 9.5 |
+| 9 | Papan 3D (Three.js); sebutan papan datar lama dihapus dari dokumen | Seluruh dokumen |
+| 10 | Room uji UMR-0099 dan event `dev:finish-game` (hanya pengembangan, di luar aturan game dan di luar 46 event produksi) | 03_REKOMENDASI, API_CONTRACT |
+
+Catatan: Level Stress pasif per Ganti Bulan dan Biaya Hidup baru hanya opsi yang menunggu simulasi (Prompt 16), bukan keputusan.
 
 ### v1.13 (keputusan selama migrasi kode G1-G7)
 
@@ -859,7 +902,7 @@ Catatan: angka keseimbangan (simulasi 200 game: rata-rata skor 89, eliminasi 0%)
 | 7   | Bunga Hutang 3%/bulan                                                                                                                                                                                                                       | 2.3                         |
 | 8   | Stress Hutang: +1 setiap kali total Hutang melewati kelipatan Rp5 juta                                                                                                                                                                      | 2.3                         |
 | 9   | Petak Bayar Hutang dihapus, diganti slider di popup Ganti Bulan (15 detik). Lunas = Level Stress -2                                                                                                                                         | 2.3, 2.4, Bagian 5          |
-| 10  | Popup Fase Kalender berurutan: Ganti Bulan, lalu Event Tanggal. Petak Emas cukup notifikasi                                                                                                                                                 | 3.3, 4.2                    |
+| 10  | Popup Fase Kalender berurutan: Ganti Bulan, lalu Event Tanggal. Petak Emas cukup notifikasi _(diganti popup serentak di v1.14)_                                                                                                                                                 | 3.3, 4.2                    |
 | 11  | Pengali Multiplayer dihapus, semua 1×                                                                                                                                                                                                       | 1.3, 3.3, Bagian 5          |
 | 12  | Timer Giliran 15, 30, atau 60 detik. Tidak ada timer yang dijeda. Waktu habis = acak dari heksa menyala                                                                                                                                     | 1.3, 4.3, 9.3               |
 | 13  | Ajakan: 2 motif (Tulus/Komisi 50:50), Rencana diacak bersama kartu, hanya di Fase Pilihan sendiri sebelum memilih heksa, jawaban 15 detik (default Tolak), hasil dibuka di Fase Pembalikan, nilai baru 1×, batas 1 Ajakan per ronde dihapus | 4.8                         |
@@ -876,7 +919,7 @@ Catatan: angka keseimbangan (simulasi 200 game: rata-rata skor 89, eliminasi 0%)
 | 24  | "Ubah nama" diganti "Edit Profile" (nama dan avatar), tetap hanya di Lobby. Identitas tetap di localStorage                                                                                                                                 | 9.1                         |
 | 25  | Tidak ada pause                                                                                                                                                                                                                             | 9.4                         |
 | 26  | Eliminasi serentak diurutkan menurut Skor Sementara saat eliminasi; skor pemain tereliminasi dibekukan                                                                                                                                      | 1.2                         |
-| 27  | Jeda animasi Fase Pembalikan sekitar 2,5 detik per pemain; popup Ganti Bulan tanpa pemain berhutang lanjut setelah sekitar 3 detik | 2.4, 4.2 |
+| 27  | Jeda animasi Fase Pembalikan sekitar 2,5 detik per pemain; popup Ganti Bulan tanpa pemain berhutang lanjut setelah sekitar 3 detik _(diganti v1.14: 8 detik, popup serentak)_ | 2.4, 4.2 |
 | 28  | Refleksi AI: insight berbasis aturan dulu, LLM setelah provider dipilih | 6.5 |
 
 Catatan: lisensi 4 gambar karakter sprite masih terbuka (lihat PROJECT_STATE).
@@ -947,7 +990,7 @@ Keputusan 3-9 menyelaraskan GDD dengan kode yang sudah dibuat (data konten, skor
 | --- | ----------------------------------------------------------------------------- | ------------------------------------------------------------ |
 | 1   | Solo ditunda                                                                  | Tag **[Ditunda]** pada 1.1, 6.3, 6.4. Aturan tetap tersimpan |
 | 2   | Register dan login ditunda                                                    | Hanya pemain tamu (nama dan avatar). Bagian 9.1              |
-| 3   | Platform web responsif, papan 2D                                              | Catatan platform di awal dokumen                             |
+| 3   | Platform web responsif, papan datar                                              | Catatan platform di awal dokumen                             |
 | 4   | Tombol Home yang ditunda tetap tampil tanpa efek klik                         | Bagian 9.2                                                   |
 | 5   | Pengganti login: popup "Masuk sebagai tamu"; tombol "Ubah nama"               | Bagian 9.1 dan 9.2                                           |
 | 6   | Pilihan timer pindah dari Pengaturan ke Room, diatur host                     | 1.2, 4.3, dan 9.3                                            |
@@ -965,13 +1008,13 @@ Aturan inti game (Bagian 2 sampai 6) **tidak berubah** dari v1.6.
 | 1   | Tidak perlu mengambil kartu; pilihan langsung di heksa, klik heksa untuk melihat detail, heksa menentukan arah          | **Petak = kartu.** Semua heksa sudah berisi petak sejak awal, pilihan adalah heksa yang bersebelahan, tanpa tarik kartu (Konsep Inti, 4.1, 4.2, 4.3). |
 | 2   | Tidak ada kartu yang dibuang; pemain lain hanya melihat heksa yang dipilih                                              | Detail heksa tertutup hanya terlihat pemain yang membukanya. Yang terlihat semua pemain hanya heksa yang sudah diinjak (4.3).                         |
 | 3   | Jalan Buntu punya 3 pilihan lompat, tanpa kartu, Level Stress +1                                                        | Pemain memilih 1 dari 3 heksa tertutup terdekat. Lompatan menggantikan langkah, Level Stress +1 (4.1).                                                |
-| 4   | Petak Emas hilang saat kemunculan berikutnya tiba (bertahan 4 ronde)                                                    | Maksimal 1 Petak Emas aktif, bertahan 4 ronde, jadwal diubah ke Langkah 1, 5, 9, 13, 17, 21 (4.7).                                                    |
+| 4   | Petak Emas hilang saat kemunculan berikutnya tiba (bertahan 4 ronde)                                                    | Maksimal 1 Petak Emas aktif, bertahan 4 ronde, jadwal diubah ke Langkah 5, 9, 13, 17, 21 (4.7; Langkah 1 dihapus di v1.14).                                                    |
 | 5   | Kartu Ajakan per 2 bulan, hangus jika tidak dipakai                                                                     | 1 kartu tiap 2 bulan (Bulan 1, 3, 5, 7, 9, 11), maksimal dipegang 1, hangus saat kartu baru datang (4.8).                                             |
 | 6   | Ajakan realtime, terbebas dari langkah                                                                                  | Ajakan bisa dikirim kapan saja, target langsung dapat popup. Fase Ajakan dihapus (4.2, 4.8).                                                          |
 | 7   | Event Tanggal popup ke semua pemain, tetap bisa melangkah                                                               | Popup serentak di awal ronde, 15 detik, tidak menghabiskan langkah (3.3).                                                                             |
 | 8   | Papan skor hanya menampilkan skor sementara; statistik detail privat; skor diperbarui tiap giliran                      | Papan Skor publik hanya Skor Sementara, Panel Pribadi untuk statistik, update setiap giliran selesai (4.6).                                           |
 | 9   | Simulasi untuk rumus Skor Akhir                                                                                         | 3 skenario: Hemat & Sehat, Seimbang, Berhutang & Burnout (6.2).                                                                                       |
-| 10  | 14 petak di 5.1 hanya contoh?                                                                                           | Ya, itu katalog awal. Target 24-30 jenis petak (Bagian 5 dan 8).                                                                                      |
+| 10  | 14 petak di 5.1 hanya contoh?                                                                                           | Ya, itu katalog awal. Sejak v1.14 katalog menjadi 117 petak biasa dan 8 Petak Emas (Bagian 5).                                                                                      |
 | 11  | Glosarium                                                                                                               | Tetap 72 istilah (Fase Ajakan dihapus, Panel Pribadi ditambahkan).                                                                                    |
 | 12  | Pilihan gerak: 6 heksa bersebelahan, tapi hanya 3 yang menyala acak; jika yang bisa dimasuki lebih dari 3, pilih 3 acak | Aturan menyala 3 dari 6, hanya heksa yang bisa dimasuki yang ikut diundi, detail hanya bisa dibuka di giliran sendiri (4.1, 4.2, 4.3).                |
 
@@ -1012,8 +1055,9 @@ Aturan inti game (Bagian 2 sampai 6) **tidak berubah** dari v1.6.
 - **Imunitas Sakit (v1.5):** hanya menghapus bonus +10 poin persen dan Zonk Musim Sakit. Zonk bawaan petak yang mengurangi Kesehatan tetap bisa terjadi.
 - **Heksa menyala (v1.6):** 3 heksa diundi di awal Fase Pilihan tiap pemain, jadi detail hanya bisa dibuka di giliran sendiri (tidak bisa mengintip saat menunggu). Jika Timer habis, heksa dipilih acak dari 3 yang menyala. Bobot undian sama untuk semua heksa yang bisa dimasuki.
 - **Jalan Buntu (v1.6):** lompatan menggantikan langkah biasa (menghabiskan langkah) dan petak tujuan dijalankan. Sebelumnya tertulis "tidak menghabiskan langkah"; ubah jika maksudnya berbeda.
-- **Jadwal Petak Emas (v1.6):** diubah ke Langkah 1, 5, 9, 13, 17, 21 supaya tiap Petak Emas benar-benar bertahan 4 ronde. Jadwal lama (3, 7, ..., 23) membuat Petak Emas terakhir hanya sempat 2 ronde. Posisi Petak Emas dipindah ke sisi dalam di v1.12.
-- **Isi papan (v1.6):** diisi acak dengan bobot sama per jenis petak. Aturan agar jenis tidak menumpuk di satu area belum dibuat.
+- **Jadwal Petak Emas (v1.6, diubah v1.14):** diubah ke Langkah 5, 9, 13, 17, 21 supaya tiap Petak Emas benar-benar bertahan 4 ronde (Langkah 1 dihapus di v1.14, jadi 5 kali). Jadwal lama (3, 7, ..., 23) membuat Petak Emas terakhir hanya sempat 2 ronde. Posisi Petak Emas dipindah ke sisi dalam di v1.12.
+- **Isi papan (v1.6, diubah v1.14):** urutan acak seeded dari 117 petak, diulang dari awal jika heksa lebih banyak. Aturan agar jenis tidak menumpuk di satu area belum dibuat.
+- **Level Stress pasif per Ganti Bulan dan Biaya Hidup baru (v1.14):** hanya opsi yang menunggu simulasi (Prompt 16), belum menjadi aturan.
 - **Simulasi skor (6.2):** angka skenario adalah ilustrasi, bukan hasil playtest. Rumus diganti di v1.12.
 
 ### v1.3

@@ -18,11 +18,12 @@ Scope MVP: Multiplayer dan pemain tamu saja (Solo, register, dan login ditunda).
 | Room (ruang tunggu)                                                                             | Sudah ada + 5 variasi, **perlu revisi** | A host sendiri, B tampilan tamu, C belum siap, D hitung mundur, E menyambungkan ulang. Revisi v1.12: pion karakter, timer 15/30/60                                                |
 | Game Board (giliran sendiri)                                                                    | Sudah ada + variasi, **perlu revisi**   | Revisi v1.12: tanpa Heksa Mati dan pause, Rencana singkat di heksa menyala, skor 0-100, label "Jalan", pion karakter                                                              |
 | Popup Detail Heksa                                                                              | Sudah ada + variasi, **perlu revisi**   | Revisi v1.12: tanpa tab, klik heksa lain mengganti isi, nilai 1×, Realita "Terungkap di akhir ronde"                                                                              |
-| Fase Pembalikan (Zonk, Aman, Hoki)                                                              | **Belum ada**                           | Momen puncak di akhir ronde: heksa semua pemain dibalik satu per satu, lalu hasil Ajakan                                                                                          |
-| Popup Ganti Bulan                                                                               | **Belum ada**                           | Gaji, Biaya Hidup Wajib, bunga, Kekayaan baru, dan slider Bayar Hutang (15 detik) dalam satu popup                                                                                |
-| Popup Event Tanggal                                                                             | **Belum ada**                           | Serentak ke semua pemain, 15 detik                                                                                                                                                |
+| Fase Pembalikan (Zonk, Aman, Hoki)                                                              | **Belum ada**                           | Momen puncak di akhir ronde **[v1.14]**: semua heksa yang pernah terinjak berputar bergelombang dari heksa ronde itu (heksa ronde itu berakhir di sisi Realita, Petak Emas berkilau), lalu kartu hasil pribadi (Ajakan, Doom Spending, Eliminasi) tampil serentak 8 detik dengan tombol X. Tanpa tombol Percepat |
+| Popup Ganti Bulan                                                                               | **Belum ada**                           | Gaji, Biaya Hidup Wajib, bunga, Kekayaan baru, dan slider Bayar Hutang (15 detik) dalam satu popup. Tampil dalam grid popup serentak (lihat baris berikutnya)                      |
+| Popup Event Tanggal                                                                             | **Belum ada**                           | Serentak ke semua pemain, 15 detik, tag "Butuh keputusanmu!", tanpa tombol X                                                                                                      |
+| Grid popup serentak awal ronde **[v1.14]**                                                      | **Belum ada**                           | Ganti Bulan, Event Tanggal, notifikasi musim, Petak Emas, dan Beban Peringkat 1 dalam satu grid dengan satu hitung mundur bersama. Popup informasi punya tombol X (hanya menutup di layar sendiri); popup keputusan bertag "Butuh keputusanmu!" tanpa X. Hanya informasi 8 detik, ada keputusan 15 detik |
 | Layar Eliminasi                                                                                 | **Belum ada**                           | "Hari ini kamu perlu istirahat.", ringkasan pribadi, Refleksi AI, tombol Kembali ke Lobby. Tanpa mode penonton                                                                    |
-| Hasil Akhir Multiplayer                                                                         | **Belum ada**                           | Podium, rincian skor (Harta Bersih dan tiga poin), Refleksi AI, Main Lagi, Bagikan                                                                                                |
+| Hasil Akhir Multiplayer                                                                         | **Belum ada**                           | Spesifikasi di 4.12 **[v1.14]**: podium, rincian skor (Harta Bersih dan tiga poin), Kartu Refleksi AI, Main Lagi (hanya host), Bagikan                                            |
 | Ajakan (pilih target, masuk, hasil)                                                             | **Belum ada**                           | Pilih target hanya di giliran sendiri sebelum memilih heksa. Popup masuk 15 detik. Hasil tampil di Fase Pembalikan                                                                |
 | Jalan Buntu, Doom Spending, banner musim (dengan keterangan petak rawan), notifikasi Petak Emas | **Belum ada**                           | Overlay kecil. Pause dihapus (GDD v1.12)                                                                                                                                          |
 | Cara Main dan Error/Reconnect                                                                   | **Belum ada**                           | Bisa belakangan                                                                                                                                                                   |
@@ -36,13 +37,14 @@ Home → Lobby (popup tamu pertama kali) → Room → hitung mundur → Game Boa
 
 ## 3. Catatan dari gambar yang sudah dibuat
 
-- Hexa pada Game Board kini dirender **3D** dengan Three.js (GDD v1.10). Gambar desain yang sudah ada (2D datar, flat-top) tetap dipakai sebagai acuan warna, HUD, dan teks, bukan sudut kamera.
+- Hexa pada Game Board kini dirender **3D** dengan Three.js (GDD v1.10). Gambar desain datar yang sudah ada (heksa flat-top) tetap dipakai sebagai acuan warna, HUD, dan teks, bukan sudut kamera.
 - Hutang di Game Board ditampilkan sebagai bar. DESIGN.md menyarankan angka dengan badge. Putuskan satu cara (bar bisa dimaknai sebagai pemakaian limit Rp25jt).
 - Di gambar Game Board hanya 2 heksa menyala di sekitar pion pemain (selain Petak Emas yang jauh), padahal aturan GDD adalah 3 dari 6 tetangga.
 - Gambar lama masih memuat Heksa Mati, tombol pause, skor Rupiah, dan tab 1-3 di Detail Heksa. Semuanya tidak berlaku lagi di GDD v1.12.
 - Ikon pada chip "Kondangan Teman" kosong.
 - "Kamus Petak" (legenda ikon) berguna, tetapi kategori Emas belum masuk daftar.
 - Pion adalah karakter (avatar) pilihan pemain, unik per room, dan juga tampil di Papan Skor (GDD v1.12). Pasangan warna-bentuk pion tidak dipakai lagi.
+- **Satu warna satu makna [v1.14]:** bar Kekayaan kuning, Kesehatan hijau, Level Stress pink. Merah berarti bahaya dan hanya dipakai bar saat Level Stress 8 ke atas atau Kesehatan di bawah 4, selalu dengan ikon peringatan. Gambar lama yang memakai bar Level Stress merah-oranye di semua nilai perlu dibuat ulang (lihat 02_DESIGN).
 
 ## 4. Prompt gambar
 
@@ -118,7 +120,7 @@ LEFT SIDEBAR: a yellow paper card "KARTU STATUS PRIBADI" with a small lock icon 
 - "Kekayaan" with a coin icon and the amount "Rp8.200.000" and a yellow bar.
 - "Hutang" with a minus icon and a small dark-red badge "Rp0".
 - "Kesehatan" with a heart icon, a green bar, and "7/10".
-- "Level Stress" with a lightning icon, a coral bar, and "4/10".
+- "Level Stress" with a lightning icon, a pink bar, and "4/10".
 
 RIGHT SIDEBAR: a yellow paper card "PAPAN SKOR" with the sub-label "Skor Sementara" and four rows (small character portrait, name, score out of 100), ranked:
 1. Raka, a crown icon, "86"
@@ -140,7 +142,7 @@ Using the same "Game Board" screen, create these variants. Change only what is l
 
 A) Opponent's turn: no tiles glow around Michael's pawn. The bottom bar shows "GILIRAN RAKA" with its timer ring, and the helper line "Menunggu giliran..." The left sidebar still shows my private status. Raka's character pawn with the crown has a small highlighted ring, and the "Jalan" tag moves to Raka's row in the scoreboard.
 
-B) High stress state: Level Stress shows "9/10" with the coral bar full and shaking, a thin red pulsing vignette on the screen edges, and a small warning chip with a warning icon "Awas Doom Spending". Kesehatan shows "3/10".
+B) High stress state: Level Stress shows "9/10" with the bar turned red, full and shaking, plus a small warning icon (Level Stress turns red from 8 and up), a thin red pulsing vignette on the screen edges, and a small warning chip with a warning icon "Awas Doom Spending". Kesehatan shows "3/10" with its bar turned red and a small warning icon (Kesehatan turns red below 4).
 
 C) Season variants (same layout): "Musim Hujan" with rain streaks and a cold blue-gray tint, the season icon is a rain cloud and the label "Musim Hujan"; "Musim Kemarau" with a warm amber tint and heat-haze shimmer, the label "Musim Kemarau".
 
@@ -182,7 +184,7 @@ Using the same "Detail Heksa" screen, create these variants. Change only what is
 
 A) High-risk tile: the clicked tile is a Sosial tile, category chip "Sosial", title "Nongkrong", Rencana chips: "Kekayaan -Rp500.000" and "Level Stress -2". The risk meter is "Risiko Tinggi" (3 of 3 bars filled, a bigger warning icon). Add two small tags below it: "Beban Peringkat 1: risiko +15" with a crown icon, and "Musim Kemarau: Sosial rawan, risiko +10" with a sun icon.
 
-B) Golden tile: the selected tile is the glowing golden hexagon. The panel has a gold border and a sparkle, the category chip "Emas", title "Beasiswa Penuh", Rencana chip "Kekayaan +Rp7.500.000". No risk meter. A note "Tidak ada Realita, langsung untung." and an alert "Hanya 1 pemain yang bisa mengambil. Hilang dalam 2 ronde." The button reads "AMBIL PETAK EMAS".
+B) Golden tile: the selected tile is the glowing golden hexagon. The panel has a gold border and a sparkle, the category chip "Emas", title "Menang Undian Bank BUMN", Rencana chip "Kekayaan +Rp7.500.000". No risk meter. A note "Tidak ada Realita, langsung untung." and an alert "Hanya 1 pemain yang bisa mengambil. Hilang dalam 2 ronde." The button reads "AMBIL PETAK EMAS".
 
 C) Waiting: the popup is closed, only the tiles glow with a hint "Klik heksa untuk lihat detail" (this is the previous screen, for comparison).
 ```
@@ -199,7 +201,18 @@ Prompt untuk popup ini belum dibuat. Isi yang dibutuhkan: judul "Masuk sebagai t
 
 ### 4.11 Layar baru GDD v1.12
 
-Prompt belum dibuat untuk: Popup Ganti Bulan (rincian dan slider Bayar Hutang), Fase Pembalikan, Layar Eliminasi dengan Refleksi AI, Hasil Akhir dengan Refleksi AI, dan pemberitahuan perangkat tidak didukung.
+Prompt belum dibuat untuk: grid popup serentak (termasuk Popup Ganti Bulan dengan slider Bayar Hutang), Fase Pembalikan, Layar Eliminasi dengan Refleksi AI, Hasil Akhir dengan Refleksi AI, dan pemberitahuan perangkat tidak didukung.
+
+### 4.12 Hasil Akhir Multiplayer: spesifikasi **[v1.14]**
+
+Belum ada prompt gambar. Aturan isi layar (GDD 6.2, 6.5, 9.5):
+
+- **Skor** adalah Skor Kesejahteraan 0-100 dalam bilangan bulat, **bukan Rupiah**. Podium dan daftar peringkat memakai angka ini.
+- **Rincian skor** yang bisa dibuka: Harta Bersih dan tiga poin (Poin Keuangan, Poin Kesehatan, Poin Ketenangan) untuk tiap pemain. **Kekayaan dan Hutang hanya tampil untuk diri sendiri**, tidak untuk lawan.
+- **Tidak ada Modifier** (penalti atau bonus lama dihapus).
+- Tombol "Insight" **diganti Kartu Refleksi AI**: kartu pribadi yang menyusul lewat `reflection:ready`, dengan insight berbasis aturan sebagai cadangan.
+- **Main Lagi hanya aktif untuk host.** Bagi pemain lain, tombol nonaktif dengan keterangan.
+- Tombol lain: Kembali ke Lobby dan Bagikan hasil (gambar dibuat di klien).
 
 ## 5. Teks yang harus persis (cek hasil generator)
 
@@ -209,5 +222,7 @@ Prompt belum dibuat untuk: Popup Ganti Bulan (rincian dan slider Bayar Hutang), 
 | Game Board         | 15 Mei, Langkah 10/24, Pancaroba, Kondangan Teman - 2 langkah lagi, KARTU STATUS PRIBADI, Hanya kamu yang melihat, Kekayaan, Hutang, Kesehatan, Level Stress, PAPAN SKOR, Skor Sementara, Beban Peringkat 1: peluang Zonk +15%, Petak Emas, Hilang dalam 3 ronde, Jalan, GILIRANMU, Pilih satu heksa yang menyala, Klik heksa untuk lihat detail, Kartu Ajakan (catatan: heksa hanya menampilkan ikon kategori, tanpa teks)     |
 | Popup Detail Heksa | Hanya kamu yang bisa melihat ini, Klik heksa menyala lain untuk ganti pilihan, Lembur Proyek, RENCANA, Kekayaan +Rp2.500.000, Risiko Sedang, REALITA, Terungkap di akhir ronde, PILIH HEKSA INI, Tutup, AMBIL PETAK EMAS, Hilang dalam 2 ronde                                                                                                                                                             |
 | Lobby              | Ruang Rapat, Mabar 2-4 pemain, Kartu Identitas Pemain, Edit Profile, Contoh: UMR-4821, Kode room tidak ketemu., Lanjutkan permainan                                                                                                                                                                                                                                                                        |
+| Popup serentak **[v1.14]** | Butuh keputusanmu!, Bayar Hutang, Tidak ikut, X (tutup) |
+| Hasil Akhir **[v1.14]** | HASIL AKHIR, Skor Kesejahteraan, Rincian skor, Harta Bersih, Poin Keuangan, Poin Kesehatan, Poin Ketenangan, Kartu Refleksi AI, Main Lagi, Hanya host yang bisa Main Lagi, Kembali ke Lobby, Bagikan hasil, Hari ini kamu perlu istirahat. (layar Eliminasi) |
 
 Catatan: nama pemain dan semua angka pada gambar hanyalah contoh. Sejak GDD v1.12 semua nominal 1× (misalnya Lembur Proyek Rp2.500.000) dan skor berupa angka 0-100.
