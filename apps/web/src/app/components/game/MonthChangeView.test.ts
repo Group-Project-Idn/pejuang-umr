@@ -103,7 +103,7 @@ describe("nota Ganti Bulan bergaya komik", () => {
     expect(markup).toContain("comic-amount-positive\">+Rp");
     expect(markup).toContain("comic-amount-negative\">−Rp");
     expect(markup).toContain('class="comic-debt-slider"');
-    expect(markup.match(/comic-btn-primary/g)).toHaveLength(1);
+    expect(markup.match(/ui-btn-primary/g)).toHaveLength(1);
   });
 
   it("menampilkan galat dalam kotak koral tanpa mengubah pesannya", () => {

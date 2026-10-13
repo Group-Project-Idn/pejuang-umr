@@ -3,22 +3,25 @@ import type { HTMLAttributes, ReactNode } from "react";
 export type CardProps = HTMLAttributes<HTMLElement> & {
   title?: ReactNode;
   children: ReactNode;
+  /** map kuning (default) atau sticky note. */
+  tone?: "folder" | "note";
+  /** Elemen pembungkus; aside untuk panel samping HUD. */
+  as?: "section" | "aside";
 };
 
-/** Kartu permukaan: elevasi via tingkat terang + garis tepi 1px, bukan bayangan. */
+/** Kartu map kuning / sticky note: kontur cokelat tua tebal, sudut membulat, bayangan kecil. */
 export default function Card({
   title,
   children,
   className = "",
+  tone = "folder",
+  as: Tag = "section",
   ...rest
 }: CardProps) {
   return (
-    <section
-      className={`rounded-md border border-garis bg-kartu p-4 text-teks-utama ${className}`}
-      {...rest}
-    >
-      {title ? <h2 className="text-title">{title}</h2> : null}
+    <Tag className={`${tone === "note" ? "ui-note" : "ui-folder"} p-4 ${className}`} {...rest}>
+      {title ? <h2 className="ui-card-title">{title}</h2> : null}
       {children}
-    </section>
+    </Tag>
   );
 }

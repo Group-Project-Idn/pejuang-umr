@@ -11,6 +11,7 @@ import {
 } from "@/lib/invites";
 import BottomSheet from "../ui/BottomSheet";
 import Button from "../ui/Button";
+import PopupFrame from "../ui/PopupFrame";
 
 /** Kartu Ajakan milikmu: Rencana, efek, dan motif (rahasia, hanya pemilik kartu). */
 export function InviteCardSheet({
@@ -35,8 +36,8 @@ export function InviteCardSheet({
             Motif: {view.motive} (hanya kamu yang tahu). Berlaku sampai bulan {card.expiresAtMonth}.
           </p>
           <div className="grid grid-cols-2 gap-2">
-            <Button variant="primary" className="comic-btn-primary" onClick={onPickTarget}>Pilih target</Button>
-            <Button variant="secondary" className="comic-btn-secondary" onClick={onClose}>Tutup</Button>
+            <Button variant="primary" onClick={onPickTarget}>Pilih target</Button>
+            <Button variant="outlined" onClick={onClose}>Tutup</Button>
           </div>
         </div>
       ) : null}
@@ -47,9 +48,9 @@ export function InviteCardSheet({
 /** Petunjuk memilih target di atas papan; tidak menutupi papan. */
 export function InvitePickBanner({ onCancel }: { onCancel: () => void }) {
   return (
-    <div className="paper-panel invite-pick-banner" role="status">
+    <div className="ui-folder invite-pick-banner" role="status">
       <span>Pilih pemain yang ingin diajak: klik karakternya di papan atau namanya di Papan Skor</span>
-      <button type="button" className="comic-btn-secondary" onClick={onCancel}>Batal</button>
+      <Button variant="outlined" onClick={onCancel}>Batal</Button>
     </div>
   );
 }
@@ -76,10 +77,10 @@ export function InviteConfirmSheet({
         <div className="grid gap-3">
           <p className="comic-invite-plan">{buildInviteConfirmText(targetName, plan)}</p>
           <div className="grid grid-cols-2 gap-2">
-            <Button variant="primary" className="comic-btn-primary" disabled={pending} onClick={onConfirm}>
+            <Button variant="primary" disabled={pending} onClick={onConfirm}>
               {pending ? "Mengirim..." : "Ajak"}
             </Button>
-            <Button variant="secondary" className="comic-btn-secondary" disabled={pending} onClick={onCancel}>Batal</Button>
+            <Button variant="outlined" disabled={pending} onClick={onCancel}>Batal</Button>
           </div>
         </div>
       ) : null}
@@ -121,10 +122,10 @@ export function InviteIncomingView({
       <p className="comic-effect">Efek jika ikut: {formatEffects(invite.planEffects)}</p>
       <p className="comic-timer" role="timer"><span aria-hidden="true">◷</span> Sisa waktu menjawab: {secondsLeft} detik</p>
       <div className="grid grid-cols-2 gap-2">
-        <Button variant="primary" className="comic-btn-primary" disabled={pending} onClick={() => onRespond(invite.inviteId, "join")}>
+        <Button variant="primary" disabled={pending} onClick={() => onRespond(invite.inviteId, "join")}>
           {pending ? "..." : "Ikut"}
         </Button>
-        <Button variant="secondary" className="comic-btn-secondary" disabled={pending} onClick={() => onRespond(invite.inviteId, "decline")}>
+        <Button variant="outlined" disabled={pending} onClick={() => onRespond(invite.inviteId, "decline")}>
           {pending ? "..." : "Tolak"}
         </Button>
       </div>
@@ -132,15 +133,9 @@ export function InviteIncomingView({
   );
   if (compact) {
     return (
-      <section
-        role="dialog"
-        aria-label="Ada ajakan buat kamu"
-        className="paper-panel comic-dialog-compact"
-      >
-        <span aria-hidden="true" className="hex-card-clip" />
-        <h2 className="hex-card-title">Ada ajakan buat kamu</h2>
+      <PopupFrame title="Ada ajakan buat kamu" className="comic-dialog-compact">
         {body}
-      </section>
+      </PopupFrame>
     );
   }
   return (
@@ -167,7 +162,7 @@ export function InviteResultsView({
           <p className="comic-invite-detail">{first.answerText}</p>
           <p className="comic-invite-detail">{first.motiveText}</p>
           <p className="comic-effect">Efek untukmu: {first.effectsText}</p>
-          <Button variant="primary" className="comic-btn-primary" onClick={() => onDismiss(first.inviteId)}>
+          <Button variant="primary" onClick={() => onDismiss(first.inviteId)}>
             {results.length > 1 ? `Lanjut (${results.length - 1} lagi)` : "Tutup"}
           </Button>
         </div>

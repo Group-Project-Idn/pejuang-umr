@@ -2,6 +2,7 @@ import type { CalendarEventPayload, InviteCard } from "@pejuang/shared";
 import { createElement, isValidElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import Button from "../ui/Button";
 import CalendarEventView from "./CalendarEventView";
 import { InviteCardSheet, InviteConfirmSheet, InviteIncomingView, InvitePickBanner, InviteResultsView } from "./invites";
 
@@ -14,7 +15,7 @@ describe("dialog event dan ajakan bergaya komik", () => {
     const onCancel = vi.fn();
     const banner = InvitePickBanner({ onCancel });
     const button = (banner.props as { children: ReactNode[] }).children.find(
-      (child) => isValidElement(child) && child.type === "button",
+      (child) => isValidElement(child) && child.type === Button,
     ) as ReactElement<{ onClick: () => void }>;
     button.props.onClick();
     expect(onCancel).toHaveBeenCalledOnce();
@@ -22,7 +23,7 @@ describe("dialog event dan ajakan bergaya komik", () => {
   it("memberi petunjuk dua cara memilih target dan tombol batal", () => {
     const markup = renderToStaticMarkup(createElement(InvitePickBanner, { onCancel: () => undefined }));
     expect(markup).toContain("Pilih pemain yang ingin diajak: klik karakternya di papan atau namanya di Papan Skor");
-    expect(markup).toContain("paper-panel invite-pick-banner");
+    expect(markup).toContain("ui-folder invite-pick-banner");
     expect(markup).toContain("Batal");
   });
   it("event menampilkan stempel, tanggal, radio native, centang, catatan dan tombol kirim", () => {
@@ -38,7 +39,7 @@ describe("dialog event dan ajakan bergaya komik", () => {
     }
     expect(markup).toContain('type="radio"');
     expect(markup).toContain("comic-choice-check");
-    expect(markup).toContain("comic-btn-primary");
+    expect(markup).toContain("ui-btn-primary");
   });
 
   it("keempat variasi Ajakan memakai kartu dan tombol komik tanpa mengganti teks", () => {
@@ -48,7 +49,7 @@ describe("dialog event dan ajakan bergaya komik", () => {
     expect(cardMarkup).toContain("Kartu Ajakan");
     expect(cardMarkup).toContain("Pilih target");
     expect(cardMarkup).toContain("comic-effect");
-    expect(cardMarkup).toContain("comic-btn-secondary");
+    expect(cardMarkup).toContain("ui-btn-outlined");
 
     const confirmMarkup = renderToStaticMarkup(createElement(InviteConfirmSheet, {
       flow: { step: "confirm", turnId: "turn-1", cardId: "card-1", targetPlayerId: "p2" },
@@ -75,7 +76,7 @@ describe("dialog event dan ajakan bergaya komik", () => {
       popup: { ...popup, compact: true }, expired: false, pending: false,
       onRespond: () => undefined, onDismissExpired: () => undefined,
     }));
-    expect(compactMarkup).toContain("paper-panel comic-dialog-compact");
+    expect(compactMarkup).toContain("ui-folder ui-popup comic-dialog-compact");
     expect(compactMarkup).toContain("comic-timer");
 
     const resultMarkup = renderToStaticMarkup(createElement(InviteResultsView, {

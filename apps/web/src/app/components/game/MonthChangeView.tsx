@@ -55,7 +55,7 @@ export default function MonthChangeView({ summary, pending, serverClockOffsetMs,
     <BottomSheet open={summary !== null} title="Ganti Bulan" onClose={() => undefined}>
       {summary ? (
         <div className="comic-month grid gap-3 text-body-sm">
-          <p className="comic-stamp">Bulan {summary.month}</p>
+          <p className="ui-stamp">Bulan {summary.month}</p>
           <dl className="comic-receipt">
             <div className="comic-receipt-row"><dt>Gaji masuk</dt><dd className="comic-amount-positive">+{formatRupiah(summary.salary)}</dd></div>
             <div className="comic-receipt-row"><dt>Biaya hidup wajib</dt><dd className="comic-amount-negative">−{formatRupiah(summary.livingCost)}</dd></div>
@@ -118,7 +118,7 @@ function MonthDebtPayment({
       {cannotAfford ? <p>{DEBT_UNAFFORDABLE_TEXT}</p> : null}
       <p className="comic-timer" role="timer"><span aria-hidden="true">◷</span> Waktu tersisa: {seconds} detik</p>
       {error ? <p role="alert" className="comic-error"><span aria-hidden="true">⚠</span> {error}</p> : null}
-      <Button variant="primary" className="comic-btn-primary" type="submit" disabled={pending || seconds === 0}>
+      <Button variant="primary" type="submit" disabled={pending || seconds === 0}>
         {pending ? "Mengirim..." : cannotAfford ? "Lewati" : "Konfirmasi pembayaran"}
       </Button>
     </form>

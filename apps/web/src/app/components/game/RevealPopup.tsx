@@ -1,6 +1,8 @@
 import Image from "next/image";
 import { getAvatarSrc } from "@/lib/avatars";
 import { OUTCOME_LABEL, type RevealRow } from "@/lib/reveal";
+import Button from "../ui/Button";
+import PopupFrame from "../ui/PopupFrame";
 import CategoryIcon from "./HexCategoryIcon";
 import { EffectList } from "./HexDetailSheet";
 
@@ -16,10 +18,7 @@ export type RevealPopupProps = {
 export default function RevealPopup({ rows, onMinimize }: RevealPopupProps) {
   return (
     <div className="reveal-popup-wrap">
-      <section role="dialog" aria-label="Fase Pembalikan" className="paper-panel reveal-popup">
-        <span aria-hidden="true" className="hex-card-clip" />
-        <div className="reveal-popup-scroll">
-          <h2 className="hex-card-title">FASE PEMBALIKAN</h2>
+      <PopupFrame title="Fase Pembalikan" heading="FASE PEMBALIKAN" className="reveal-popup">
           <p className="reveal-popup-sub">Realita dibuka sesuai urutan giliran</p>
           <ol className="reveal-rows" aria-live="polite">
             {rows.map((row) => (
@@ -51,9 +50,8 @@ export default function RevealPopup({ rows, onMinimize }: RevealPopupProps) {
               </li>
             ))}
           </ol>
-          <button type="button" className="reveal-minimize" onClick={onMinimize}>Lihat papan</button>
-        </div>
-      </section>
+          <Button variant="outlined" className="justify-self-end" onClick={onMinimize}>Lihat papan</Button>
+      </PopupFrame>
     </div>
   );
 }

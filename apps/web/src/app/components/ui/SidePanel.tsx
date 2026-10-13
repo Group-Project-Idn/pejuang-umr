@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, type ReactNode } from "react";
+import PopupFrame from "./PopupFrame";
 import { HEX_PANEL_CLASS, HEX_PANEL_WRAPPER_CLASS } from "@/lib/hex-interaction";
 
 export type SidePanelProps = {
@@ -30,14 +31,9 @@ export default function SidePanel({ open, title, onClose, children, header, clas
   if (!open) return null;
   return (
     <div className={HEX_PANEL_WRAPPER_CLASS}>
-      <section role="dialog" aria-label={title} className={`${HEX_PANEL_CLASS} ${className}`}>
-        <span aria-hidden="true" className="hex-card-clip" />
-        <div className="hex-card-scroll">
-          {header}
-          <h2 className="hex-card-title">{title}</h2>
-          <div className="grid gap-3">{children}</div>
-        </div>
-      </section>
+      <PopupFrame title={title} header={header} className={`${HEX_PANEL_CLASS} ${className}`}>
+        {children}
+      </PopupFrame>
     </div>
   );
 }

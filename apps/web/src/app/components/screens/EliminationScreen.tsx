@@ -27,11 +27,12 @@ export default function EliminationScreen({
   onLeave: () => void;
 }) {
   return (
-    <main className="mx-auto grid w-full max-w-md gap-4 bg-latar px-4 py-6 text-teks-utama">
+    <div className="lobby-desk min-h-dvh text-[#fbe6b1]">
+    <main className="mx-auto grid w-full max-w-md gap-4 px-4 py-6">
       <header className="grid gap-1">
         <h1 className="text-headline">{ELIMINATION_COPY.title}</h1>
         {reason ? (
-          <p className="text-body-sm text-teks-sekunder">
+          <p className="text-body-sm">
             Alasan: {ELIMINATION_REASON_LABEL[reason]}
           </p>
         ) : null}
@@ -47,8 +48,9 @@ export default function EliminationScreen({
         </Card>
       ) : null}
       <ReflectionCard reflection={reflection} />
-      {message ? <p role="status" className="text-body-sm text-teks-sekunder">{message}</p> : null}
+      {message ? <p role="status" className="text-body-sm">{message}</p> : null}
       <Button onClick={onLeave} disabled={busy}>{ELIMINATION_COPY.leave}</Button>
     </main>
+    </div>
   );
 }
