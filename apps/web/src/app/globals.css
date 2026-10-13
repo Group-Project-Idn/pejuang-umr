@@ -421,3 +421,15 @@ button { font: inherit; }
 .board-canvas-empty { display: grid; place-items: center; background: #2a2024; }
 .season-hint { grid-column: 1 / -1; font-size: 9px; }
 .gold-notice { position: absolute; top: 8px; left: 50%; z-index: 9; transform: translateX(-50%); padding: 8px 14px; border: 2px solid #7c5715; border-radius: 999px; background: #ffe067; color: #59400f; font-size: 12px; font-weight: 900; box-shadow: 0 0 18px #ffd84d; }
+
+.reveal-banner { position: absolute; z-index: 7; top: 8px; left: 50%; transform: translateX(-50%); display: grid; gap: 2px; max-width: min(88%, 520px); padding: 8px 16px; text-align: center; color: #59400f; background: #ffe067; border: 2px solid #7c5715; box-shadow: 0 0 22px #ffd84d, 0 4px 0 rgba(71,42,12,.3); }
+.reveal-banner strong { font-family: Georgia, serif; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; }
+.reveal-banner small, .reveal-result { font-size: 11px; }
+.reveal-result { animation: reveal-in .5s ease-out; }
+.tile-outcome { display: block; margin-top: 2px; padding: 1px 6px; border-radius: 3px; font-size: 9px; font-weight: 900; text-align: center; color: #fff; animation: tile-flip .6s ease-out; }
+.tile-outcome-zonk { background: #a64438; }
+.tile-outcome-safe { background: #5f6b73; }
+.tile-outcome-lucky { background: #3f8f5a; }
+@keyframes tile-flip { from { transform: rotateY(90deg); opacity: 0; } to { transform: rotateY(0); opacity: 1; } }
+@keyframes reveal-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .tile-outcome, .reveal-result { animation: none; } }

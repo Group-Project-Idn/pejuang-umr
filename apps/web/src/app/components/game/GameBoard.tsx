@@ -13,6 +13,7 @@ import {
   TILE_DETAILS,
 } from "@/data/game";
 import { isWebGLAvailable, NO_WEBGL_MESSAGE } from "@/lib/board-hud";
+import { OUTCOME_LABEL } from "@/lib/reveal";
 import GameCharacters from "./GameCharacters";
 
 const tempObject = new THREE.Object3D();
@@ -27,13 +28,21 @@ const FOG_HIDDEN_COLOR = "#343941";
 const LIT_COLOR = "#ffe9a8";
 const LIT_OUTLINE_COLOR = "#ffd84d";
 
+/** Posisi animasi Fase Pembalikan; null di luar fase itu. */
+export type BoardReveal = {
+  activeKey: string | null;
+  flippedKeys: ReadonlySet<string>;
+};
+
 function HexTiles({
   game,
   lit,
+  reveal,
   onSelectHex,
 }: {
   game: PublicGameState;
   lit: readonly TileOption[];
+  reveal: BoardReveal | null;
   onSelectHex: (key: string) => void;
 }) {
   const outlineMesh = useRef<THREE.InstancedMesh>(null);
@@ -47,6 +56,7 @@ function HexTiles({
     [game.openedHexes],
   );
   const goldKey = game.gold ? hexKey(game.gold.hex) : null;
+  const revealActiveKey = reveal?.activeKey ?? null;
   const litByHex = useMemo(
     () => new Map(lit.map((option) => [hexKey(option.hex), option])),
     [lit],
@@ -72,7 +82,7 @@ function HexTiles({
       const isLit = litByHex.has(key);
       outline.setColorAt(
         index,
-        tempColor.set(isLit ? LIT_OUTLINE_COLOR : HEX_TILE_OUTLINE_COLOR),
+        tempColor.set(isLit || key === revealActiveKey ? LIT_OUTLINE_COLOR : HEX_TILE_OUTLINE_COLOR),
       );
       const color = isLit && !opened
         ? litByHex.get(key)?.isGold ? TILE_DETAILS.gold.color : LIT_COLOR
@@ -87,7 +97,7 @@ function HexTiles({
     surface.instanceMatrix.needsUpdate = true;
     if (outline.instanceColor) outline.instanceColor.needsUpdate = true;
     if (surface.instanceColor) surface.instanceColor.needsUpdate = true;
-  }, [board, goldKey, litByHex, openedByHex]);
+  }, [board, goldKey, litByHex, openedByHex, revealActiveKey]);
 
   return (
     <>
@@ -162,6 +172,11 @@ function HexTiles({
             <span className={`tile-symbol tile-symbol-${tile.category}`}>
               {TILE_DETAILS[tile.category].icon}
             </span>
+            {reveal && tile.reality && reveal.flippedKeys.has(hexKey(tile.hex)) ? (
+              <span className={`tile-outcome tile-outcome-${tile.reality.outcome}`}>
+                {OUTCOME_LABEL[tile.reality.outcome]}
+              </span>
+            ) : null}
           </Html>
         );
       })}
@@ -173,12 +188,14 @@ function DeskScene({
   game,
   room,
   lit,
+  reveal,
   onSelectHex,
   inviteTargeting,
 }: {
   game: PublicGameState;
   room: RoomState;
   lit: readonly TileOption[];
+  reveal: BoardReveal | null;
   onSelectHex: (key: string) => void;
   inviteTargeting: ComponentProps<typeof GameCharacters>["inviteTargeting"];
 }) {
@@ -215,7 +232,7 @@ function DeskScene({
       >
         <meshStandardMaterial color="#61331f" roughness={0.86} />
       </RoundedBox>
-      <HexTiles game={game} lit={lit} onSelectHex={onSelectHex} />
+      <HexTiles game={game} lit={lit} reveal={reveal} onSelectHex={onSelectHex} />
       <Suspense fallback={null}>
         <GameCharacters
           game={game}
@@ -269,6 +286,7 @@ export default function GameBoard({
   game,
   room,
   lit,
+  reveal = null,
   onSelectHex,
   inviteTargeting = null,
 }: {
@@ -276,6 +294,7 @@ export default function GameBoard({
   room: RoomState;
   /** Heksa menyala milik pemain aktif; kosong untuk pemain lain. */
   lit: readonly TileOption[];
+  reveal?: BoardReveal | null;
   onSelectHex: (key: string) => void;
   inviteTargeting?: ComponentProps<typeof GameCharacters>["inviteTargeting"];
 }) {
@@ -292,7 +311,7 @@ export default function GameBoard({
           camera={{ position: [0, cameraDistance, cameraDistance * 0.84], fov: 42 }}
           gl={{ antialias: true, powerPreference: "high-performance" }}
         >
-          <DeskScene game={game} room={room} lit={lit} onSelectHex={onSelectHex} inviteTargeting={inviteTargeting} />
+          <DeskScene game={game} room={room} lit={lit} reveal={reveal} onSelectHex={onSelectHex} inviteTargeting={inviteTargeting} />
         </Canvas>
       </BoardErrorBoundary>
     </div>
