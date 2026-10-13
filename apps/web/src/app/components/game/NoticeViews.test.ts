@@ -20,16 +20,13 @@ describe("pemberitahuan sementara", () => {
     expect(NOTICE_AUTO_DISMISS_MS).toBe(4_000);
   });
 
-  it("overlay Doom memuat kalimat, nominal, dan Level Stress", () => {
+  it("kalimat Doom memuat nominal dan Level Stress; kartunya tampil di PopupGrid, bukan overlay", () => {
     expect(getDoomLines(doom)).toEqual([
       "Checkout dulu, nyesel belakangan.",
       "Kekayaan -Rp750.000",
       "Level Stress sekarang 8",
     ]);
-    const markup = render([{ id: 1, kind: "doom", payload: doom }]);
-    expect(markup).toContain("Checkout dulu, nyesel belakangan.");
-    expect(markup).toContain("Rp750.000");
-    expect(markup).toContain("Tutup");
+    expect(render([{ id: 1, kind: "doom", payload: doom }])).toBe("");
   });
 
   it("toast hasil Event Tanggal memuat pilihan, efek, dan flavor", () => {

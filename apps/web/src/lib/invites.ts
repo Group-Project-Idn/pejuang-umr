@@ -227,14 +227,6 @@ export function buildInviteResultView(
   };
 }
 
-/** Tiap inviteId tampil sekali, termasuk saat hasil yang sama datang lagi lewat snapshot. */
-export function selectUnseenInviteResults(
-  results: readonly InviteResolvedPayload[],
-  seenIds: ReadonlySet<string>,
-): InviteResolvedPayload[] {
-  return results.filter((result) => !seenIds.has(result.inviteId));
-}
-
 export function describeCard(card: InviteCard) {
   return {
     plan: PLAN_LABEL[card.plan],

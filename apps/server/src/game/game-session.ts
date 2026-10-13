@@ -573,7 +573,6 @@ export class GameSession {
             payload: {
               ...event.payload,
               deadline,
-              payDebt: event.payload.payDebt ? { ...event.payload.payDebt, deadline } : null,
             },
           };
         }

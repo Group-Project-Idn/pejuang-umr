@@ -24,8 +24,8 @@ const CalendarChoiceSchema = z.object({
 
 export const CalendarEventPayloadSchema = z.strictObject({
   version: z.number().int().nonnegative(),
-  /** Popup serentak awal ronde (GDD 4.2 v1.14): sama dengan batchId month:summary di ronde yang sama. Opsional selama fase expand (D3); server selalu mengisinya. Jadikan wajib setelah web pindah (Prompt 10). */
-  batchId: z.string().min(1).optional(),
+  /** Popup serentak awal ronde (GDD 4.2 v1.14): sama dengan batchId month:summary di ronde yang sama. */
+  batchId: z.string().min(1),
   eventId: z.string().min(1),
   name: z.string().min(1),
   dateLabel: z.string().min(1),
@@ -48,15 +48,13 @@ export const MonthSummaryPayloadSchema = z.strictObject({
   livingCost: z.literal(4_600_000),
   interest: z.number().int(),
   interestAddedToDebt: z.number().int(),
-  /** Popup serentak awal ronde (GDD 4.2 v1.14): sama dengan batchId calendar:event di ronde yang sama. Opsional selama fase expand (D3); server selalu mengisinya. Jadikan wajib setelah web pindah (Prompt 10). */
-  batchId: z.string().min(1).optional(),
+  /** Popup serentak awal ronde (GDD 4.2 v1.14): sama dengan batchId calendar:event di ronde yang sama. */
+  batchId: z.string().min(1),
   /** Deadline bersama batch (epoch ms), selalu terisi server, juga saat payDebt null. */
-  deadline: z.number().int().optional(),
+  deadline: z.number().int(),
   payDebt: z
     .object({
       max: z.number().int().nonnegative(),
-      /** @deprecated Pakai `deadline` di level payload; nilainya sama. Dihapus setelah web pindah (Prompt 10). */
-      deadline: z.number().int(),
     })
     .nullable(),
   before: PrivateStatusSchema,

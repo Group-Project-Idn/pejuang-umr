@@ -159,7 +159,7 @@ describe("deadline + grace: month:pay-debt", () => {
     const summary = ctx
       .ofType("month:summary")
       .find((e) => e.target.kind === "player" && e.target.playerId === "a")!;
-    return { ctx, deadline: summary.payload.payDebt!.deadline };
+    return { ctx, deadline: summary.payload.deadline };
   }
 
   it("diterima tepat pada deadline + 500 ms", () => {

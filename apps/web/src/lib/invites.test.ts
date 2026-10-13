@@ -20,7 +20,6 @@ import {
   isInviteExpired,
   isInviteTargetSelectable,
   resolveInviteFlow,
-  selectUnseenInviteResults,
 } from "./invites";
 import {
   applyInviteCard,
@@ -234,13 +233,6 @@ describe("hasil Fase Pembalikan", () => {
     const declined = { ...resolved, answer: "decline", autoDeclined: true } as const;
     expect(buildInviteResultView(declined, "p1", room)?.answerText).toBe("Dika tidak menjawab, dihitung Tolak");
     expect(buildInviteResultView(declined, "p2", room)?.answerText).toBe("Waktu habis, dihitung Tolak");
-  });
-
-  it("tampil sekali per inviteId meski datang lagi lewat snapshot", () => {
-    const seen = new Set<string>();
-    expect(selectUnseenInviteResults([resolved], seen)).toEqual([resolved]);
-    seen.add(resolved.inviteId);
-    expect(selectUnseenInviteResults([resolved], seen)).toEqual([]);
   });
 
   it("efek diformat dengan istilah glosarium", () => {

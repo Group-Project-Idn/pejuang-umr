@@ -211,8 +211,7 @@ describe("Ganti Bulan: month:pay-debt", () => {
     expect(hostSummary.month).toBe(2);
     expect(hostSummary.payDebt.max).toBe(4_000_000);
     const paymentTimer = latestTimer(ctx, MONTH_PAY_SECONDS * 1000 + 501);
-    expect(hostSummary.payDebt.deadline).toBe(paymentTimer.at + MONTH_PAY_SECONDS * 1000);
-    expect(hostSummary.deadline).toBe(hostSummary.payDebt.deadline);
+    expect(hostSummary.deadline).toBe(paymentTimer.at + MONTH_PAY_SECONDS * 1000);
     expect(hostSummary.batchId).toBe(ctx.session.state.batchId);
     expect(ctx.session.state.public.phase).toBe("calendar");
 
@@ -285,14 +284,14 @@ describe("Ganti Bulan: month:pay-debt", () => {
   it("pembayaran tepat deadline + 500 ms diterima, + 501 ms ditolak", async () => {
     const accepted = await setup();
     await openMonthChange(accepted, [[accepted.host.playerId, { debt: 4_000_000 }]]);
-    const deadline = accepted.find(accepted.host, "month:summary")[0]!.payload.payDebt.deadline as number;
+    const deadline = accepted.find(accepted.host, "month:summary")[0]!.payload.deadline as number;
     accepted.clock.advance(deadline + 500 - accepted.clock.now());
     expect(await pay(accepted.host, 2, 1_000_000)).toMatchObject({ ok: true, paid: 1_000_000 });
     expect(accepted.session.state.phase).toBe("turn");
 
     const expired = await setup();
     await openMonthChange(expired, [[expired.host.playerId, { debt: 4_000_000 }]]);
-    const expiredDeadline = expired.find(expired.host, "month:summary")[0]!.payload.payDebt.deadline as number;
+    const expiredDeadline = expired.find(expired.host, "month:summary")[0]!.payload.deadline as number;
     expired.clock.advance(expiredDeadline + 501 - expired.clock.now());
     expect(await pay(expired.host, 2, 1_000_000)).toMatchObject({ ok: false, error: "PAYMENT_CLOSED" });
     expect(expired.session.state.players[expired.host.playerId]!.status.debt).toBe(4_000_000);
@@ -332,7 +331,6 @@ describe("Ganti Bulan: month:pay-debt", () => {
     expect(resumed.ok).toBe(true);
     if (!resumed.ok) return;
     expect(resumed.snapshot.me.pendingMonth).toEqual(summary);
-    expect(resumed.snapshot.me.pendingMonth?.payDebt?.deadline).toBe(summary.payDebt.deadline);
     expect(resumed.snapshot.me.pendingMonth?.deadline).toBe(summary.deadline);
     expect(resumed.snapshot.me.pendingMonth?.batchId).toBe(summary.batchId);
     expect(resumed.snapshot.game?.phase).toBe("calendar");

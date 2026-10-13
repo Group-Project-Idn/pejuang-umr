@@ -134,12 +134,13 @@ describe("kontrak v0.3: field wajib", () => {
     expect(MonthSummaryPayloadSchema.safeParse(summary).success).toBe(true);
     expect(MonthSummaryPayloadSchema.safeParse({ ...summary, payDebt: undefined }).success).toBe(false);
     expect(
-      MonthSummaryPayloadSchema.safeParse({ ...summary, payDebt: { max: 500_000, deadline: 1_700_000_000_000 } }).success,
+      MonthSummaryPayloadSchema.safeParse({ ...summary, payDebt: { max: 500_000 } }).success,
     ).toBe(true);
-    // Fase expand (D3): batchId dan deadline opsional di skema sampai web pindah.
-    expect(MonthSummaryPayloadSchema.safeParse({ ...summary, batchId: undefined, deadline: undefined }).success).toBe(true);
+    // batchId dan deadline wajib (popup serentak, v0.8).
+    expect(MonthSummaryPayloadSchema.safeParse({ ...summary, batchId: undefined }).success).toBe(false);
+    expect(MonthSummaryPayloadSchema.safeParse({ ...summary, deadline: undefined }).success).toBe(false);
     expect(MonthSummaryPayloadSchema.safeParse({ ...summary, batchId: "" }).success).toBe(false);
-    expect(MonthSummaryPayloadSchema.safeParse({ ...summary, payDebt: { max: -1, deadline: 1 } }).success).toBe(false);
+    expect(MonthSummaryPayloadSchema.safeParse({ ...summary, payDebt: { max: -1 } }).success).toBe(false);
   });
 
   it("Snapshot.me mewajibkan pendingMonth dan reflection", () => {
@@ -278,14 +279,14 @@ describe("kontrak v0.3: event baru", () => {
 
   it("round:reveal", () => {
     const ok = {
-      version: 5, round: 2, step: 2, order: [{ playerId: "p1", hex: { q: 1, r: -1 } }], revealEndsAt: 12_500, revealStepMs: 2_500,
+      version: 5, round: 2, step: 2, order: [{ playerId: "p1", hex: { q: 1, r: -1 } }], revealEndsAt: 12_500, revealStepMs: 2_500, resultsDeadline: 20_500,
     };
     expect(RoundRevealPayloadSchema.safeParse(ok).success).toBe(true);
     expect(RoundRevealPayloadSchema.safeParse({ ...ok, revealEndsAt: undefined }).success).toBe(false);
     expect(RoundRevealPayloadSchema.safeParse({ ...ok, revealStepMs: undefined }).success).toBe(false);
     expect(RoundRevealPayloadSchema.safeParse({ ...ok, order: [{ playerId: "p1" }] }).success).toBe(false);
-    // Fase expand: resultsDeadline opsional, bila ada harus integer.
-    expect(RoundRevealPayloadSchema.safeParse({ ...ok, resultsDeadline: 20_500 }).success).toBe(true);
+    // resultsDeadline wajib dan harus integer.
+    expect(RoundRevealPayloadSchema.safeParse({ ...ok, resultsDeadline: undefined }).success).toBe(false);
     expect(RoundRevealPayloadSchema.safeParse({ ...ok, resultsDeadline: 1.5 }).success).toBe(false);
   });
 

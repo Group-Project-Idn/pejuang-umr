@@ -7,6 +7,8 @@ export type PopupFrameProps = {
   heading?: string;
   /** Konten di atas judul (mis. catatan privasi dan chip kategori). */
   header?: ReactNode;
+  /** Kontrol di pojok kanan atas yang tidak ikut tergulung (mis. tombol X). */
+  corner?: ReactNode;
   children: ReactNode;
   /** Dialog modal (aria-modal) untuk bottom sheet. */
   modal?: boolean;
@@ -25,6 +27,7 @@ export default function PopupFrame({
   title,
   heading,
   header,
+  corner,
   children,
   modal = false,
   titleRef,
@@ -40,6 +43,7 @@ export default function PopupFrame({
       onClick={onClick}
     >
       <span aria-hidden="true" className="ui-clip" />
+      {corner}
       <div className="ui-popup-scroll">
         {header}
         <h2 ref={titleRef} tabIndex={titleRef ? -1 : undefined} className="ui-popup-title focus:outline-none">

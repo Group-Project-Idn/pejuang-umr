@@ -102,13 +102,13 @@ const newerStatus: PrivateStatus = {
 };
 
 describe("room session recovery", () => {
-  it.each([null, { max: 1_000_000, deadline: 25_000 }])(
+  it.each([null, { max: 1_000_000 }])(
     "menerima ringkasan bulan setelah pembalikan dan patch kalender tanpa reconnect (payDebt: %j)",
     (payDebt) => {
       const initial = applySessionSnapshot(createRoomSessionView(), snapshot(3), 10_000);
       const revealed = applySessionPublicEvent(initial, {
         type: "round:reveal",
-        payload: { version: 4, round: 1, step: 1, order: [], revealEndsAt: 12_000, revealStepMs: 2_500 },
+        payload: { version: 4, round: 1, step: 1, order: [], revealEndsAt: 12_000, revealStepMs: 2_500, resultsDeadline: 20_000 },
       });
       const calendarPatch = {
         version: 5,
@@ -123,7 +123,7 @@ describe("room session recovery", () => {
       expect(updated.state.gameView.game?.turnDeadline).toBeNull();
       const summary: MonthSummaryPayload = {
         month: 2, salary: 5_730_000, livingCost: 4_600_000,
-        interest: 30_000, interestAddedToDebt: 0,
+        interest: 30_000, interestAddedToDebt: 0, batchId: "game-1-step3", deadline: 25_000,
         before: { ...newerStatus, debt: 1_000_000 },
         after: { ...newerStatus, debt: 1_000_000 }, payDebt,
       };
@@ -148,10 +148,10 @@ describe("room session recovery", () => {
     }).state;
     const summary: MonthSummaryPayload = {
       month: 2, salary: 5_730_000, livingCost: 4_600_000,
-      interest: 30_000, interestAddedToDebt: 0,
+      interest: 30_000, interestAddedToDebt: 0, batchId: "game-1-step3", deadline: 25_000,
       before: { ...newerStatus, debt: 1_000_000 },
       after: { ...newerStatus, debt: 1_000_000, wealth: 8_100_000 },
-      payDebt: { max: 1_000_000, deadline: 25_000 },
+      payDebt: { max: 1_000_000 },
     };
     expect(applySessionMonthSummary(initial, summary)).toBe(initial);
     const shown = applySessionMonthSummary(ready, summary);
@@ -180,13 +180,13 @@ describe("room session recovery", () => {
     const initial = applySessionSnapshot(createRoomSessionView(), snapshot(3), 10_000);
     const reveal = applySessionPublicEvent(initial, {
       type: "round:reveal",
-      payload: { version: 4, round: 1, step: 1, order: [], revealEndsAt: 12_000, revealStepMs: 2_500 },
+      payload: { version: 4, round: 1, step: 1, order: [], revealEndsAt: 12_000, revealStepMs: 2_500, resultsDeadline: 20_000 },
     });
     expect(reveal.needsResume).toBe(false);
     expect(reveal.state.gameView.game?.phase).toBe("reveal");
     const duplicate = applySessionPublicEvent(reveal.state, {
       type: "round:reveal",
-      payload: { version: 4, round: 1, step: 1, order: [], revealEndsAt: 12_000, revealStepMs: 2_500 },
+      payload: { version: 4, round: 1, step: 1, order: [], revealEndsAt: 12_000, revealStepMs: 2_500, resultsDeadline: 20_000 },
     });
     expect(duplicate.needsResume).toBe(false);
     expect(duplicate.state).toBe(reveal.state);
@@ -211,6 +211,7 @@ describe("room session recovery", () => {
     const incoming = snapshot(4);
     incoming.me.pendingCalendar = {
       version: 4,
+      batchId: "game-1-step3",
       eventId: "calendar-1",
       name: "Tanggal Tua",
       dateLabel: "Januari · Pekan 1",
@@ -374,6 +375,7 @@ describe("room session recovery", () => {
     const initial = applySessionSnapshot(createRoomSessionView(), snapshot(10), 10_000);
     const calendar: CalendarEventPayload = {
       version: 11,
+      batchId: "game-1-step3",
       eventId: "calendar-1",
       name: "Tanggal Tua",
       dateLabel: "Januari · Pekan 1",
@@ -403,6 +405,7 @@ describe("room session recovery", () => {
     const incoming = snapshot(12);
     incoming.me.pendingCalendar = {
       version: 12,
+      batchId: "game-1-step3",
       eventId: "calendar-new",
       name: "Tanggal Tua",
       dateLabel: "Januari · Pekan 1",
@@ -499,6 +502,7 @@ describe("room session recovery", () => {
     const calendarSnapshot = snapshot(10);
     calendarSnapshot.me.pendingCalendar = {
       version: 10,
+      batchId: "game-1-step3",
       eventId: "event-1",
       name: "Tahun Baru",
       dateLabel: "1 Jan",
@@ -521,6 +525,7 @@ describe("room session recovery", () => {
     const initial = applySessionSnapshot(createRoomSessionView(), snapshot(10), 10_000);
     const payload: CalendarEventPayload = {
       version: 10,
+      batchId: "game-1-step3",
       eventId: "calendar-old",
       name: "Lama",
       dateLabel: "Januari · Pekan 1",
@@ -540,6 +545,7 @@ describe("room session recovery", () => {
   it("calendar event tidak membuat pending untuk pemain eliminated atau spectator", () => {
     const payload: CalendarEventPayload = {
       version: 11,
+      batchId: "game-1-step3",
       eventId: "calendar-1",
       name: "Tanggal Tua",
       dateLabel: "Januari · Pekan 1",
@@ -623,18 +629,18 @@ describe("hint musim dan notifikasi Petak Emas", () => {
     expect(state.gameView.game?.calendar.seasonHint).toBe("Pancaroba: petak Kesehatan lebih rawan");
   });
 
-  it("gold:spawned dan gold:expired menghasilkan pemberitahuan", () => {
+  it("gold:spawned masuk kartu popup serentak, gold:expired menghasilkan pemberitahuan", () => {
     const spawned = applySessionPublicEvent(start(), {
       type: "gold:spawned",
       payload: { version: 6, gold },
     }).state;
-    expect(spawned.goldNotice?.text).toBe("Petak Emas muncul! Hilang dalam 3 ronde");
+    expect(spawned.goldNotice).toBeNull();
+    expect(spawned.goldSpawnedStep).toBe(1);
     const expired = applySessionPublicEvent(spawned, {
       type: "gold:expired",
       payload: { version: 7, goldId: "g1", hex: gold.hex },
     }).state;
     expect(expired.goldNotice?.text).toBe("Petak Emas hangus");
-    expect(expired.goldNotice!.id).toBeGreaterThan(spawned.goldNotice!.id);
   });
 });
 
@@ -657,5 +663,81 @@ describe("pemberitahuan sementara", () => {
     expect(dismissNotice(one, 99)).toBe(one);
     const none = dismissNotice(one, 2);
     expect(applyDoomTriggered(none, doom).notices[0]!.id).toBe(3);
+  });
+});
+
+describe("batch popup serentak di sesi", () => {
+  const month = (extra: Partial<MonthSummaryPayload> = {}): MonthSummaryPayload => ({
+    month: 2, salary: 5_730_000, livingCost: 4_600_000, interest: 0, interestAddedToDebt: 0,
+    batchId: "game-1-step3", deadline: 25_000, before: newerStatus, after: newerStatus, payDebt: null, ...extra,
+  });
+  const calendarEvent = (): CalendarEventPayload => ({
+    version: 5, batchId: "game-1-step3", eventId: "e1", name: "Kondangan", dateLabel: "15 Mei", deadline: 25_000,
+    choices: [{ id: "skip", label: "Tidak ikut", effects: [] }],
+  });
+  const atCalendar = () => {
+    const initial = applySessionSnapshot(createRoomSessionView(), snapshot(3), 10_000);
+    return applySessionGamePatch(initial, {
+      version: 4,
+      ops: [{ type: "calendar", calendar: { ...initial.gameView.game!.calendar, month: 2, step: 3, round: 3 } }],
+    }).state;
+  };
+
+  it("Ganti Bulan dan Event Tanggal hidup berdampingan dalam satu batch, urutan terima bebas", () => {
+    const ready = atCalendar();
+    const withMonth = applySessionMonthSummary(ready, month({ payDebt: { max: 100_000 } }));
+    const both = applySessionCalendarEvent(withMonth, calendarEvent()).state;
+    expect(both.me?.pendingMonth).not.toBeNull();
+    expect(both.me?.pendingCalendar?.eventId).toBe("e1");
+    expect(both.popupBatch).toEqual({ batchId: "game-1-step3", deadline: 25_000 });
+    const reversed = applySessionMonthSummary(applySessionCalendarEvent(ready, calendarEvent()).state, month());
+    expect(reversed.me?.pendingCalendar?.eventId).toBe("e1");
+    expect(reversed.me?.pendingMonth?.month).toBe(2);
+  });
+
+  it("batch tetap terbuka setelah keputusan dijawab dan berakhir saat giliran pertama", () => {
+    const both = applySessionCalendarEvent(applySessionMonthSummary(atCalendar(), month({ payDebt: { max: 100_000 } })), calendarEvent()).state;
+    const answered = clearAcceptedPrivateAction(both, { kind: "month", month: 2 });
+    expect(answered.popupBatch).toEqual(both.popupBatch);
+    const started = applySessionPublicEvent(answered, {
+      type: "turn:start",
+      payload: { version: 6, turnId: "t1", playerId: "p1", deadline: 40_000, turnSeconds: 30 },
+    }).state;
+    expect(started.popupBatch).toBeNull();
+  });
+
+  it("reconnect saat batch terbuka memulihkan batchId dan deadline asli", () => {
+    const incoming = snapshot(4);
+    incoming.me.pendingMonth = month({ batchId: "game-1-step3", deadline: 24_000 });
+    const resumed = applySessionSnapshot(createRoomSessionView(), incoming, 10_000);
+    expect(resumed.popupBatch).toEqual({ batchId: "game-1-step3", deadline: 24_000 });
+  });
+
+  it("season:changed, gold:spawned, dan round:reveal dicatat untuk kartu serentak", () => {
+    const ready = atCalendar();
+    const season = applySessionPublicEvent(ready, {
+      type: "season:changed",
+      payload: { version: 5, season: "dry", vulnerableCategories: [], zonkFocus: "sick", hint: "Kemarau" },
+    }).state;
+    expect(season.seasonNotice).toEqual({ step: 3, season: "dry", hint: "Kemarau" });
+    const revealed = applySessionPublicEvent(season, {
+      type: "round:reveal",
+      payload: { version: 6, round: 3, step: 3, order: [], revealEndsAt: 30_000, revealStepMs: 2_500, resultsDeadline: 38_000 },
+    }).state;
+    expect(revealed.resultsWindow).toEqual({ step: 3, revealEndsAt: 30_000, resultsDeadline: 38_000 });
+    const next = applySessionGamePatch(revealed, {
+      version: 7,
+      ops: [{ type: "calendar", calendar: { ...revealed.gameView.game!.calendar, step: 5, round: 5 } }],
+    }).state;
+    expect(next.resultsWindow).toBeNull();
+  });
+
+  it("kartu Doom dibuang saat ronde berikutnya mulai", () => {
+    const withDoom = applyDoomTriggered(applyCalendarResult(atCalendar(), { eventId: "e", choice: "skip", autoChosen: false, effects: [] }), { amount: 1, round: 1, stressAfter: 3 });
+    const next = applySessionGamePatch(withDoom, {
+      version: 5,
+      ops: [{ type: "calendar", calendar: { ...withDoom.gameView.game!.calendar, step: 5, round: 5 } }],
+    }).state;
+    expect(next.notices.map((notice) => notice.kind)).toEqual(["calendarResult"]);
   });
 });

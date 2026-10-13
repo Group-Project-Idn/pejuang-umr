@@ -28,7 +28,7 @@ describe.skipIf(!chrome)("dialog Ganti Bulan di browser", () => {
       const summary = {
         month: 2, salary: 5730000, livingCost: 4600000, interest: 30000,
         interestAddedToDebt: 0, before: status, after: status,
-        payDebt: { max: 100000, deadline: Date.now() + 15000 },
+        batchId: "game-1-step3", deadline: Date.now() + 15000, payDebt: { max: 100000 },
       };
       const failures = [];
       const check = (condition, message) => { if (!condition) failures.push(message); };
@@ -39,7 +39,7 @@ describe.skipIf(!chrome)("dialog Ganti Bulan di browser", () => {
         const [version, setVersion] = useState(0);
         window.changeDialog = { setOpen, setVersion };
         return <>
-          <MonthChangeView summary={summary} pending={false} serverClockOffsetMs={0} onPayDebt={() => {}} />
+          <MonthChangeView summary={summary} pending={false} expired={false} onPayDebt={() => {}} />
           <BottomSheet open={open} title="Tes Escape" onClose={() => { window.closedVersion = version; }}>Isi</BottomSheet>
         </>;
       }
