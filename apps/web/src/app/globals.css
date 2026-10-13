@@ -433,3 +433,5 @@ button { font: inherit; }
 @keyframes tile-flip { from { transform: rotateY(90deg); opacity: 0; } to { transform: rotateY(0); opacity: 1; } }
 @keyframes reveal-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .tile-outcome, .reveal-result { animation: none; } }
+.hex-fallback { position: absolute; left: 50%; bottom: 96px; z-index: 9; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: min(92%, 560px); margin: 0; padding: 0; list-style: none; transform: translateX(-50%); }
+.hex-fallback button { padding: 8px 12px; border: 2px solid #ffd84d; border-radius: 8px; background: #fff2a8; color: #332820; font-weight: 900; cursor: pointer; }
