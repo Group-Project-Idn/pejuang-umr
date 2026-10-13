@@ -1,5 +1,5 @@
 import type { Category } from "@pejuang/shared";
-import BaseCategoryIcon from "../game/CategoryIcon";
+import BaseCategoryIcon from "./CategoryIcon";
 
 /** Ikon kategori petak (dekoratif; label kategori selalu ditulis di sebelahnya). */
 export default function CategoryIcon({ category }: { category: Category }) {

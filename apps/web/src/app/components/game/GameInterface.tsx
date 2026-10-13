@@ -31,17 +31,17 @@ import {
   maskUnrevealed,
   OUTCOME_LABEL,
 } from "@/lib/reveal";
-import CalendarEventView from "../game-v2/CalendarEventView";
-import NoticeViews from "../game-v2/NoticeViews";
-import HexDetailSheet from "../game-v2/HexDetailSheet";
-import RevealPopup from "../game-v2/RevealPopup";
+import CalendarEventView from "./CalendarEventView";
+import NoticeViews from "./NoticeViews";
+import HexDetailSheet from "./HexDetailSheet";
+import RevealPopup from "./RevealPopup";
 import {
   InviteCardSheet,
   InviteConfirmSheet,
   InviteIncomingView,
   InvitePickBanner,
   InviteResultsView,
-} from "../game-v2/invites";
+} from "./invites";
 import GameBoard from "./GameBoard";
 import Scoreboard from "./Scoreboard";
 import MonthChangeView from "./MonthChangeView";

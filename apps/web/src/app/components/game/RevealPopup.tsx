@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { getAvatarSrc } from "@/lib/avatars";
 import { OUTCOME_LABEL, type RevealRow } from "@/lib/reveal";
-import CategoryIcon from "./CategoryIcon";
+import CategoryIcon from "./HexCategoryIcon";
 import { EffectList } from "./HexDetailSheet";
 
 /** Bentuk/ikon berbeda per hasil, supaya tidak hanya bergantung pada warna. */

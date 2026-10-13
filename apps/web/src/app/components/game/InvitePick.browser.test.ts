@@ -14,7 +14,7 @@ describe.skipIf(!chrome)("memilih target Ajakan di browser", () => {
       import React, { useState } from "react";
       import { createRoot } from "react-dom/client";
       import Scoreboard from "./Scoreboard";
-      import { InvitePickBanner } from "../game-v2/invites";
+      import { InvitePickBanner } from "./invites";
 
       const game = { scores: [
         { playerId: "p1", rank: 1, provisionalScore: 100, eliminated: false },

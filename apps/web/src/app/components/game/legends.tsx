@@ -1,6 +1,6 @@
 import type { Category, Risk } from "@pejuang/shared";
 import { TILE_DETAILS } from "@/data/game";
-import CategoryIcon from "../game/CategoryIcon";
+import CategoryIcon from "./CategoryIcon";
 
 const RISK_LABEL: Record<Risk, string> = {
   low: "Risiko Rendah",
