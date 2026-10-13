@@ -471,6 +471,8 @@ button { font: inherit; }
 .tile-outcome-zonk { background: #a64438; }
 .tile-outcome-safe { background: #5f6b73; }
 .tile-outcome-lucky { background: #3f8f5a; }
+.tile-icon-open { transition: opacity .12s ease-out; }
+.board-wave .tile-icon-open { opacity: 0; }
 @keyframes tile-flip { from { transform: rotateY(90deg); opacity: 0; } to { transform: rotateY(0); opacity: 1; } }
 @keyframes reveal-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .tile-outcome, .reveal-result { animation: none; } }

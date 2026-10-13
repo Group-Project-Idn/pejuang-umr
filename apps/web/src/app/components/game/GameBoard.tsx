@@ -2,8 +2,8 @@
 
 import { createBoard, hexKey } from "@pejuang/shared";
 import type { PublicGameState, RoomState, TileOption } from "@pejuang/shared";
-import { Html, OrbitControls, RoundedBox } from "@react-three/drei";
-import { Canvas, type ThreeEvent } from "@react-three/fiber";
+import { Html, OrbitControls, RoundedBox, Sparkles } from "@react-three/drei";
+import { Canvas, useFrame, type ThreeEvent } from "@react-three/fiber";
 import { Component, Suspense, type ComponentProps, type MutableRefObject, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import * as THREE from "three";
 import {
@@ -19,12 +19,27 @@ import {
   shouldShowHexFallback,
 } from "@/lib/hex-interaction";
 import { OUTCOME_LABEL } from "@/lib/reveal";
+import {
+  buildWaveSchedule,
+  OUTCOME_TILE_COLOR,
+  ORIGIN_HOLD_MAX_MS,
+  originMotion,
+  rippleMotion,
+  type TileMotion,
+  type WaveSchedule,
+} from "@/lib/board-wave";
+import { usePrefersReducedMotion } from "@/lib/use-reduced-motion";
 import { canZoomBoard, stepBoardDistance, type BoardZoomDirection } from "@/lib/board-camera";
 import CategoryIcon from "./CategoryIcon";
 import GameCharacters from "./GameCharacters";
 
 const tempObject = new THREE.Object3D();
 const tempColor = new THREE.Color();
+const tempQuat = new THREE.Quaternion();
+const yawQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 6);
+const flipAxis = new THREE.Vector3(1, 0, 0);
+const tempScale = new THREE.Vector3(1, 1, 1);
+const tempPosition = new THREE.Vector3();
 const HEX_TILE_OUTLINE_RADIUS = HEX_TILE_RADIUS * 1.01;
 const HEX_TILE_SURFACE_RADIUS = HEX_TILE_RADIUS * 0.96;
 const HEX_TILE_ROTATION = Math.PI / 6;
@@ -39,6 +54,79 @@ const LIT_RING_HEIGHT = 0.05;
 const LIT_FILL_HEIGHT = 0.07;
 const LIT_BASE_Y = HEX_TILE_HEIGHT / 2 + HEX_TILE_SURFACE_OFFSET;
 const LIT_OUTLINE_COLOR = "#ffd84d";
+const GOLD_GLOW_HEIGHT = 0.03;
+const GOLD_GLOW_PULSE_MIN = 0.35;
+const GOLD_GLOW_PULSE_MAX = 1.1;
+const GOLD_GLOW_STATIC = 0.7;
+
+type WaveAnimation = {
+  startedAt: number;
+  originKey: string;
+  schedule: WaveSchedule;
+  /** Warna tetap dipakai kembali setelah sisi berganti agar setColorAt hanya jalan saat menyeberang. */
+  colorShown: Map<string, "public" | "reality">;
+};
+
+/** Warna istirahat heksa: Realita hanya bila sudah dibalik di Fase Pembalikan ini. */
+function restTileColor(
+  key: string,
+  goldKey: string | null,
+  opened: PublicGameState["openedHexes"][number] | undefined,
+  flippedKeys: ReadonlySet<string> | null,
+): string {
+  if (goldKey === key) return TILE_DETAILS.gold.color;
+  if (!opened) return FOG_HIDDEN_COLOR;
+  if (flippedKeys?.has(key) && opened.reality) return OUTCOME_TILE_COLOR[opened.reality.outcome];
+  return TILE_DETAILS[opened.category].color;
+}
+
+function publicTileColor(
+  key: string,
+  goldKey: string | null,
+  opened: PublicGameState["openedHexes"][number] | undefined,
+): string {
+  return restTileColor(key, goldKey, opened, null);
+}
+
+/** Cahaya Petak Emas: kilau Sparkles dan denyut emissive; statis bila kurangi gerakan. */
+function GoldGlow({ x, z, reducedMotion }: { x: number; z: number; reducedMotion: boolean }) {
+  const material = useRef<THREE.MeshStandardMaterial>(null);
+  useFrame(({ clock }) => {
+    if (reducedMotion || !material.current) return;
+    const wave = (Math.sin(clock.elapsedTime * 3) + 1) / 2;
+    material.current.emissiveIntensity = GOLD_GLOW_PULSE_MIN + (GOLD_GLOW_PULSE_MAX - GOLD_GLOW_PULSE_MIN) * wave;
+  });
+  return (
+    <group position={[x, 0, z]}>
+      <mesh
+        position={[0, LIT_BASE_Y - 0.005 + GOLD_GLOW_HEIGHT / 2, 0]}
+        rotation={[0, HEX_TILE_ROTATION, 0]}
+        raycast={() => null}
+      >
+        <cylinderGeometry args={[HEX_TILE_SURFACE_RADIUS * 0.9, HEX_TILE_SURFACE_RADIUS * 0.9, GOLD_GLOW_HEIGHT, 6]} />
+        <meshStandardMaterial
+          ref={material}
+          color={TILE_DETAILS.gold.color}
+          emissive="#ffc933"
+          emissiveIntensity={GOLD_GLOW_STATIC}
+          roughness={0.5}
+        />
+      </mesh>
+      {reducedMotion ? null : (
+        <Sparkles
+          count={14}
+          scale={[HEX_TILE_RADIUS * 1.5, 0.9, HEX_TILE_RADIUS * 1.5]}
+          position={[0, 0.55, 0]}
+          size={5}
+          speed={0.6}
+          opacity={0.9}
+          color="#fff0a0"
+          noise={0.4}
+        />
+      )}
+    </group>
+  );
+}
 
 /** Posisi animasi Fase Pembalikan; null di luar fase itu. */
 export type BoardReveal = {
@@ -124,6 +212,8 @@ function HexTiles({
   onSelectHex,
   pointerDown,
   onLitRendered,
+  onWaveActive,
+  reducedMotion,
 }: {
   game: PublicGameState;
   lit: readonly TileOption[];
@@ -131,6 +221,8 @@ function HexTiles({
   onSelectHex: (key: string) => void;
   pointerDown: MutableRefObject<{ x: number; y: number } | null>;
   onLitRendered: (count: number) => void;
+  onWaveActive: (active: boolean) => void;
+  reducedMotion: boolean;
 }) {
   const outlineMesh = useRef<THREE.InstancedMesh>(null);
   const surfaceMesh = useRef<THREE.InstancedMesh>(null);
@@ -144,6 +236,16 @@ function HexTiles({
   );
   const goldKey = game.gold ? hexKey(game.gold.hex) : null;
   const revealActiveKey = reveal?.activeKey ?? null;
+  const revealFlipped = reveal?.flippedKeys ?? null;
+  const waveRef = useRef<WaveAnimation | null>(null);
+  const latest = useRef({ board, openedByHex, goldKey, revealFlipped });
+  useEffect(() => {
+    latest.current = { board, openedByHex, goldKey, revealFlipped };
+  });
+  const indexByKey = useMemo(
+    () => new Map(board.map((hex, index) => [hexKey(hex), index])),
+    [board],
+  );
   const litByHex = useMemo(
     () => new Map(lit.map((option) => [hexKey(option.hex), option])),
     [lit],
@@ -185,18 +287,113 @@ function HexTiles({
         index,
         tempColor.set(isLit || key === revealActiveKey ? LIT_OUTLINE_COLOR : HEX_TILE_OUTLINE_COLOR),
       );
-      const color = goldKey === key
-        ? TILE_DETAILS.gold.color
-        : opened
-          ? TILE_DETAILS[opened.category].color
-          : FOG_HIDDEN_COLOR;
-      surface.setColorAt(index, tempColor.set(color));
+      // Heksa ronde yang sedang dibalik memegang warnanya sendiri sampai animasinya selesai.
+      const animating = waveRef.current?.originKey === key;
+      surface.setColorAt(
+        index,
+        tempColor.set(animating
+          ? publicTileColor(key, goldKey, opened)
+          : restTileColor(key, goldKey, opened, revealFlipped)),
+      );
     });
     outline.instanceMatrix.needsUpdate = true;
     surface.instanceMatrix.needsUpdate = true;
     if (outline.instanceColor) outline.instanceColor.needsUpdate = true;
     if (surface.instanceColor) surface.instanceColor.needsUpdate = true;
-  }, [board, goldKey, litByHex, openedByHex, revealActiveKey]);
+  }, [board, goldKey, litByHex, openedByHex, revealActiveKey, revealFlipped]);
+
+  // Mulai gelombang saat heksa ronde berikutnya aktif. Kosmetik saja: waktu mulai
+  // memakai jam lokal, hasil dan durasi tetap dari server.
+  useEffect(() => {
+    if (reducedMotion || !revealActiveKey) return;
+    const originTile = game.openedHexes.find((tile) => hexKey(tile.hex) === revealActiveKey);
+    if (!originTile) return;
+    waveRef.current = {
+      startedAt: performance.now(),
+      originKey: revealActiveKey,
+      schedule: buildWaveSchedule(originTile.hex, game.openedHexes.map((tile) => tile.hex)),
+      colorShown: new Map(),
+    };
+    onWaveActive(true);
+    // Hanya bereaksi pada pergantian heksa aktif, bukan setiap patch game.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revealActiveKey, reducedMotion]);
+
+  useEffect(() => () => onWaveActive(false), [onWaveActive]);
+
+  // Satu controller bersama untuk semua heksa; tidak melakukan apa pun di luar gelombang.
+  useFrame(() => {
+    const wave = waveRef.current;
+    const outline = outlineMesh.current;
+    const surface = surfaceMesh.current;
+    if (!wave || !outline || !surface) return;
+    const state = latest.current;
+    const elapsed = performance.now() - wave.startedAt;
+    const originReady = (() => {
+      const opened = state.openedByHex.get(wave.originKey);
+      return Boolean(opened?.reality) ||
+        Boolean(state.revealFlipped?.has(wave.originKey)) ||
+        elapsed > ORIGIN_HOLD_MAX_MS;
+    })();
+    let allDone = true;
+    for (const entry of wave.schedule.entries) {
+      const index = indexByKey.get(entry.key);
+      if (index === undefined) continue;
+      const hex = state.board[index];
+      const motion: TileMotion = entry.kind === "origin"
+        ? originMotion(elapsed, entry, originReady)
+        : rippleMotion(elapsed, entry);
+      if (!motion.done) allDone = false;
+      const opened = state.openedByHex.get(entry.key);
+      const { x, z } = hexToWorld(hex.q, hex.r);
+      tempQuat.setFromAxisAngle(flipAxis, motion.angle).multiply(yawQuat);
+      tempPosition.set(x, motion.lift, z);
+      tempObject.matrix.compose(tempPosition, tempQuat, tempScale);
+      outline.setMatrixAt(index, tempObject.matrix);
+      tempPosition.y += HEX_TILE_SURFACE_OFFSET;
+      tempObject.matrix.compose(tempPosition, tempQuat, tempScale);
+      surface.setMatrixAt(index, tempObject.matrix);
+      if (entry.kind === "origin") {
+        const side = motion.showReality || motion.done ? "reality" : "public";
+        if (wave.colorShown.get(entry.key) !== side) {
+          wave.colorShown.set(entry.key, side);
+          const color = side === "reality"
+            ? restTileColor(entry.key, state.goldKey, opened, state.revealFlipped)
+            : publicTileColor(entry.key, state.goldKey, opened);
+          surface.setColorAt(index, tempColor.set(color));
+          if (surface.instanceColor) surface.instanceColor.needsUpdate = true;
+        }
+      }
+    }
+    outline.instanceMatrix.needsUpdate = true;
+    surface.instanceMatrix.needsUpdate = true;
+    if (allDone) {
+      waveRef.current = null;
+      onWaveActive(false);
+      // Selesai: letakkan semua entri di posisi istirahat dengan warna terkini.
+      for (const entry of wave.schedule.entries) {
+        const index = indexByKey.get(entry.key);
+        if (index === undefined) continue;
+        const hex = state.board[index];
+        const { x, z } = hexToWorld(hex.q, hex.r);
+        tempObject.position.set(x, 0, z);
+        tempObject.rotation.set(0, HEX_TILE_ROTATION, 0);
+        tempObject.scale.setScalar(1);
+        tempObject.updateMatrix();
+        outline.setMatrixAt(index, tempObject.matrix);
+        tempObject.position.y = HEX_TILE_SURFACE_OFFSET;
+        tempObject.updateMatrix();
+        surface.setMatrixAt(index, tempObject.matrix);
+        surface.setColorAt(
+          index,
+          tempColor.set(restTileColor(entry.key, state.goldKey, state.openedByHex.get(entry.key), state.revealFlipped)),
+        );
+      }
+      outline.instanceMatrix.needsUpdate = true;
+      surface.instanceMatrix.needsUpdate = true;
+      if (surface.instanceColor) surface.instanceColor.needsUpdate = true;
+    }
+  });
 
 
   return (
@@ -241,6 +438,13 @@ function HexTiles({
         />
         <meshStandardMaterial roughness={0.72} metalness={0.05} />
       </instancedMesh>
+      {game.gold ? (
+        <GoldGlow
+          key={goldKey}
+          {...hexToWorld(game.gold.hex.q, game.gold.hex.r)}
+          reducedMotion={reducedMotion}
+        />
+      ) : null}
       <LitLayer options={normalLit} color={LIT_COLOR} onPick={pick} />
       <LitLayer options={goldLit} color={TILE_DETAILS.gold.color} onPick={pick} />
       {lit.map((option) => {
@@ -303,9 +507,13 @@ function DeskScene({
   onLitRendered,
   controlsRef,
   onDistanceChange,
+  onWaveActive,
+  reducedMotion,
 }: {
   game: PublicGameState;
   room: RoomState;
+  onWaveActive: (active: boolean) => void;
+  reducedMotion: boolean;
   lit: readonly TileOption[];
   reveal: BoardReveal | null;
   controlsRef: MutableRefObject<OrbitControlsImpl | null>;
@@ -348,7 +556,7 @@ function DeskScene({
       >
         <meshStandardMaterial color="#61331f" roughness={0.86} />
       </RoundedBox>
-      <HexTiles game={game} lit={lit} reveal={reveal} onSelectHex={onSelectHex} pointerDown={pointerDown} onLitRendered={onLitRendered} />
+      <HexTiles game={game} lit={lit} reveal={reveal} onSelectHex={onSelectHex} pointerDown={pointerDown} onLitRendered={onLitRendered} onWaveActive={onWaveActive} reducedMotion={reducedMotion} />
       <Suspense fallback={null}>
         <GameCharacters
           game={game}
@@ -430,6 +638,8 @@ export default function GameBoard({
   const [renderedLitCount, setRenderedLitCount] = useState(0);
   const [boardReady, setBoardReady] = useState(false);
   const [boardFailed, setBoardFailed] = useState(false);
+  const [waveActive, setWaveActive] = useState(false);
+  const reducedMotion = usePrefersReducedMotion();
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
   const [distance, setDistance] = useState<number | null>(null);
   const zoomBoard = (direction: BoardZoomDirection) => {
@@ -453,7 +663,7 @@ export default function GameBoard({
   return (
     <>
       <div
-        className="board-canvas"
+        className={waveActive ? "board-canvas board-wave" : "board-canvas"}
         aria-label="Papan permainan heksagonal 3D"
         onPointerDownCapture={(event) => {
           pointerDown.current = { x: event.clientX, y: event.clientY };
@@ -478,6 +688,8 @@ export default function GameBoard({
               onLitRendered={setRenderedLitCount}
               controlsRef={controlsRef}
               onDistanceChange={setDistance}
+              onWaveActive={setWaveActive}
+              reducedMotion={reducedMotion}
             />
           </Canvas>
         </BoardErrorBoundary>
