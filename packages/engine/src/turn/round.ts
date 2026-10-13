@@ -55,8 +55,8 @@ const CHOICE_ORDER: readonly CalendarChoiceId[] = ["join", "joinPaylater", "skip
 /** GDD 4.6: Beban Peringkat 1 mulai berlaku di Langkah 5 (Bulan 3). */
 const RANK_ONE_BURDEN_START_STEP = 5;
 
-/** GDD 4.7: Petak Emas muncul di awal Langkah 1, 5, 9, 13, 17, 21. */
-const GOLD_SPAWN_STEPS: readonly number[] = [1, 5, 9, 13, 17, 21];
+/** GDD 4.7 v1.14: Petak Emas muncul di awal Langkah 5, 9, 13, 17, 21 (5 kali). */
+const GOLD_SPAWN_STEPS: readonly number[] = [5, 9, 13, 17, 21];
 
 /** GDD 4.7: Petak Emas bertahan 4 ronde sebelum hangus jadi Heksa Mati. */
 const GOLD_LIFETIME_STEPS = 4;
@@ -254,7 +254,7 @@ function prepareTurn(state: GameState, events: DomainEvent[], random: RandomSour
     }
   }
 
-  // GDD 4.7 v1.12: Petak Emas (muncul di langkah 1, 5, 9, 13, 17, 21). Petak Emas
+  // GDD 4.7 v1.14: Petak Emas (muncul di langkah 5, 9, 13, 17, 21). Petak Emas
   // lama yang belum diambil kembali ke petak aslinya (tertutup, bisa menyala lagi),
   // lalu Petak Emas baru muncul. Isi petak asli tidak pernah dikirim ke klien.
   if (isGoldSpawnStep(step)) {
