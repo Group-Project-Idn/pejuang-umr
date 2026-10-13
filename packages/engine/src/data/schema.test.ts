@@ -3,6 +3,7 @@ import {
   CalendarEventDefinitionSchema,
   GoldTileDefinitionSchema,
   InvitePlanDefinitionSchema,
+  RealityPoolDefinitionSchema,
   RealityVariantSchema,
   SEASON_BY_MONTH,
   SeasonZonkDefinitionSchema,
@@ -33,35 +34,26 @@ describe("skema data konten", () => {
       title: "Lembur Proyek",
       plan: [{ stat: "wealth", delta: 1_500_000 }],
       baseZonkPct: 30,
-      realities: Array.from({ length: 6 }, (_, index) => ({
-        id: `overtime-reality-${index}`,
-        outcome: index < 3 ? "zonk" : index < 5 ? "safe" : "lucky",
-        text: "Realita datang tanpa permisi.",
-        effects: [{ stat: "stress", delta: 1 }],
-      })),
+      realityPool: "work",
     };
     expect(TileDefinitionSchema.safeParse(tile).success).toBe(true);
-    for (const outcome of ["zonk", "safe", "lucky"]) {
-      expect(TileDefinitionSchema.safeParse({
-        ...tile,
-        realities: tile.realities.map((reality) => ({ ...reality, outcome })),
-      }).success).toBe(false);
-    }
+    expect(
+      TileDefinitionSchema.safeParse({ ...tile, realityPool: "gold" }).success,
+    ).toBe(false);
+    expect(
+      TileDefinitionSchema.safeParse({ ...tile, realityPool: "finance-debt" })
+        .success,
+    ).toBe(true);
   });
 
-  it("TileDefinitionSchema menolak baseZonkPct di luar 0-80 dan realities ≠ 6", () => {
+  it("TileDefinitionSchema menolak baseZonkPct di luar 0-80 dan realityPool kosong", () => {
     const tile = {
       id: "overtime-project",
       category: "work",
       title: "Lembur Proyek",
       plan: [],
       baseZonkPct: 30,
-      realities: Array.from({ length: 6 }, (_, index) => ({
-        id: `r-${index}`,
-        outcome: index < 3 ? "zonk" : index < 5 ? "safe" : "lucky",
-        text: "Aman.",
-        effects: [],
-      })),
+      realityPool: "work",
     };
     expect(
       TileDefinitionSchema.safeParse({ ...tile, baseZonkPct: 81 }).success,
@@ -69,12 +61,8 @@ describe("skema data konten", () => {
     expect(
       TileDefinitionSchema.safeParse({ ...tile, baseZonkPct: -1 }).success,
     ).toBe(false);
-    expect(
-      TileDefinitionSchema.safeParse({
-        ...tile,
-        realities: tile.realities.slice(0, 5),
-      }).success,
-    ).toBe(false);
+    const { realityPool: _omitted, ...withoutPool } = tile;
+    expect(TileDefinitionSchema.safeParse(withoutPool).success).toBe(false);
   });
 
   it("TileDefinitionSchema menolak id non-kebab-case dan kategori gold", () => {
@@ -84,12 +72,35 @@ describe("skema data konten", () => {
       title: "Lembur",
       plan: [],
       baseZonkPct: 10,
-      realities: [],
+      realityPool: "work",
     };
     expect(TileDefinitionSchema.safeParse(tile).success).toBe(false);
     expect(
       TileDefinitionSchema.safeParse({ ...tile, id: "overtime", category: "gold" })
         .success,
+    ).toBe(false);
+  });
+
+  it("RealityPoolDefinitionSchema wajib punya zonk, safe, dan lucky", () => {
+    const variant = (outcome: string) => ({
+      id: `v-${outcome}`,
+      outcome,
+      text: "Realita.",
+      effects: [],
+    });
+    const pool = {
+      id: "work",
+      variants: [variant("zonk"), variant("safe"), variant("lucky")],
+    };
+    expect(RealityPoolDefinitionSchema.safeParse(pool).success).toBe(true);
+    expect(
+      RealityPoolDefinitionSchema.safeParse({
+        ...pool,
+        variants: pool.variants.slice(0, 2),
+      }).success,
+    ).toBe(false);
+    expect(
+      RealityPoolDefinitionSchema.safeParse({ ...pool, id: "gold" }).success,
     ).toBe(false);
   });
 
