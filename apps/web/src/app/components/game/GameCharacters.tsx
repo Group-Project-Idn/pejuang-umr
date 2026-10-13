@@ -9,12 +9,18 @@ type GameCharactersProps = {
   game: PublicGameState;
   room: RoomState;
   surfaceY: number;
+  /** Mode pilih target Ajakan: pion di disabledIds redup dan tidak bisa diketuk. */
+  inviteTargeting?: {
+    disabledIds: readonly string[];
+    onSelect: (playerId: string) => void;
+  } | null;
 };
 
 export default function GameCharacters({
   game,
   room,
   surfaceY,
+  inviteTargeting = null,
 }: GameCharactersProps) {
   return game.pawns.map(({ playerId, hex }) => {
     const player = room.players.find(
@@ -29,6 +35,12 @@ export default function GameCharacters({
         name={player.name}
         sprite={getAvatarSrc(player.avatarId)}
         position={[x, surfaceY, z]}
+        dimmed={inviteTargeting?.disabledIds.includes(playerId) ?? false}
+        onSelect={
+          inviteTargeting && !inviteTargeting.disabledIds.includes(playerId)
+            ? () => inviteTargeting.onSelect(playerId)
+            : undefined
+        }
       />
     );
   });

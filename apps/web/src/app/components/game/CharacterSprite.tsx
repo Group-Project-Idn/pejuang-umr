@@ -12,6 +12,9 @@ type CharacterSpriteProps = {
   name: string;
   sprite: string;
   position: WorldPosition;
+  /** Pion bisa diketuk (pilih target Ajakan); tanpa ini pion tidak interaktif. */
+  onSelect?: () => void;
+  dimmed?: boolean;
 };
 
 const CHARACTER_HEIGHT = HEX_TILE_RADIUS * 1.8;
@@ -24,6 +27,8 @@ export default function CharacterSprite({
   name,
   sprite,
   position,
+  onSelect,
+  dimmed = false,
 }: CharacterSpriteProps) {
   const texture = useTexture(sprite);
   const characterTexture = useMemo(() => {
@@ -113,7 +118,14 @@ export default function CharacterSprite({
   });
 
   return (
-    <group ref={group} position={initialPosition}>
+    <group
+      ref={group}
+      position={initialPosition}
+      onClick={onSelect ? (event) => {
+        event.stopPropagation();
+        onSelect();
+      } : undefined}
+    >
       <mesh
         ref={shadow}
         position={[0, 0.008, 0]}
@@ -139,6 +151,7 @@ export default function CharacterSprite({
         <spriteMaterial
           map={characterTexture}
           transparent
+          opacity={dimmed ? 0.35 : 1}
           alphaTest={0.03}
           depthWrite={false}
           toneMapped={false}

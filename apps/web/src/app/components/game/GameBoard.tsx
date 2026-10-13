@@ -4,7 +4,7 @@ import { createBoard, hexKey } from "@pejuang/shared";
 import type { PublicGameState, RoomState, TileOption } from "@pejuang/shared";
 import { Html, OrbitControls, RoundedBox } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
-import { Component, Suspense, useEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from "react";
+import { Component, Suspense, type ComponentProps, useEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from "react";
 import * as THREE from "three";
 import {
   getBoardDeskSize,
@@ -174,11 +174,13 @@ function DeskScene({
   room,
   lit,
   onSelectHex,
+  inviteTargeting,
 }: {
   game: PublicGameState;
   room: RoomState;
   lit: readonly TileOption[];
   onSelectHex: (key: string) => void;
+  inviteTargeting: ComponentProps<typeof GameCharacters>["inviteTargeting"];
 }) {
   const board = useMemo(
     () => createBoard(game.boardRadius),
@@ -219,6 +221,7 @@ function DeskScene({
           game={game}
           room={room}
           surfaceY={HEX_TILE_HEIGHT / 2 + HEX_TILE_SURFACE_OFFSET}
+          inviteTargeting={inviteTargeting}
         />
       </Suspense>
       <OrbitControls
@@ -267,12 +270,14 @@ export default function GameBoard({
   room,
   lit,
   onSelectHex,
+  inviteTargeting = null,
 }: {
   game: PublicGameState;
   room: RoomState;
   /** Heksa menyala milik pemain aktif; kosong untuk pemain lain. */
   lit: readonly TileOption[];
   onSelectHex: (key: string) => void;
+  inviteTargeting?: ComponentProps<typeof GameCharacters>["inviteTargeting"];
 }) {
   const cameraDistance = 8 + game.boardRadius * 1.2;
   const webgl = useSyncExternalStore(subscribeNever, getWebglSupport, () => null);
@@ -287,7 +292,7 @@ export default function GameBoard({
           camera={{ position: [0, cameraDistance, cameraDistance * 0.84], fov: 42 }}
           gl={{ antialias: true, powerPreference: "high-performance" }}
         >
-          <DeskScene game={game} room={room} lit={lit} onSelectHex={onSelectHex} />
+          <DeskScene game={game} room={room} lit={lit} onSelectHex={onSelectHex} inviteTargeting={inviteTargeting} />
         </Canvas>
       </BoardErrorBoundary>
     </div>
