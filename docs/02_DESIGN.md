@@ -259,7 +259,7 @@ Kedalaman dibuat dengan **tingkat terang-gelap permukaan**, bukan bayangan: surf
 - **Ilustrasi:** flat dengan sedikit tekstur grain, karakter siluet tanpa wajah agar inklusif.
 - **Sentuhan lokal Jakarta:** KRL, warteg, kos-kosan, ojol, kopi susu, struk minimarket, notifikasi paylater. **Jangan memakai logo merek asli.**
 - **Papan 3D:** gaya maket low-poly seperti mainan, material matte, cahaya hangat, dan heksa yang terlihat tebal.
-- **Aturan papan 3D (GDD v1.12):** tidak ada papan cadangan. Jika WebGL tidak tersedia, tampilkan pemberitahuan bahwa perangkat belum didukung. Mode hemat, pemilihan heksa dengan keyboard, dan label pembaca layar ditunda (bukan prioritas MVP). Keadaan heksa (tertutup, menyala, terbuka, Petak Emas) dibedakan dengan bentuk atau ikon, tidak hanya warna. Heksa tertutup tampil gelap; heksa menyala menampilkan Rencana singkat di permukaannya. Gambar desain yang sudah ada bergaya 2D datar, jadi dipakai sebagai acuan warna dan HUD, bukan sudut kamera.
+- **Aturan papan 3D (GDD v1.12):** tidak ada papan cadangan. Jika WebGL tidak tersedia, tampilkan pemberitahuan bahwa perangkat belum didukung. Mode hemat, pemilihan heksa dengan keyboard, dan label pembaca layar ditunda (bukan prioritas MVP). Keadaan heksa (tertutup, menyala, terbuka, Petak Emas) dibedakan dengan bentuk atau ikon, tidak hanya warna. Heksa tertutup tampil gelap; heksa menyala menampilkan ikon kategori di permukaannya (detail Rencana hanya di popup). Gambar desain yang sudah ada bergaya 2D datar, jadi dipakai sebagai acuan warna dan HUD, bukan sudut kamera.
 
 ## Components
 
@@ -269,7 +269,7 @@ Kedalaman dibuat dengan **tingkat terang-gelap permukaan**, bukan bayangan: surf
 - **Tombol ikon bulat:** emote, Ajakan, kamera. Tidak ada tombol pause (GDD v1.12).
 - **Komponen khusus game (tambahan v1.7):** popup "Masuk sebagai tamu" (nama dan pilihan avatar), kartu identitas pemain dengan tombol "Edit Profile" (GDD v1.12), slot pemain Room (kartu ID dengan karakter, status Siap, dan label HOST), dan tombol nonaktif tanpa efek klik untuk fitur yang ditunda.
 - **Komponen khusus game:**
-  - Heksa dengan 4 state: tertutup (gelap), menyala (kuning dengan glow dan Rencana singkat di permukaan), terbuka (permukaan terang dengan ikon kategori; sisi Rencana sampai Fase Pembalikan, lalu sisi Realita), Petak Emas.
+  - Heksa dengan 4 state: tertutup (gelap), menyala (kuning dengan glow dan ikon kategori; detail Rencana hanya di popup), terbuka (permukaan terang dengan ikon kategori; sisi Rencana sampai Fase Pembalikan, lalu sisi Realita), Petak Emas.
   - Pion karakter, mahkota Peringkat 1, dan label "Jalan" pada pemain yang sedang giliran.
   - Popup Detail Heksa dengan tombol Pilih (bottom sheet di mobile, panel samping kanan di desktop). Klik heksa menyala lain langsung mengganti isinya. Heksa terbuka juga bisa diklik semua pemain untuk melihat detailnya, tanpa tombol Pilih.
   - Popup Ganti Bulan: rincian Gaji, Biaya Hidup, Bunga, Kekayaan baru, dan slider Bayar Hutang dengan batas waktu.
