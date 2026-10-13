@@ -422,10 +422,10 @@ describe("Beban Peringkat 1 (GDD 4.6)", () => {
 });
 
 describe("Petak Emas (GDD 4.7)", () => {
-  const GOLD_STEPS = [1, 5, 9, 13, 17, 21];
+  const GOLD_STEPS = [5, 9, 13, 17, 21];
   const CENTER = { q: 0, r: 0 };
 
-  it("gold:spawned hanya di langkah 1,5,9,13,17,21; posisi <= 4 dari pusat dan tidak bersebelahan dengan pion", () => {
+  it("gold:spawned hanya di langkah 5,9,13,17,21; posisi <= 4 dari pusat dan tidak bersebelahan dengan pion", () => {
     for (let step = 1; step <= 24; step += 1) {
       const { events } = preparedRound(gameAtStep(step));
       const spawned = ofType(events, "gold:spawned");
@@ -444,6 +444,14 @@ describe("Petak Emas (GDD 4.7)", () => {
     }
   });
 
+  it("Langkah 1-4 tidak punya Petak Emas", () => {
+    for (let step = 1; step <= 4; step += 1) {
+      const { state, events } = preparedRound(gameAtStep(step));
+      expect(state.public.gold, `langkah ${step}`).toBeNull();
+      expect(ofType(events, "gold:spawned")).toHaveLength(0);
+    }
+  });
+
   it("Beban Peringkat 1 ditetapkan sebelum Petak Emas muncul", () => {
     const { events } = preparedRound(gameAtStep(5));
     const spawnedAt = events.findIndex((e) => e.type === "gold:spawned");
@@ -456,23 +464,23 @@ describe("Petak Emas (GDD 4.7)", () => {
     expect(burdenAt).toBeLessThan(spawnedAt);
   });
 
-  it("Petak Emas tak diambil -> gold:expired di langkah +4, heksa kembali ke petak asli, lalu spawn baru", () => {
-    const opened = preparedRound(gameAtStep(1)).state;
+  it("Petak Emas tak diambil -> gold:expired di langkah +4 (5 -> 9), heksa kembali ke petak asli, lalu spawn baru", () => {
+    const opened = preparedRound(gameAtStep(5)).state;
     const gold1 = opened.public.gold!;
     expect(gold1).not.toBeNull();
     const originalTile = opened.board.goldOrigin!.tileId;
     expect(opened.board.goldOrigin!.hexKey).toBe(hexKey(gold1.hex));
     expect(opened.board.tiles[hexKey(gold1.hex)]).toBe(gold1.goldId);
-    expect(gold1.expiresAtStep).toBe(5);
+    expect(gold1.expiresAtStep).toBe(9);
 
-    const at5: GameState = {
+    const at9: GameState = {
       ...opened,
       phase: "roundStart",
       movedThisRound: [],
       pendingCalendarEvent: null,
-      public: { ...opened.public, calendar: getCalendarInfo(5) },
+      public: { ...opened.public, calendar: getCalendarInfo(9) },
     };
-    const { state, events } = preparedRound(at5);
+    const { state, events } = preparedRound(at9);
 
     const expired = ofType(events, "gold:expired");
     expect(expired).toHaveLength(1);
@@ -490,7 +498,7 @@ describe("Petak Emas (GDD 4.7)", () => {
     const spawned = ofType(events, "gold:spawned");
     expect(spawned).toHaveLength(1);
     const gold2 = state.public.gold!;
-    expect(gold2.expiresAtStep).toBe(9);
+    expect(gold2.expiresAtStep).toBe(13);
     // Heksa lama kembali menjadi petak biasa dan bisa dipilih lagi sebagai Petak Emas baru.
     const restored = state.board.tiles[hexKey(gold1.hex)];
     if (hexKey(gold2.hex) === hexKey(gold1.hex)) {
@@ -503,16 +511,16 @@ describe("Petak Emas (GDD 4.7)", () => {
   });
 
   it("heksa Petak Emas yang kembali bisa menyala lagi seperti heksa tertutup lain", () => {
-    const opened = preparedRound(gameAtStep(1)).state;
+    const opened = preparedRound(gameAtStep(5)).state;
     const gold1 = opened.public.gold!;
-    const at5: GameState = {
+    const at9: GameState = {
       ...opened,
       phase: "roundStart",
       movedThisRound: [],
       pendingCalendarEvent: null,
-      public: { ...opened.public, calendar: getCalendarInfo(5) },
+      public: { ...opened.public, calendar: getCalendarInfo(9) },
     };
-    const { state } = preparedRound(at5);
+    const { state } = preparedRound(at9);
     const key = hexKey(gold1.hex);
     if (state.public.gold && hexKey(state.public.gold.hex) === key) return;
     expect(state.board.usedHexKeys).not.toContain(key);
@@ -524,7 +532,7 @@ describe("Petak Emas (GDD 4.7)", () => {
   });
 
   it("Petak Emas yang diambil tidak mengembalikan petak asli saat Petak Emas berikutnya muncul", () => {
-    const opened = preparedRound(gameAtStep(1)).state;
+    const opened = preparedRound(gameAtStep(5)).state;
     const gold1 = opened.public.gold!;
     const taken: GameState = {
       ...opened,
@@ -533,7 +541,7 @@ describe("Petak Emas (GDD 4.7)", () => {
         usedHexKeys: [...opened.board.usedHexKeys, hexKey(gold1.hex)],
         goldOrigin: null,
       },
-      public: { ...opened.public, gold: null, calendar: getCalendarInfo(5) },
+      public: { ...opened.public, gold: null, calendar: getCalendarInfo(9) },
       phase: "roundStart",
       movedThisRound: [],
       pendingCalendarEvent: null,
