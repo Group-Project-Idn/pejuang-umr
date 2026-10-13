@@ -473,7 +473,7 @@ button { font: inherit; }
 .hex-card .hex-close { background: transparent; color: #382b22; border: 2px solid #483629; }
 
 /* Dialog map komik: warna dan garis mengikuti kartu Detail Heksa. */
-.comic-dialog-backdrop { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 24px; background: rgba(32,20,14,.6); }
+.comic-dialog-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 24px; background: rgba(32,20,14,.6); }
 .comic-dialog-card { align-self: center; width: min(100%, 460px); max-height: min(85dvh, 760px); display: flex; flex-direction: column; transform: rotate(.4deg); box-shadow: 6px 8px 0 rgba(45,27,17,.3), inset 0 0 24px rgba(136,82,23,.13); }
 .comic-dialog-scroll { position: relative; z-index: 1; min-height: 0; overflow-y: auto; padding: 26px 20px 20px; }
 .comic-dialog-body { display: grid; gap: 12px; margin-top: 12px; }

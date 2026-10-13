@@ -16,6 +16,10 @@ export default function BottomSheet({ open, title, onClose, children }: BottomSh
   useEffect(() => {
     if (!open) return;
     titleRef.current?.focus();
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
     };
