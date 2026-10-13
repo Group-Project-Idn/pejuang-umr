@@ -7,7 +7,7 @@ import type {
   RoomState,
   Snapshot,
 } from "@pejuang/shared";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { getSeasonHint } from "@/lib/board-hud";
 import { getTurnSecondsLeft } from "@/lib/game-view";
 import { resolveHexClick } from "@/lib/hex-detail";
@@ -23,6 +23,13 @@ import {
   selectUnseenInviteResults,
   type InviteFlow,
 } from "@/lib/invites";
+import {
+  buildRevealSchedule,
+  deriveRevealOrder,
+  getRevealProgress,
+  maskUnrevealed,
+  OUTCOME_LABEL,
+} from "@/lib/reveal";
 import CalendarEventView from "../game-v2/CalendarEventView";
 import NoticeViews from "../game-v2/NoticeViews";
 import HexDetailSheet from "../game-v2/HexDetailSheet";
@@ -50,6 +57,22 @@ const SEASON_ICON = {
   dry: "☀",
   transition: "◐",
 } as const;
+
+const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+
+function subscribeReducedMotion(onChange: () => void) {
+  const query = window.matchMedia(REDUCED_MOTION_QUERY);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
+
+function usePrefersReducedMotion() {
+  return useSyncExternalStore(
+    subscribeReducedMotion,
+    () => window.matchMedia(REDUCED_MOTION_QUERY).matches,
+    () => false,
+  );
+}
 
 export default function GameInterface({
   room,
@@ -104,7 +127,9 @@ export default function GameInterface({
   const [seenInviteIds, setSeenInviteIds] = useState<ReadonlySet<string>>(() => new Set());
   const [expiredInviteId, setExpiredInviteId] = useState<string | null>(null);
   const pendingInvite = me?.pendingInvite ?? null;
-  const needsTick = Boolean(game.turnDeadline || pendingInvite);
+  const reducedMotion = usePrefersReducedMotion();
+  const revealEndsAt = game.phase === "reveal" ? game.revealEndsAt : null;
+  const needsTick = Boolean(game.turnDeadline || pendingInvite || revealEndsAt);
   useEffect(() => {
     if (!needsTick) return;
     const timer = window.setInterval(
@@ -131,6 +156,29 @@ export default function GameInterface({
   });
 
   const serverNow = now + serverClockOffsetMs;
+  // Order dari snapshot supaya reconnect di tengah Fase Pembalikan tetap punya jadwal.
+  const revealSchedule = useMemo(
+    () => (revealEndsAt === null
+      ? null
+      : buildRevealSchedule(deriveRevealOrder(game), revealEndsAt)),
+    [game, revealEndsAt],
+  );
+  const revealProgress = revealSchedule
+    ? getRevealProgress(revealSchedule, serverNow, reducedMotion)
+    : null;
+  const shownGame = revealSchedule && revealProgress
+    ? maskUnrevealed(game, revealSchedule, revealProgress)
+    : game;
+  const latestReveal = revealSchedule && revealProgress
+    ? [...revealSchedule.steps].reverse().find((step) => revealProgress.flippedKeys.has(step.key))
+    : undefined;
+  const latestRevealTile = latestReveal
+    ? shownGame.openedHexes.find(
+        (opened) => opened.step === game.calendar.step &&
+          opened.byPlayerId === latestReveal.playerId &&
+          opened.reality !== null,
+      )
+    : undefined;
   // Alur Ajakan batal sendiri bila Timer Giliran habis, giliran berganti, atau kartu hilang.
   const activeFlow = resolveInviteFlow(inviteFlow, me, game, serverNow);
   const flowCancelled = inviteFlow !== null && activeFlow === null;
@@ -162,7 +210,7 @@ export default function GameInterface({
   const litOptions = pendingTurn?.options ?? [];
   // Dihitung ulang tiap render, jadi isi sheet ikut berganti saat heksa lain diklik.
   const detail = selectedHexKey
-    ? resolveHexClick(selectedHexKey, litOptions, game.openedHexes)
+    ? resolveHexClick(selectedHexKey, litOptions, shownGame.openedHexes)
     : null;
 
   return (
@@ -204,16 +252,26 @@ export default function GameInterface({
           <StatusPanel status={me?.status ?? null} />
           <section className="board-stage">
             {game.phase === "reveal" ? (
-              <div role="status" className="gold-badge">Fase Pembalikan · Realita dibuka sesuai urutan giliran</div>
+              <div role="status" className="reveal-banner">
+                <strong>Fase Pembalikan</strong>
+                {latestRevealTile?.reality && latestReveal ? (
+                  <span key={latestReveal.key} className={`reveal-result reveal-result-${latestRevealTile.reality.outcome}`}>
+                    {getPlayerName(room, latestReveal.playerId)} · {OUTCOME_LABEL[latestRevealTile.reality.outcome]}: {latestRevealTile.reality.text}
+                  </span>
+                ) : (
+                  <small>Realita dibuka sesuai urutan giliran</small>
+                )}
+              </div>
             ) : null}
             {game.gold ? <div className="gold-badge">✦<strong>Petak<br />Emas</strong></div> : null}
             <GameBoard
-              game={game}
+              game={shownGame}
               room={room}
               lit={litOptions}
+              reveal={revealProgress}
               inviteTargeting={inviteTargeting}
               onSelectHex={(key) => {
-                if (resolveHexClick(key, litOptions, game.openedHexes)) {
+                if (resolveHexClick(key, litOptions, shownGame.openedHexes)) {
                   setSelectedHexKey(key);
                 }
               }}
