@@ -62,6 +62,20 @@ describe("ReflectionService", () => {
     }
   });
 
+  it("error provider langsung dengan name dan message privat tidak masuk log", async () => {
+    const sentinel = "private-player-sentinel";
+    const provider = new FakeReflectionProvider("success");
+    provider.generate = async () => {
+      const error = new Error(sentinel);
+      error.name = sentinel;
+      throw error;
+    };
+    const { svc, logs } = service(provider);
+    expect(await svc.create(input, fallback)).toBe(fallback);
+    expect(logs).toEqual(["[reflection] provider gagal (ProviderError), memakai cadangan aturan"]);
+    expect(JSON.stringify(logs)).not.toContain(sentinel);
+  });
+
   it("provider lambat dibatalkan lewat AbortSignal saat melewati batas waktu", async () => {
     const provider = new FakeReflectionProvider("slow", 5_000);
     let aborted = false;

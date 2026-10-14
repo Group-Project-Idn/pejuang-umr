@@ -78,6 +78,18 @@ describe("buildReflectionPrompt", () => {
     expect(user).toContain('"playerCount":3');
   });
 
+  it("membedakan pilihan otomatis dan efek mentah dari dampak status aktual", () => {
+    const { system } = buildReflectionPrompt(input);
+    for (const field of ["autoPicked", "autoChosen", "autoDeclined", "viaJump", "roundEnd"]) {
+      expect(system).toContain(field);
+    }
+    expect(system).toMatch(/jangan anggap itu bukti preferensi atau keputusan sadar/i);
+    expect(system).toMatch(/bukan selalu perubahan indikator aktual/i);
+    expect(system).toMatch(/dibatasi 0-10/i);
+    expect(system).toMatch(/Kekayaan yang kurang bisa menjadi Hutang/i);
+    expect(system).toMatch(/jangan atribusikan seluruh selisihnya ke satu pilihan/i);
+  });
+
   it("fungsi murni: masukan sama menghasilkan teks sama dan masukan tidak berubah", () => {
     const before = JSON.stringify(input);
     expect(buildReflectionPrompt(input)).toEqual(buildReflectionPrompt(input));
