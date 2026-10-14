@@ -11,36 +11,37 @@ import {
 import BottomSheet from "../ui/BottomSheet";
 import Button from "../ui/Button";
 import PopupFrame from "../ui/PopupFrame";
+import Card from "../ui/Card";
 
-/** Kartu Ajakan milikmu: Rencana, efek, dan motif (rahasia, hanya pemilik kartu). */
-export function InviteCardSheet({
+/** Kartu milik pemain tetap di HUD; menampilkan isi atau slot kosong, terlepas dari giliran. */
+export function InviteHandCard({
   card,
-  open,
-  onPickTarget,
-  onClose,
+  playable,
+  selected,
+  unavailableReason,
+  onSelect,
 }: {
   card: InviteCard | null;
-  open: boolean;
-  onPickTarget: () => void;
-  onClose: () => void;
+  playable: boolean;
+  selected: boolean;
+  unavailableReason: string;
+  onSelect: () => void;
 }) {
   const view = card ? describeCard(card) : null;
   return (
-    <BottomSheet open={open && view !== null} title="Kartu Ajakan" onClose={onClose}>
-      {view && card ? (
-        <div className="grid gap-3">
-          <p className="comic-invite-plan"><strong>{view.plan}</strong></p>
-          <p className="comic-effect">Efek jika target ikut: {view.effects}</p>
-          <p className="comic-invite-detail">
-            Motif: {view.motive} (hanya kamu yang tahu). Berlaku sampai bulan {card.expiresAtMonth}.
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            <Button variant="primary" onClick={onPickTarget}>Pilih target</Button>
-            <Button variant="outlined" onClick={onClose}>Tutup</Button>
-          </div>
-        </div>
-      ) : null}
-    </BottomSheet>
+    <Card as="aside" title="Kartu Ajakan" className={`invite-hand-card${selected ? " invite-hand-card-selected" : ""}`}>
+      {view && card ? <>
+        <p className="comic-invite-plan"><strong>{view.plan}</strong></p>
+        <p className="comic-effect">Efek jika target ikut: {view.effects}</p>
+        <p className="comic-invite-detail">Motif: {view.motive} (hanya kamu yang tahu). Berlaku sampai bulan {card.expiresAtMonth}.</p>
+      </> : <p className="comic-invite-detail">Belum ada Kartu Ajakan.</p>}
+      <p className="invite-hand-status" role="status">
+        {selected ? "Pilih pemain yang disorot di papan atau Papan Skor." : playable ? "Bisa dimainkan sebelum memilih heksa." : unavailableReason}
+      </p>
+      <Button type="button" variant="primary" disabled={!card || !playable || selected} onClick={onSelect}>
+        {selected ? "Memilih target..." : "Pilih kartu"}
+      </Button>
+    </Card>
   );
 }
 

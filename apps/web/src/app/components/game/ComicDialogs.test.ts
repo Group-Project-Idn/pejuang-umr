@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import Button from "../ui/Button";
 import CalendarEventView from "./CalendarEventView";
-import { InviteCardSheet, InviteConfirmSheet, InviteIncomingView, InvitePickBanner } from "./invites";
+import { InviteHandCard, InviteConfirmSheet, InviteIncomingView, InvitePickBanner } from "./invites";
 
 const card: InviteCard = {
   cardId: "card-1", plan: "hangout", planEffects: [], motive: "sincere", expiresAtMonth: 2,
@@ -42,14 +42,14 @@ describe("dialog event dan ajakan bergaya komik", () => {
     expect(markup).toContain("ui-btn-primary");
   });
 
-  it("keempat variasi Ajakan memakai kartu dan tombol komik tanpa mengganti teks", () => {
-    const cardMarkup = renderToStaticMarkup(createElement(InviteCardSheet, {
-      card, open: true, onPickTarget: () => undefined, onClose: () => undefined,
+  it("kartu Ajakan tetap tampil dan dialog lain memakai tombol komik", () => {
+    const cardMarkup = renderToStaticMarkup(createElement(InviteHandCard, {
+      card, playable: true, selected: false, unavailableReason: "", onSelect: () => undefined,
     }));
     expect(cardMarkup).toContain("Kartu Ajakan");
-    expect(cardMarkup).toContain("Pilih target");
+    expect(cardMarkup).toContain("Pilih kartu");
     expect(cardMarkup).toContain("comic-effect");
-    expect(cardMarkup).toContain("ui-btn-outlined");
+    expect(cardMarkup).toContain("ui-folder");
 
     const confirmMarkup = renderToStaticMarkup(createElement(InviteConfirmSheet, {
       flow: { step: "confirm", turnId: "turn-1", cardId: "card-1", targetPlayerId: "p2" },

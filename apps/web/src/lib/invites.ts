@@ -66,7 +66,7 @@ export function formatEffects(effects: readonly Effect[]): string {
 
 type Me = NonNullable<Snapshot["me"]>;
 
-/** Tombol Kartu Ajakan aktif: punya kartu, giliran sendiri, dan belum memilih heksa. */
+/** Kartu Ajakan bisa dimainkan: punya kartu, giliran sendiri, dan belum memilih heksa. */
 export function canUseInviteCard(
   me: Me | null,
   game: Pick<PublicGameState, "activePlayerId" | "eliminated">,
@@ -80,8 +80,37 @@ export function canUseInviteCard(
   );
 }
 
+/** Ketersediaan kartu di HUD; alur pemilihan yang kedaluwarsa tidak mengunci kartu berikutnya. */
+export function getInviteCardAvailability(input: {
+  me: Me | null;
+  game: PublicGameState;
+  room: Pick<RoomState, "players">;
+  serverNow: number;
+  connected: boolean;
+  actionPending: boolean;
+  invitePending: boolean;
+  hasPopupGrid: boolean;
+}): { playable: boolean; reason: string } {
+  const { me, game, room, serverNow, connected, actionPending, invitePending, hasPopupGrid } = input;
+  if (!me?.inviteCard) return { playable: false, reason: "Belum ada kartu yang bisa dimainkan." };
+  if (!connected) return { playable: false, reason: "Menunggu koneksi pulih." };
+  if (game.phase !== "turn" || game.activePlayerId !== me.playerId || !me.pendingTurn) {
+    return { playable: false, reason: "Bisa dimainkan saat giliranmu sebelum memilih heksa." };
+  }
+  if (game.eliminated.includes(me.playerId)) return { playable: false, reason: "Pemain tereliminasi tidak bisa mengajak." };
+  if (actionPending || invitePending || hasPopupGrid) {
+    return { playable: false, reason: "Menunggu respons server atau keputusan awal ronde." };
+  }
+  if (game.turnDeadline !== null && serverNow >= game.turnDeadline) {
+    return { playable: false, reason: "Waktu giliran sudah habis." };
+  }
+  if (!getSelectableInviteTargetIds(game, room, me.playerId).length) {
+    return { playable: false, reason: "Belum ada target yang bisa diajak." };
+  }
+  return { playable: true, reason: "" };
+}
+
 export type InviteFlow =
-  | { step: "card"; turnId: string }
   | { step: "pick"; turnId: string; cardId: string }
   | { step: "confirm"; turnId: string; cardId: string; targetPlayerId: string };
 
@@ -94,12 +123,17 @@ export function resolveInviteFlow(
   me: Me | null,
   game: PublicGameState,
   serverNow: number,
+  room?: Pick<RoomState, "players">,
+  connected = true,
 ): InviteFlow | null {
-  if (!flow || !canUseInviteCard(me, game)) return null;
+  if (!flow || !connected || game.phase !== "turn" || !canUseInviteCard(me, game)) return null;
   if (me!.pendingTurn!.turnId !== flow.turnId) return null;
   if (game.turnDeadline !== null && serverNow >= game.turnDeadline) return null;
-  if (flow.step !== "card" && me!.inviteCard!.cardId !== flow.cardId) return null;
-  if (flow.step === "confirm" && !isInviteTargetSelectable(game, me!.playerId, flow.targetPlayerId)) return null;
+  if (me!.inviteCard!.cardId !== flow.cardId) return null;
+  if (flow.step === "confirm" && (
+    !isInviteTargetSelectable(game, me!.playerId, flow.targetPlayerId) ||
+    (room && !getSelectableInviteTargetIds(game, room, me!.playerId).includes(flow.targetPlayerId))
+  )) return null;
   return flow;
 }
 

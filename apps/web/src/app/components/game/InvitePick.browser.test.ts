@@ -14,7 +14,7 @@ describe.skipIf(!chrome)("memilih target Ajakan di browser", () => {
       import React, { useState } from "react";
       import { createRoot } from "react-dom/client";
       import Scoreboard from "./Scoreboard";
-      import { InvitePickBanner } from "./invites";
+      import { InviteHandCard, InvitePickBanner } from "./invites";
 
       const game = { scores: [
         { playerId: "p1", rank: 1, provisionalScore: 100, eliminated: false },
@@ -28,8 +28,10 @@ describe.skipIf(!chrome)("memilih target Ajakan di browser", () => {
       ] };
       const selected = [];
       function App() {
-        const [picking, setPicking] = useState(true);
+        const [picking, setPicking] = useState(false);
         return <>
+          <InviteHandCard card={{ cardId: "c1", plan: "hangout", planEffects: [], motive: "sincere", expiresAtMonth: 2 }}
+            playable selected={picking} unavailableReason="" onSelect={() => setPicking(true)} />
           {picking && <InvitePickBanner onCancel={() => setPicking(false)} />}
           <Scoreboard game={game} room={room} playerId="p1"
             pickTarget={picking ? { disabledIds: ["p1", "p3"], onSelect: (id) => selected.push(id) } : null} />
@@ -41,6 +43,10 @@ describe.skipIf(!chrome)("memilih target Ajakan di browser", () => {
       const wait = (ms) => new Promise((done) => setTimeout(done, ms));
       async function run() {
         await wait(150);
+        check(!document.querySelector('.invite-pick-banner'), "banner target muncul sebelum kartu dipilih");
+        check(!document.querySelector('.invite-score-button'), "target selectable sebelum kartu dipilih");
+        document.querySelector('.invite-hand-card button').click();
+        await wait(50);
         const target = document.querySelector('[aria-label="Ajak Dika"]');
         check(!!target, "target tidak muncul sebagai tombol");
         check(!document.querySelector('[aria-label="Ajak Rina"]'), "diri sendiri selectable");
