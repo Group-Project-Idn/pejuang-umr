@@ -17,7 +17,7 @@ describe("typography system", () => {
   it("memetakan peran font di satu tema dan angka tabular pada Nunito", () => {
     expect(styles).toMatch(/--font-sans:\s*var\(--font-nunito\)/);
     expect(styles).toMatch(/--font-heading:\s*var\(--font-fredoka\)/);
-    expect(styles).toMatch(/--font-note:\s*var\(--font-kalam\)/);
+    expect(styles).toMatch(/\.ui-stamp\s*\{[^}]*--font-kalam/);
     expect(styles).toMatch(/\.type-number\s*\{[^}]*--font-nunito[^}]*font-variant-numeric:\s*tabular-nums/);
     expect(styles).toMatch(/\.ui-btn\s*\{[^}]*--font-fredoka/);
     expect(styles).toMatch(/\.ui-stamp\s*\{[^}]*--font-kalam/);

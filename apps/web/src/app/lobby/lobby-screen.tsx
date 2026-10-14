@@ -13,6 +13,7 @@ import { readRoomCode, writeRoomCode } from "@/lib/room-session";
 import { connectGameSocket, disconnectSocket } from "@/lib/socket";
 import { getResumableRoomCode } from "@/lib/lobby-resume";
 import { PROFILE_COPY, profileFormDefaults, saveProfile } from "./profile-edit";
+import { joinRoomByCode } from "./join-room";
 
 export const LOBBY_COPY = {
   title: "RUANG RAPAT",
@@ -152,26 +153,18 @@ export function LobbyScreen({ initialCode = "" }: { initialCode?: string }) {
     setMessage("");
     setBusy("cek");
     try {
-      const lookup = await lookupRoom(code, session.token);
-      if (!lookup.joinable) {
-        setCodeError(toRoomErrorMessage(lookup.reason ?? "ROOM_LOCKED"));
-        return;
-      }
-      setBusy("gabung");
-      const socket = await connectGameSocket(session.token);
-      const res = await new Promise<{ ok: boolean; error?: string }>((resolve) => {
-        socket.timeout(5000).emit("room:join", { requestId: createRequestId(), roomCode: code }, (err, ack) => {
-          if (err) return resolve({ ok: false, error: "HEALTH_CHECK_FAILED" });
-          resolve(ack as { ok: boolean; error?: string });
-        });
+      const result = await joinRoomByCode(code, session.token, {
+        lookupRoom,
+        connectGameSocket,
+        onJoining: () => setBusy("gabung"),
       });
-      if (!res.ok) {
-        recoverGuestSession(res.error ?? "INTERNAL");
-        setCodeError(toRoomErrorMessage(res.error ?? "INTERNAL"));
+      if (!result.ok) {
+        recoverGuestSession(result.error);
+        setCodeError(toRoomErrorMessage(result.error));
         return;
       }
-      writeRoomCode(code);
-      router.push(`/room/${code}`);
+      writeRoomCode(result.code);
+      router.push(`/room/${result.code}`);
     } catch (error) {
       recoverGuestSession(error instanceof Error ? error.message : "INTERNAL");
       setCodeError(toRoomErrorMessage(error instanceof Error ? error.message : "INTERNAL"));

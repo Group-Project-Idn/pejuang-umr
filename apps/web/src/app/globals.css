@@ -37,15 +37,10 @@
 
 @theme inline {
   --font-heading: var(--font-fredoka), ui-sans-serif, system-ui, sans-serif;
-  --font-note: var(--font-kalam), cursive;
 }
 
-/* Typography roles: keep sizes in the existing --text-* scale. */
-.type-heading { font-family: var(--font-fredoka), ui-sans-serif, system-ui, sans-serif; font-weight: 700; line-height: 1.15; }
-.type-action { font-family: var(--font-fredoka), ui-sans-serif, system-ui, sans-serif; font-weight: 700; }
-.type-note { font-family: var(--font-kalam), cursive; font-weight: 700; }
+/* Font families: font-heading for headings/actions, Nunito inherited by body and HUD. */
 .type-number { font-family: var(--font-nunito), ui-sans-serif, system-ui, sans-serif; font-variant-numeric: tabular-nums; }
-.type-body { font-family: var(--font-nunito), ui-sans-serif, system-ui, sans-serif; line-height: 1.5; }
 
 /* Gaya kantor/HRD untuk Lobby multiplayer (folder kuning, sticky note, stempel). */
 .lobby-desk {
