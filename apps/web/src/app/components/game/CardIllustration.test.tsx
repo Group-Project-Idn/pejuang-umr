@@ -6,6 +6,20 @@ import HexDetailSheet from "./HexDetailSheet";
 import { buildLitDetail, buildOpenedDetail } from "@/lib/hex-detail";
 
 describe("ilustrasi kartu petak", () => {
+  function expectIllustrationBetweenHeadings(markup: string, title: string, category: Category) {
+    const heading = markup.match(/<h2\b[^>]*class="[^"]*ui-popup-title[^"]*"[^>]*>[^<]*<\/h2>/)?.[0];
+    expect(heading).toBeDefined();
+    expect(heading).toContain(`>${title}</h2>`);
+    const titleAt = markup.indexOf(heading!);
+    const illustrationAt = markup.indexOf(`card-illustration-${category}`);
+    const planAt = markup.indexOf(">RENCANA</h3>");
+    expect(titleAt).toBeGreaterThanOrEqual(0);
+    expect(illustrationAt).toBeGreaterThanOrEqual(0);
+    expect(planAt).toBeGreaterThanOrEqual(0);
+    expect(titleAt).toBeLessThan(illustrationAt);
+    expect(illustrationAt).toBeLessThan(planAt);
+  }
+
   it.each<Category>(["work", "social", "health", "finance", "gold"])(
     "kategori %s memakai SVG dekoratif tanpa aset eksternal",
     (category) => {
@@ -24,8 +38,7 @@ describe("ilustrasi kartu petak", () => {
       plan: [{ stat: "stress", delta: -1 }], risk: "low", riskTags: [], isGold: false,
     });
     const markup = renderToStaticMarkup(<HexDetailSheet detail={detail} pending={false} onChoose={() => {}} onClose={() => {}} />);
-    expect(markup.indexOf("Main Board Game Cafe")).toBeLessThan(markup.indexOf("card-illustration-social"));
-    expect(markup.indexOf("card-illustration-social")).toBeLessThan(markup.indexOf("RENCANA"));
+    expectIllustrationBetweenHeadings(markup, "Main Board Game Cafe", "social");
     expect(markup).toContain("Terungkap di akhir ronde");
     expect(markup).toContain("PILIH HEKSA INI");
   });
@@ -39,5 +52,20 @@ describe("ilustrasi kartu petak", () => {
     expect(markup).toContain("card-illustration-gold");
     expect(markup).toContain("Tidak ada Realita");
     expect(markup).not.toContain("AMBIL PETAK EMAS");
+  });
+
+  it("petak biasa terbuka menampilkan Realita terungkap tanpa tombol Pilih", () => {
+    const detail = buildOpenedDetail({
+      hex: { q: 3, r: -1 }, category: "work", title: "Lembur Dikejar Deadline",
+      plan: [{ stat: "wealth", delta: 1_500_000 }],
+      reality: { outcome: "zonk", text: "Rapat molor hingga pagi", effects: [{ stat: "stress", delta: 2 }], seasonal: false },
+      byPlayerId: "p1", step: 3,
+    });
+    const markup = renderToStaticMarkup(<HexDetailSheet detail={detail} pending={false} onChoose={() => {}} onClose={() => {}} />);
+    expectIllustrationBetweenHeadings(markup, detail.title, "work");
+    expect(markup).toContain("Rapat molor hingga pagi");
+    expect(markup).toContain("REALITA");
+    expect(markup).not.toContain("PILIH HEKSA INI");
+    expect(markup).toContain("Tutup");
   });
 });
