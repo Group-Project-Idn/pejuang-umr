@@ -8,6 +8,7 @@ import Chip from "../ui/Chip";
 import SidePanel from "../ui/SidePanel";
 import CategoryIcon from "./HexCategoryIcon";
 import { RiskIndicator } from "./legends";
+import CardIllustration from "./CardIllustration";
 
 const STAT_LABEL: Record<Effect["stat"], string> = {
   wealth: "Kekayaan",
@@ -85,6 +86,7 @@ export default function HexDetailSheet({ detail, pending, onChoose, onClose }: H
     >
       {detail ? (
         <>
+          <CardIllustration category={detail.category} />
           <section className="grid gap-2">
             <h3 className="hex-section">RENCANA</h3>
             <EffectList effects={detail.plan} />
