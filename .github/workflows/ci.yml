@@ -38,6 +38,13 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Ensure Chromium for responsive browser tests
+        run: |
+          if ! command -v google-chrome >/dev/null && ! command -v chromium >/dev/null && ! command -v chromium-browser >/dev/null; then
+            echo "Chromium/Google Chrome is required for responsive browser tests." >&2
+            exit 1
+          fi
+
       - name: Test
         run: npm run test
 

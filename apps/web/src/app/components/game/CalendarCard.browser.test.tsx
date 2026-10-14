@@ -1,7 +1,8 @@
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { createServer } from "node:http";
-import { accessSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { accessSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import CalendarCard from "./CalendarCard";
@@ -10,7 +11,86 @@ import StatusPanel from "./StatusPanel";
 const chrome = ["/usr/bin/google-chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser"]
   .find((binary) => { try { accessSync(binary); return true; } catch { return false; } });
 
-describe.skipIf(!chrome)("kalender dan legenda responsif di Chromium", () => {
+const BROWSER_TIMEOUT_MS = 10_000;
+
+async function measureInChrome(url: string, width: number): Promise<Record<string, unknown>> {
+  if (!chrome) throw new Error("Chromium diperlukan untuk tes responsif (install chromium/google-chrome).");
+  const profile = mkdtempSync(join(tmpdir(), "pejuang-calendar-"));
+  let child: ChildProcess | undefined;
+  let closed: Promise<void> | undefined;
+  let socket: WebSocket | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    child = spawn(chrome, ["--headless", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage",
+      "--no-first-run", "--remote-allow-origins=*", "--remote-debugging-port=0",
+      `--user-data-dir=${profile}`, "about:blank"], { stdio: "ignore" });
+    closed = new Promise((done) => child!.once("close", () => done()));
+    const exited = new Promise<never>((_resolve, reject) => {
+      child!.once("error", reject);
+      child!.once("exit", (code) => reject(new Error(`Chrome exited ${code}`)));
+    });
+    const work = (async () => {
+      let port: number | undefined;
+      while (port === undefined) {
+        try {
+          port = Number(readFileSync(join(profile, "DevToolsActivePort"), "utf8").split("\n")[0]);
+          if (!Number.isInteger(port) || port <= 0) throw new Error("Invalid CDP port");
+        } catch { await new Promise((done) => setTimeout(done, 30)); }
+      }
+      const target = await fetch(`http://127.0.0.1:${port}/json/new?about:blank`, { method: "PUT" });
+      if (!target.ok) throw new Error(`Chrome CDP target failed: ${target.status}`);
+      const { webSocketDebuggerUrl } = await target.json() as { webSocketDebuggerUrl: string };
+      socket = new WebSocket(webSocketDebuggerUrl);
+      await new Promise<void>((done, fail) => {
+        socket!.addEventListener("open", () => done(), { once: true });
+        socket!.addEventListener("error", () => fail(new Error("Chrome CDP connection failed")), { once: true });
+      });
+      let nextId = 0;
+      function command(method: string, params: Record<string, unknown> = {}): Promise<{
+        result?: { value?: string };
+      }> {
+        const id = ++nextId;
+        return new Promise((done, fail) => {
+          const onMessage = (event: MessageEvent) => {
+            const reply = JSON.parse(String(event.data)) as {
+              id?: number;
+              error?: unknown;
+              result: { result?: { value?: string } };
+            };
+            if (reply.id !== id) return;
+            socket!.removeEventListener("message", onMessage);
+            if (reply.error) fail(new Error(`Chrome CDP ${method} failed`));
+            else done(reply.result);
+          };
+          socket!.addEventListener("message", onMessage);
+          socket!.send(JSON.stringify({ id, method, params }));
+        });
+      }
+      await command("Emulation.setDeviceMetricsOverride", { width, height: 900, deviceScaleFactor: 1, mobile: true });
+      await command("Page.navigate", { url });
+      for (;;) {
+        const reply = await command("Runtime.evaluate", {
+          expression: "document.body?.dataset.result ?? null", returnByValue: true,
+        });
+        if (reply.result?.value) return JSON.parse(reply.result.value) as Record<string, unknown>;
+        await new Promise((done) => setTimeout(done, 30));
+      }
+    })();
+    return await Promise.race([work, exited, new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => reject(new Error(`Chrome timeout at viewport ${width}`)), BROWSER_TIMEOUT_MS);
+    })]);
+  } finally {
+    if (timer) clearTimeout(timer);
+    socket?.close();
+    if (child) {
+      if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+      await closed;
+    }
+    rmSync(profile, { recursive: true, force: true });
+  }
+}
+
+describe.skipIf(!chrome && !process.env.CI)("kalender dan legenda responsif di Chromium", () => {
   it("menempatkan hint utuh di bawah nama musim dan menjaga Kamus Petak terlihat", async () => {
     const calendar = renderToStaticMarkup(<CalendarCard calendar={{
       step: 8, totalSteps: 24, round: 4, month: 4,
@@ -39,6 +119,8 @@ describe.skipIf(!chrome)("kalender dan legenda responsif di Chromium", () => {
         const missionRect = mission.getBoundingClientRect();
         const boardRect = board.getBoundingClientRect();
         document.body.dataset.result = JSON.stringify({
+          viewportWidth: innerWidth, viewportHeight: innerHeight,
+          calendarColumns: getComputedStyle(card).gridTemplateColumns.split(' ').length,
           complete: hint.scrollHeight <= hint.clientHeight && hint.textContent.includes('sampai selesai'),
           below: hint.getBoundingClientRect().top >= name.getBoundingClientRect().bottom,
           seasonAfterDate: hint.getBoundingClientRect().top >= date.getBoundingClientRect().bottom ||
@@ -58,26 +140,18 @@ describe.skipIf(!chrome)("kalender dan legenda responsif di Chromium", () => {
       const address = server.address();
       if (!address || typeof address === "string") throw new Error("Browser test server unavailable");
       for (const width of [360, 390, 760, 768, 900, 1023, 1024, 1440]) {
-        const html = await new Promise<string>((done, fail) => {
-          const child = spawn(chrome!, ["--headless", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage",
-            "--no-first-run", `--window-size=${width},900`, "--dump-dom", `http://127.0.0.1:${address.port}/`]);
-          let output = "";
-          child.stdout.on("data", (chunk: Buffer) => { output += chunk.toString(); });
-          child.stderr.resume();
-          child.on("error", fail);
-          child.on("close", (code) => code === 0 ? done(output) : fail(new Error(`Chrome exited ${code}`)));
-        });
-        const result = html.match(/data-result="([^"]+)"/);
-        expect(result, html.slice(0, 500)).not.toBeNull();
-        const measured = JSON.parse(result![1].replaceAll("&quot;", '"')) as Record<string, unknown>;
-        const { positions, ...checks } = measured;
+        const measured = await measureInChrome(`http://127.0.0.1:${address.port}/`, width);
+        const { positions, viewportWidth, viewportHeight, calendarColumns, ...checks } = measured;
+        expect(viewportWidth).toBe(width);
+        expect(viewportHeight).toBe(900);
+        expect(calendarColumns).toBe(width <= 400 ? 1 : 2);
         expect(checks, `viewport ${width}: ${JSON.stringify(positions)}`).toEqual({
           complete: true, below: true, seasonAfterDate: true, inside: true, headerClear: true, footerClear: true,
           legendVisible: true, horizontalOverflow: false,
         });
       }
     } finally {
-      server.close();
+      await new Promise<void>((done) => server.close(() => done()));
     }
-  }, 20_000);
+  }, 90_000);
 });
