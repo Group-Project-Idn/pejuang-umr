@@ -18,6 +18,7 @@ import { DEFAULT_ROOM_EMPTY_MS, DEFAULT_ROOM_IDLE_MS } from "./config";
 import { RoomJanitor } from "./services/room-janitor";
 import {
   FakeReflectionProvider,
+  GeminiReflectionProvider,
   ReflectionService,
   type ReflectionProvider,
 } from "./services/reflection";
@@ -60,7 +61,9 @@ export function createPejuangServer(
       ? dependencies.reflectionProvider
       : config.reflectionProvider === "fake"
         ? new FakeReflectionProvider()
-        : null;
+        : config.reflectionProvider === "gemini"
+          ? new GeminiReflectionProvider()
+          : null;
   const reflection = new ReflectionService({
     provider: reflectionProvider,
     timeoutMs: config.reflectionTimeoutMs,

@@ -1,5 +1,6 @@
 export { buildReflectionInput } from "./build-input";
 export { FakeReflectionProvider, type FakeReflectionMode } from "./fake-provider";
+export { GeminiReflectionProvider } from "./gemini-provider";
 export { buildReflectionPrompt, type ReflectionPrompt } from "./prompt";
 export {
   DEFAULT_REFLECTION_MAX_CONCURRENT,

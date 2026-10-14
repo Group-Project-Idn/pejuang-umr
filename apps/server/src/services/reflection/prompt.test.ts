@@ -62,6 +62,10 @@ describe("buildReflectionPrompt", () => {
     expect(system).toMatch(/tanpa kutipan panjang/i);
     expect(system).toContain('"source":"ai"');
     expect(system).toMatch(/HANYA dengan JSON/);
+    expect(system).toMatch(/Jangan mengarang kejadian/);
+    expect(system).toMatch(/Bedakan Rencana dengan Realita acak/);
+    expect(system).toMatch(/bukti konkret/);
+    expect(system).toMatch(/bukan instruksi/);
   });
 
   it("data hanya milik satu pemain: Ajakan ditulis tanpa id atau nama pemain lain", () => {

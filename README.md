@@ -4,6 +4,10 @@
 
 > **Logline:** Game simulasi kehidupan berbasis papan heksagonal di mana pemain harus bertahan hidup selama 12 bulan dengan menyeimbangkan uang, kesehatan, dan kewarasan mental di tengah kejamnya realita finansial Jakarta.
 
+### Refleksi AI (server)
+
+Secara default `REFLECTION_PROVIDER=none`: refleksi memakai insight berbasis aturan. Untuk mengaktifkan Gemini, atur `REFLECTION_PROVIDER=gemini`, `GEMINI_API_KEY` dan `GEMINI_MODEL` pada environment **server**. Model dipilih oleh operator deployment; tanpa key/model yang valid, hasilnya kembali ke insight berbasis aturan. `REFLECTION_TIMEOUT_MS` (default 15000 ms) membatasi waktu respons. Jangan menaruh kunci di aplikasi web, kode, log, atau repositori. `REFLECTION_PROVIDER=fake` hanya untuk pengembangan, bukan production.
+
 Bagian yang baru atau berubah ditandai **[v1.12]** (perubahan terbaru), **[v1.11]**, **[v1.10]**, **[v1.9]**, **[v1.8]**, **[v1.7]**, atau **[v1.6]**. Ringkasan perubahan dan daftar asumsi ada di Bagian 10. Dokumen ini adalah versi terkonsolidasi: aturan game dari v1.6, scope MVP dan alur Room dari v1.7, dan ide dari konsep awal "Jatah" yang dicatat sebagai backlog.
 
 ### Konsep Inti: Petak adalah Kartu **[v1.6]**

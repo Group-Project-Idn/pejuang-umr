@@ -12,11 +12,13 @@ export type ServerConfig = {
   revealStepMs?: number;
   /** Lama batch popup awal ronde bila ada keputusan: Bayar Hutang atau Event Tanggal (detik). */
   monthPaySeconds?: number;
+  /** Durasi kompatibilitas yang masih dipakai implementasi Ganti Bulan saat ini (ms). */
+  monthSummaryOnlyMs?: number;
   /** Lama batch popup awal ronde bila semua popup hanya informasi (ms). */
   popupInfoMs?: number;
   /** Lama kartu hasil pribadi di akhir ronde, ditambahkan ke jeda Fase Pembalikan (ms). */
   resultPopupMs?: number;
-  /** Penyedia Refleksi: "none" (default, hanya insight berbasis aturan) atau "fake" (tes/dev, bukan production). */
+  /** Penyedia Refleksi: "none" (default), "gemini" (server), atau "fake" (tes/dev). */
   reflectionProvider?: ReflectionProviderName;
   /** Batas waktu provider Refleksi (ms) sebelum memakai cadangan aturan. */
   reflectionTimeoutMs?: number;
@@ -24,7 +26,7 @@ export type ServerConfig = {
   devTools?: boolean;
 };
 
-export type ReflectionProviderName = "none" | "fake";
+export type ReflectionProviderName = "none" | "fake" | "gemini";
 
 export const DEFAULT_ROOM_IDLE_MS = 600_000;
 export const DEFAULT_ROOM_EMPTY_MS = 120_000;
@@ -48,11 +50,12 @@ function readReflectionProvider(
   production: boolean,
 ): ReflectionProviderName {
   if (value === undefined || value === "" || value === "none") return "none";
+  if (value === "gemini") return "gemini";
   if (value === "fake") {
     if (production) throw new Error("REFLECTION_PROVIDER=fake tidak boleh dipakai saat production.");
     return "fake";
   }
-  throw new Error('REFLECTION_PROVIDER harus "none" atau "fake".');
+  throw new Error('REFLECTION_PROVIDER harus "none", "gemini", atau "fake".');
 }
 
 function readDevTools(value: string | undefined, production: boolean): boolean {

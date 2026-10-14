@@ -81,6 +81,8 @@ describe("readServerConfig", () => {
     const config = readServerConfig({ GUEST_TOKEN_SECRET: "change-me" });
     expect(config.reflectionProvider).toBe("none");
     expect(config.reflectionTimeoutMs).toBe(15_000);
+    expect(readServerConfig({ REFLECTION_PROVIDER: "gemini" }).reflectionProvider).toBe("gemini");
+    expect(readServerConfig({ NODE_ENV: "production", GUEST_TOKEN_SECRET: "a".repeat(40), REFLECTION_PROVIDER: "gemini" }).reflectionProvider).toBe("gemini");
     expect(readServerConfig({ REFLECTION_PROVIDER: "fake", REFLECTION_TIMEOUT_MS: "250" })).toMatchObject({
       reflectionProvider: "fake",
       reflectionTimeoutMs: 250,
