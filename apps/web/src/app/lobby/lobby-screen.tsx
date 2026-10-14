@@ -13,6 +13,7 @@ import { readRoomCode, writeRoomCode } from "@/lib/room-session";
 import { connectGameSocket, disconnectSocket } from "@/lib/socket";
 import { getResumableRoomCode } from "@/lib/lobby-resume";
 import { PROFILE_COPY, profileFormDefaults, saveProfile } from "./profile-edit";
+import { joinRoomByCode } from "./join-room";
 
 export const LOBBY_COPY = {
   title: "RUANG RAPAT",
@@ -152,26 +153,18 @@ export function LobbyScreen({ initialCode = "" }: { initialCode?: string }) {
     setMessage("");
     setBusy("cek");
     try {
-      const lookup = await lookupRoom(code, session.token);
-      if (!lookup.joinable) {
-        setCodeError(toRoomErrorMessage(lookup.reason ?? "ROOM_LOCKED"));
-        return;
-      }
-      setBusy("gabung");
-      const socket = await connectGameSocket(session.token);
-      const res = await new Promise<{ ok: boolean; error?: string }>((resolve) => {
-        socket.timeout(5000).emit("room:join", { requestId: createRequestId(), roomCode: code }, (err, ack) => {
-          if (err) return resolve({ ok: false, error: "HEALTH_CHECK_FAILED" });
-          resolve(ack as { ok: boolean; error?: string });
-        });
+      const result = await joinRoomByCode(code, session.token, {
+        lookupRoom,
+        connectGameSocket,
+        onJoining: () => setBusy("gabung"),
       });
-      if (!res.ok) {
-        recoverGuestSession(res.error ?? "INTERNAL");
-        setCodeError(toRoomErrorMessage(res.error ?? "INTERNAL"));
+      if (!result.ok) {
+        recoverGuestSession(result.error);
+        setCodeError(toRoomErrorMessage(result.error));
         return;
       }
-      writeRoomCode(code);
-      router.push(`/room/${code}`);
+      writeRoomCode(result.code);
+      router.push(`/room/${result.code}`);
     } catch (error) {
       recoverGuestSession(error instanceof Error ? error.message : "INTERNAL");
       setCodeError(toRoomErrorMessage(error instanceof Error ? error.message : "INTERNAL"));
@@ -223,7 +216,7 @@ export function LobbyScreen({ initialCode = "" }: { initialCode?: string }) {
             {resumeCode ? (
               <section aria-label={LOBBY_COPY.resumeTitle} className="lobby-paper-card mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl p-3">
                 <div>
-                  <h2 className="text-lg font-extrabold">{LOBBY_COPY.resumeTitle}</h2>
+                  <h2 className="font-heading text-lg font-bold">{LOBBY_COPY.resumeTitle}</h2>
                   <p className="text-sm">Room terakhir kamu: <strong>{resumeCode}</strong></p>
                 </div>
                 <button type="button" onClick={() => router.push(`/room/${resumeCode}`)} className="lobby-comic-btn rounded-lg bg-[#7fb0f5] px-4 py-2 font-bold text-[#1f3f73]">Lanjutkan</button>
@@ -231,9 +224,9 @@ export function LobbyScreen({ initialCode = "" }: { initialCode?: string }) {
             ) : null}
             <div className="lobby-folder lobby-main-folder relative grid gap-3 rounded-xl border-2 border-[#3b2a12]/70 p-3 sm:p-4 md:grid-cols-[0.8fr_1fr]">
               <section aria-labelledby="ruang-rapat-title" className="grid content-start gap-2 pl-4">
-                <h1 id="ruang-rapat-title" className="lobby-main-title font-black leading-[1.05]">{LOBBY_COPY.title}</h1>
+                <h1 id="ruang-rapat-title" className="lobby-main-title font-heading font-bold leading-[1.05]">{LOBBY_COPY.title}</h1>
                 <p className="text-sm font-semibold">{LOBBY_COPY.playerCount}</p>
-                <p className="lobby-stamp w-fit rounded px-3 py-1 text-lg font-black">CONFIDENTIAL</p>
+                <p className="lobby-stamp w-fit rounded px-3 py-1 text-lg">CONFIDENTIAL</p>
                 <div className="lobby-paper-card grid gap-1.5 rounded-xl p-2 text-xs font-medium sm:text-sm">
                   <p>{LOBBY_COPY.gameSummary}</p>
                   <p>1 permainan = 12 bulan. Timer giliran diatur host di Room.</p>
@@ -246,20 +239,20 @@ export function LobbyScreen({ initialCode = "" }: { initialCode?: string }) {
                       {session ? (<Image src={getAvatarSrc(session.avatarId)} alt={`Avatar ${session.name}`} fill sizes="80px" className="object-cover" />) : (<span className="grid h-full w-full place-items-center text-2xl" aria-hidden="true">🙂</span>)}
                     </span>
                     <div className="min-w-0">
-                      <h2 className="text-base font-extrabold">{LOBBY_COPY.identityCardTitle}</h2>
+                      <h2 className="font-heading text-base font-bold">{LOBBY_COPY.identityCardTitle}</h2>
                       <p className="truncate text-lg font-bold leading-tight">{session?.name ?? "Belum masuk"}</p>
                       <p className="text-sm">Pegawai Biasa</p>
                       <button type="button" onClick={openEditProfile} className="lobby-comic-btn mt-1 min-h-9 rounded-lg bg-[#7fb0f5] px-3 py-1.5 text-sm font-bold text-[#1f3f73]">{LOBBY_COPY.editName}</button>
                     </div>
                   </div>
                 </div>
-                <button type="button" onClick={createRoom} disabled={!session || working || serverTrouble} className="lobby-comic-btn lobby-primary-action rounded-xl bg-[#8bd450] font-black text-[#2d5a12]">{busy === "buat" ? "MEMBUAT..." : "BUAT ROOM (HOST)"}</button>
+                <button type="button" onClick={createRoom} disabled={!session || working || serverTrouble} className="lobby-comic-btn lobby-primary-action font-heading rounded-xl bg-[#8bd450] font-bold text-[#2d5a12]">{busy === "buat" ? "MEMBUAT..." : "BUAT ROOM (HOST)"}</button>
                 <form onSubmit={joinRoom} className="lobby-paper-card grid gap-1.5 rounded-xl p-2">
-                  <label htmlFor="kode-room" className="text-base font-extrabold tracking-wide">KODE ROOM</label>
+                  <label htmlFor="kode-room" className="font-heading text-base font-bold tracking-wide">KODE ROOM</label>
                   <div className="lobby-code-actions flex gap-2">
-                    <input id="kode-room" value={roomCode} onChange={(e) => setRoomCode(e.target.value.toUpperCase())} placeholder={LOBBY_COPY.roomCodePlaceholder} maxLength={8} autoComplete="off" aria-invalid={codeError ? true : undefined} aria-describedby={codeError ? "kode-room-error" : undefined} className="min-h-10 min-w-0 flex-1 rounded-lg border-2 border-[#3b2a12]/70 bg-[#fbf3dd] px-2 py-1.5 text-lg font-bold uppercase tracking-wider placeholder:text-xs placeholder:font-medium placeholder:normal-case placeholder:text-[#85837c] sm:px-3 sm:placeholder:text-sm" />
+                    <input id="kode-room" value={roomCode} onChange={(e) => setRoomCode(e.target.value.toUpperCase())} placeholder={LOBBY_COPY.roomCodePlaceholder} maxLength={8} autoComplete="off" aria-invalid={codeError ? true : undefined} aria-describedby={codeError ? "kode-room-error" : undefined} className="type-number min-h-10 min-w-0 flex-1 rounded-lg border-2 border-[#3b2a12]/70 bg-[#fbf3dd] px-2 py-1.5 text-lg font-bold uppercase tracking-wider placeholder:text-xs placeholder:font-medium placeholder:normal-case placeholder:text-[#85837c] sm:px-3 sm:placeholder:text-sm" />
                     <button type="button" onClick={pasteCode} className="lobby-comic-btn min-h-10 rounded-lg bg-[#efe0b8] px-2 text-xs font-bold sm:px-3 sm:text-sm">Tempel</button>
-                    <button type="submit" disabled={!session || working || serverTrouble} className="lobby-comic-btn min-h-10 rounded-lg bg-[#7fb0f5] px-3 text-base font-black text-[#1f3f73] sm:px-4">{busy === "cek" || busy === "gabung" ? "..." : "GABUNG"}</button>
+                    <button type="submit" disabled={!session || working || serverTrouble} className="lobby-comic-btn font-heading min-h-10 rounded-lg bg-[#7fb0f5] px-3 text-base font-bold text-[#1f3f73] sm:px-4">{busy === "cek" || busy === "gabung" ? "..." : "GABUNG"}</button>
                   </div>
                   {codeError ? (<p id="kode-room-error" role="alert" className="rounded-lg bg-[#fae2dc] px-3 py-2 text-sm font-semibold text-[#7c2a19]">{codeError}</p>) : null}
                 </form>
@@ -277,7 +270,7 @@ export function LobbyScreen({ initialCode = "" }: { initialCode?: string }) {
       {guestOpen ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" role="presentation" onClick={() => session && setGuestOpen(false)}>
           <section role="dialog" aria-modal="true" aria-labelledby="guest-title" onClick={(e) => e.stopPropagation()} className="lobby-folder grid w-full max-w-md gap-3 rounded-2xl border-2 border-[#3b2a12] p-5">
-            <h2 id="guest-title" className="text-2xl font-black">{session ? PROFILE_COPY.editTitle : PROFILE_COPY.guestTitle}</h2>
+            <h2 id="guest-title" className="font-heading text-2xl font-bold">{session ? PROFILE_COPY.editTitle : PROFILE_COPY.guestTitle}</h2>
             <form onSubmit={submitGuest} className="grid gap-3">
               <label className="grid gap-1 text-sm font-bold">Nama (2-20 karakter)
                 <input value={guestName} onChange={(e) => setGuestName(e.target.value)} maxLength={20} minLength={2} autoComplete="nickname" placeholder="Nama panggilan kamu" className="min-h-12 rounded-lg border-2 border-[#3b2a12]/70 bg-[#fbf3dd] px-3 py-2 text-lg font-semibold" />
@@ -295,7 +288,7 @@ export function LobbyScreen({ initialCode = "" }: { initialCode?: string }) {
               </fieldset>
               {guestError ? (<p role="alert" className="rounded-lg bg-[#fae2dc] px-3 py-2 text-sm font-semibold text-[#7c2a19]">{guestError}</p>) : null}
               <p className="text-xs">Riwayat permainan tidak tersimpan untuk tamu.</p>
-              <button type="submit" className="lobby-comic-btn min-h-12 rounded-xl bg-[#8bd450] text-lg font-black text-[#2d5a12]">{busy === "simpan" ? "MENYIMPAN..." : session ? "Simpan" : "Masuk"}</button>
+              <button type="submit" className="lobby-comic-btn font-heading min-h-12 rounded-xl bg-[#8bd450] text-lg font-bold text-[#2d5a12]">{busy === "simpan" ? "MENYIMPAN..." : session ? "Simpan" : "Masuk"}</button>
               {session ? (<button type="button" onClick={() => setGuestOpen(false)} className="min-h-11 rounded-lg px-4 py-2 font-semibold underline underline-offset-4">Batal</button>) : null}
             </form>
           </section>

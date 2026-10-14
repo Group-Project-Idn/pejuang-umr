@@ -39,32 +39,32 @@ colors:
   stamp-red: "#C0392B"
 typography:
   display-lg:
-    fontFamily: "Plus Jakarta Sans"
+    fontFamily: "Fredoka"
     fontSize: 48px
-    fontWeight: 800
+    fontWeight: 700
     lineHeight: 1.1
   headline-md:
-    fontFamily: "Plus Jakarta Sans"
+    fontFamily: "Fredoka"
     fontSize: 28px
     fontWeight: 700
     lineHeight: 1.2
   title-md:
-    fontFamily: "Plus Jakarta Sans"
+    fontFamily: "Fredoka"
     fontSize: 18px
     fontWeight: 600
     lineHeight: 1.3
   body-md:
-    fontFamily: "Plus Jakarta Sans"
+    fontFamily: "Nunito"
     fontSize: 16px
     fontWeight: 400
     lineHeight: 1.5
   body-sm:
-    fontFamily: "Plus Jakarta Sans"
+    fontFamily: "Nunito"
     fontSize: 14px
     fontWeight: 400
     lineHeight: 1.5
   label-md:
-    fontFamily: "Plus Jakarta Sans"
+    fontFamily: "Fredoka"
     fontSize: 13px
     fontWeight: 500
     lineHeight: 1.3
@@ -220,18 +220,18 @@ Token turunan (surface, container, on-surface, outline) diambil dari skala tonal
 
 ## Typography
 
-Font: **Plus Jakarta Sans** untuk semua peran.
+Font: **Fredoka** untuk judul, heading, tombol, dan label penting; **Nunito** untuk body, HUD, statistik, angka, modal, serta deskripsi; **Kalam** hanya untuk stempel dan catatan kertas dekoratif. Dimuat sekali lewat `next/font/google` pada root layout web.
 
 | Peran    | Ukuran (mobile) | Bobot     | Dipakai untuk                |
 | -------- | --------------- | --------- | ---------------------------- |
-| Display  | 40-56           | ExtraBold | Skor akhir, Gelar            |
+| Display  | 40-56           | Bold      | Judul screen, Gelar          |
 | Headline | 24-32           | Bold      | Judul screen dan popup       |
 | Title    | 18-20           | SemiBold  | Judul kartu dan panel        |
 | Body     | 14-16           | Regular   | Penjelasan dan Rencana petak |
 | Label    | 12-13           | Medium    | Tombol, chip, indikator      |
 
 - Skala dasar 16px, rasio sekitar 1,2. Hanya pakai 3-4 bobot.
-- **Angka uang dan skor harus rata** (tabular figures). Cek apakah font mendukungnya, kalau tidak pasangkan font angka khusus.
+- **Angka uang dan skor harus rata** (tabular figures). Pakai Nunito dengan `tabular-nums` pada angka dan verifikasi metrik font di browser; jika tidak didukung, pakai fallback numerik terbatas.
 - **Format Rupiah:** di HUD ringkas (Rp5,7jt), di detail lengkap (Rp5.730.000) dengan titik ribuan.
 - Teks Bahasa Indonesia cenderung panjang, jadi sisakan ruang tambahan sekitar 30% di tombol dan kartu.
 - Hindari huruf kapital semua kecuali label sangat pendek.

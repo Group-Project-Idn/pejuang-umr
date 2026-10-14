@@ -49,23 +49,23 @@ export function HomeScreen() {
       <div className="relative flex w-full max-w-md flex-1 flex-col items-center justify-center gap-5 px-4 py-10">
         <header className="grid justify-items-center gap-2 text-center">
           <h1
-            className="text-5xl font-black italic uppercase tracking-tight text-[#f4f1ea] sm:text-6xl"
+            className="font-heading text-5xl font-bold italic uppercase tracking-tight text-[#f4f1ea] sm:text-6xl"
             style={{ textShadow: "0 4px 0 #3b2a12, 0 0 18px rgba(0,0,0,0.5)" }}
           >
             PEJUANG UMR
           </h1>
-          <p className="rounded-md border-2 border-[#3b2a12] bg-[#5a3a1e] px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-[#f5d56b] sm:text-sm">
+          <p className="font-heading rounded-md border-2 border-[#3b2a12] bg-[#5a3a1e] px-3 py-1 text-xs font-bold uppercase tracking-wide text-[#f5d56b] sm:text-sm">
             Jakarta Survival: Edisi Akhir Bulan No Cap
           </p>
         </header>
 
         <nav aria-label="Menu utama" className="grid w-full gap-3">
           <div aria-disabled="true" className={`${MENU_BASE} cursor-default border-[#0b4f66] bg-[#0e6f8c] opacity-95`}>
-            <span className="text-2xl font-black italic">Singel</span>
+            <span className="font-heading text-2xl font-bold italic">Singel</span>
             <span className="text-xs font-semibold">Push rank karier sendirian</span>
           </div>
           <Link href="/lobby" className={`${MENU_BASE} bg-[#3f7d1a]`}>
-            <span className="text-2xl font-black italic">Mabar</span>
+            <span className="font-heading text-2xl font-bold italic">Mabar</span>
             <span className="text-xs font-semibold">Adu nasib 2-4 pemain</span>
           </Link>
           <Link
@@ -73,11 +73,11 @@ export function HomeScreen() {
             onClick={() => markInternalNavigation()}
             className={`${MENU_BASE} bg-[#b45f06]`}
           >
-            <span className="text-2xl font-black italic">Spill Cara Main</span>
+            <span className="font-heading text-2xl font-bold italic">Spill Cara Main</span>
             <span className="text-xs font-semibold">Tutorial biar nggak noob</span>
           </Link>
           <div aria-disabled="true" className={`${MENU_BASE} cursor-default border-[#5c1710] bg-[#b3261e] opacity-95`}>
-            <span className="text-2xl font-black italic">Ajang Flexing</span>
+            <span className="font-heading text-2xl font-bold italic">Ajang Flexing</span>
             <span className="text-xs font-semibold">Hall of Fame</span>
           </div>
         </nav>

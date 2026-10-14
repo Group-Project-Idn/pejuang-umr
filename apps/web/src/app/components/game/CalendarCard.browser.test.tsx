@@ -11,7 +11,7 @@ import StatusPanel from "./StatusPanel";
 const chrome = ["/usr/bin/google-chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser"]
   .find((binary) => { try { accessSync(binary); return true; } catch { return false; } });
 
-const BROWSER_TIMEOUT_MS = 10_000;
+const BROWSER_TIMEOUT_MS = 20_000;
 
 async function measureInChrome(url: string, width: number): Promise<Record<string, unknown>> {
   if (!chrome) throw new Error("Chromium diperlukan untuk tes responsif (install chromium/google-chrome).");
@@ -20,10 +20,15 @@ async function measureInChrome(url: string, width: number): Promise<Record<strin
   let closed: Promise<void> | undefined;
   let socket: WebSocket | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let stage = "start Chromium";
+  let browserError = "";
   try {
     child = spawn(chrome, ["--headless", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage",
       "--no-first-run", "--remote-allow-origins=*", "--remote-debugging-port=0",
-      `--user-data-dir=${profile}`, "about:blank"], { stdio: "ignore" });
+      `--user-data-dir=${profile}`, "about:blank"], { stdio: ["ignore", "ignore", "pipe"] });
+    child.stderr?.on("data", (chunk: Buffer) => {
+      browserError = (browserError + chunk.toString()).slice(-2_000);
+    });
     closed = new Promise((done) => child!.once("close", () => done()));
     const exited = new Promise<never>((_resolve, reject) => {
       child!.once("error", reject);
@@ -31,16 +36,19 @@ async function measureInChrome(url: string, width: number): Promise<Record<strin
     });
     const work = (async () => {
       let port: number | undefined;
+      stage = "wait for DevToolsActivePort";
       while (port === undefined) {
         try {
           port = Number(readFileSync(join(profile, "DevToolsActivePort"), "utf8").split("\n")[0]);
           if (!Number.isInteger(port) || port <= 0) throw new Error("Invalid CDP port");
         } catch { await new Promise((done) => setTimeout(done, 30)); }
       }
+      stage = "open CDP target";
       const target = await fetch(`http://127.0.0.1:${port}/json/new?about:blank`, { method: "PUT" });
       if (!target.ok) throw new Error(`Chrome CDP target failed: ${target.status}`);
       const { webSocketDebuggerUrl } = await target.json() as { webSocketDebuggerUrl: string };
       socket = new WebSocket(webSocketDebuggerUrl);
+      stage = "connect CDP WebSocket";
       await new Promise<void>((done, fail) => {
         socket!.addEventListener("open", () => done(), { once: true });
         socket!.addEventListener("error", () => fail(new Error("Chrome CDP connection failed")), { once: true });
@@ -66,8 +74,11 @@ async function measureInChrome(url: string, width: number): Promise<Record<strin
           socket!.send(JSON.stringify({ id, method, params }));
         });
       }
+      stage = "set viewport";
       await command("Emulation.setDeviceMetricsOverride", { width, height: 900, deviceScaleFactor: 1, mobile: true });
+      stage = "navigate test page";
       await command("Page.navigate", { url });
+      stage = "wait for layout measurements";
       for (;;) {
         const reply = await command("Runtime.evaluate", {
           expression: "document.body?.dataset.result ?? null", returnByValue: true,
@@ -77,7 +88,9 @@ async function measureInChrome(url: string, width: number): Promise<Record<strin
       }
     })();
     return await Promise.race([work, exited, new Promise<never>((_resolve, reject) => {
-      timer = setTimeout(() => reject(new Error(`Chrome timeout at viewport ${width}`)), BROWSER_TIMEOUT_MS);
+      timer = setTimeout(() => reject(new Error(
+        `Chrome timeout at viewport ${width} while ${stage}${browserError ? `; Chromium stderr: ${browserError}` : ""}`,
+      )), BROWSER_TIMEOUT_MS);
     })]);
   } finally {
     if (timer) clearTimeout(timer);
@@ -86,7 +99,16 @@ async function measureInChrome(url: string, width: number): Promise<Record<strin
       if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
       await closed;
     }
-    rmSync(profile, { recursive: true, force: true });
+    // Chromium can still write to the profile briefly after the main process exits.
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        rmSync(profile, { recursive: true, force: true });
+        break;
+      } catch (error) {
+        if (attempt === 2 || !(error instanceof Error) || error.message.includes("ENOTEMPTY") === false) throw error;
+        await new Promise((done) => setTimeout(done, 100));
+      }
+    }
   }
 }
 
@@ -139,7 +161,7 @@ describe.skipIf(!chrome && !process.env.CI)("kalender dan legenda responsif di C
     try {
       const address = server.address();
       if (!address || typeof address === "string") throw new Error("Browser test server unavailable");
-      for (const width of [360, 390, 760, 768, 900, 1023, 1024, 1440]) {
+      for (const width of [320, 360, 390, 760, 768, 900, 1023, 1024, 1440]) {
         const measured = await measureInChrome(`http://127.0.0.1:${address.port}/`, width);
         const { positions, viewportWidth, viewportHeight, calendarColumns, ...checks } = measured;
         expect(viewportWidth).toBe(width);

@@ -55,3 +55,6 @@ jobs:
         run: npm run build
         env:
           NEXT_PUBLIC_SERVER_URL: http://localhost:3002
+
+      - name: Verify rendered typography
+        run: npm run test:fonts -w @pejuang/web

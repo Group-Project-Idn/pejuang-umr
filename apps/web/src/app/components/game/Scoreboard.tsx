@@ -29,7 +29,7 @@ export default function Scoreboard({
           );
           const selectable = pickTarget !== null && !pickTarget.disabledIds.includes(score.playerId) && player !== undefined;
           const content = <>
-            <span className="rank">
+            <span className="rank type-number">
               {score.isFirst ? <span role="img" aria-label="Peringkat 1">👑</span> : `${score.rank}.`}
             </span>
             <span className="score-avatar">
