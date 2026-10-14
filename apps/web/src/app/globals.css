@@ -440,6 +440,8 @@ button { font: inherit; }
 .mission-card { position: absolute; left: calc(50% + 132px); top: 14px; display: flex; gap: 10px; align-items: center; background: #ead7a6; border: 2px solid #443328; border-radius: 8px; padding: 9px 14px; box-shadow: 0 4px 0 rgba(52,29,18,.24); }.mission-card>span { color: #4d5d72; font-size: 20px; }.mission-card div { display: grid; }.mission-card strong { font-size: 12px; }.mission-card small { font-size: 12px; }
 .game-layout { position: absolute; inset: 195px 20px 104px; display: grid; grid-template-columns: 230px minmax(0,1fr) 220px; gap: 12px; z-index: 4; }.board-stage { position: relative; min-width: 0; }.board-canvas { position: relative; isolation: isolate; width: 100%; height: 100%; min-height: 0; overflow: hidden; border-radius: 22px; }
 .game-layout .ui-folder { align-self: center; z-index: 6; }.status-panel .ui-card-title, .scoreboard .ui-card-title { text-align: center; }
+.game-layout .personal-hud { align-self: stretch; }
+.game-layout .personal-hud > .ui-folder { align-self: stretch; }
 .status-panel { padding: 17px 14px 14px; transform: rotate(-1deg); }.privacy-note { margin: 2px 0 12px; text-align: center; font-size: 12px; }.status-list { display: grid; gap: 7px; }.status-row { min-height: 48px; display: grid; grid-template-columns: 35px 1fr auto; gap: 7px; align-items: center; padding: 6px; background: rgba(255,247,207,.55); border-radius: 8px; }.status-row>div { min-width: 0; display: grid; gap: 3px; }.status-row small { font-family: var(--font-nunito), ui-sans-serif, system-ui, sans-serif; font-weight: 800; font-size: 12px; }.status-row strong { font-size: 12px; text-align: right; padding: 3px 6px; border-radius: 4px; background: #dfb858; }.status-row b { align-self: end; font-size: 12px; margin-bottom: 3px; }.status-icon { display: grid; place-items: center; font-weight: 900; font-size: 22px; }.coin-icon { color: #dba72b; }.debt-icon { width: 26px; height: 26px; border-radius: 50%; background: #a63c3c; color: #fff; }.health-icon { color: #d95652; }.stress-icon { color: #dca529; font-size: 29px; }
 .tile-legend { position: absolute; top: calc(100% + 18px); left: 8px; width: 205px; padding: 13px 15px; display: grid; gap: 4px; background: #f5e6ba; border: 2px solid #49372a; transform: rotate(-4deg); box-shadow: 4px 5px 0 rgba(46,28,18,.2); }.tile-legend::before { content: "⌇"; position: absolute; right: 18px; top: -22px; font-size: 40px; transform: rotate(18deg); }.tile-legend p { margin: 0 0 3px; font-family: var(--font-fredoka), ui-sans-serif, system-ui, sans-serif; font-size: 15px; font-weight: 700; text-transform: uppercase; border-bottom: 1px solid #8a714e; }.tile-legend span { font-size: 12px; font-weight: 700; }.tile-legend b { display: inline-block; width: 30px; color: #9d522c; }
 .scoreboard { padding: 15px 13px; transform: rotate(1deg); }.score-subtitle { margin: 0 0 8px; text-align: center; font-size: 12px; }.scoreboard ol { list-style: none; padding: 0; margin: 0; display: grid; gap: 5px; }.scoreboard li { display: grid; grid-template-columns: 20px 28px 1fr; align-items: center; min-height: 45px; padding: 4px 5px; border-radius: 8px; background: rgba(255,244,193,.4); }.scoreboard li.active-score { background: rgba(255,255,224,.82); box-shadow: inset 3px 0 #d18b24; }.rank { font-family: var(--font-nunito), ui-sans-serif, system-ui, sans-serif; font-variant-numeric: tabular-nums; font-size: 16px; font-weight: 900; }.score-avatar { display: grid; place-items: center; }.scoreboard li>span:last-child { display: grid; }.scoreboard li strong { font-size: 12px; }.scoreboard li small { font-size: 12px; }.score-footnote { font-size: 12px; font-weight: 700; margin: 9px 2px 0; }.gold-note { position: absolute; top: calc(100% + 20px); right: 0; width: 205px; padding: 9px; display: grid; text-align: center; background: #f1e4c2; border: 2px solid #49372a; box-shadow: 3px 4px 0 rgba(40,24,15,.24); transform: rotate(1deg); }.gold-note strong { font-family: var(--font-fredoka), ui-sans-serif, system-ui, sans-serif; font-weight: 700; font-size: 13px; }.gold-note span { font-size: 12px; }
@@ -477,6 +479,30 @@ button { font: inherit; }
 .invite-pick-banner { position: absolute; top: 8px; left: 50%; z-index: 8; transform: translateX(-50%); width: min(92%, 560px); display: flex; align-items: center; gap: 12px; padding: 10px 14px; font-size: 12px; font-weight: 800; }
 .invite-pick-banner .ui-btn { flex: none; min-height: 44px; padding: 5px 10px; cursor: pointer; }
 @media (max-width: 760px) { .invite-pick-banner { flex-wrap: wrap; justify-content: center; text-align: center; } }
+.personal-hud { display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow-y: auto; align-self: stretch; padding: 4px; }
+.personal-hud .invite-hand-card { order: 0; }
+.personal-hud .status-panel { order: 1; }
+.personal-hud > .ui-folder { flex: none; align-self: stretch; }
+.invite-hand-card { display: grid; gap: 8px; min-width: 0; font-size: 12px; overflow-wrap: anywhere; }
+.invite-hand-card .ui-card-title { margin-bottom: 0; }
+.invite-hand-card .comic-effect { width: auto; }
+.invite-hand-card .ui-btn { width: 100%; }
+.invite-hand-card .ui-btn:disabled { opacity: .6; }
+.invite-hand-card-selected { outline: 3px solid #b97612; outline-offset: 2px; }
+.invite-hand-status { margin: 0; color: var(--ink-soft); font-size: 12px; font-weight: 700; }
+@media (max-width: 760px) {
+  .game-layout { margin-bottom: 0; }
+  .personal-hud { display: contents; }
+  .personal-hud .invite-hand-card { order: 0; grid-column: 1 / -1; }
+  .game-layout .board-stage { order: 1; }
+  .personal-hud .status-panel { order: 2; }
+  .game-layout .scoreboard { order: 3; }
+}
+@media (max-width: 760px) {
+  .game-layout .status-panel, .game-layout .scoreboard { position: static; left: auto; right: auto; top: auto; width: auto; transform: none; }
+  .game-layout .invite-hand-card { position: relative; }
+  .game-layout .board-stage { height: 500px; }
+}
 .board-canvas-empty { display: grid; place-items: center; background: #3a2a22; }
 .season-hint { display: block; min-width: 0; margin-top: 4px; padding-top: 4px; font-size: 12px; line-height: 1.4; overflow-wrap: break-word; border-top: 1px dashed #b8a98e; }
 @media (min-width: 901px) { .mission-card { left: auto; right: 0; } }

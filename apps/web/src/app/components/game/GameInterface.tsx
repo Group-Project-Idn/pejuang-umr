@@ -37,7 +37,7 @@ import NoticeViews from "./NoticeViews";
 import HexDetailSheet from "./HexDetailSheet";
 import RevealPopup from "./RevealPopup";
 import {
-  InviteCardSheet,
+  InviteHandCard,
   InviteConfirmSheet,
   InviteIncomingView,
   InvitePickBanner,
@@ -198,14 +198,33 @@ export default function GameInterface({
       )
     : undefined;
   // Alur Ajakan batal sendiri bila Timer Giliran habis, giliran berganti, atau kartu hilang.
-  const activeFlow = resolveInviteFlow(inviteFlow, me, game, serverNow);
-  const flowCancelled = inviteFlow !== null && activeFlow === null;
-  const inviteButtonEnabled = canUseInviteCard(me, game) && !actionPending;
+  const connected = connectionStatus === "terhubung";
+  const activeFlow = resolveInviteFlow(inviteFlow, me, game, serverNow, room, connected);
+  const flowCancelled = connected && inviteFlow !== null && activeFlow === null;
+  const inviteCardPlayable = connected && game.phase === "turn" &&
+    canUseInviteCard(me, game) && (game.turnDeadline === null || serverNow < game.turnDeadline) &&
+    !actionPending && !invitePending && !flowCancelled && !popupGrid;
+  const inviteUnavailableReason = !me?.inviteCard
+    ? "Belum ada kartu yang bisa dimainkan."
+    : !connected ? "Menunggu koneksi pulih."
+    : game.phase !== "turn" || game.activePlayerId !== me.playerId || !me.pendingTurn
+      ? "Bisa dimainkan saat giliranmu sebelum memilih heksa."
+      : game.eliminated.includes(me.playerId) ? "Pemain tereliminasi tidak bisa mengajak."
+      : actionPending || invitePending || popupGrid ? "Menunggu respons server atau keputusan awal ronde."
+      : "Waktu giliran sudah habis.";
+  const hasInviteTarget = me && getSelectableInviteTargetIds(game, room, me.playerId).length > 0;
+  const inviteCanPick = inviteCardPlayable && Boolean(hasInviteTarget);
+  // Jangan hidupkan kembali pilihan lama setelah koneksi pulih pada turnId yang sama.
+  useEffect(() => {
+    if (connected) return;
+    const timer = window.setTimeout(() => setInviteFlow(null), 0);
+    return () => window.clearTimeout(timer);
+  }, [connected]);
   const popup = getInvitePopup(me, now, serverClockOffsetMs);
   const popupExpired = isInviteExpired(pendingInvite, now, serverClockOffsetMs);
   const expiredNotice = popupExpired && pendingInvite?.inviteId !== expiredInviteId;
   const popupCards = getVisibleCards(popupGrid, dismissedCardIds, serverNow);
-  const inviteTargeting = activeFlow?.step === "pick" && me
+  const inviteTargeting = activeFlow?.step === "pick" && me && inviteCanPick
     ? {
         disabledIds: getDisabledInvitePawnIds(game, me.playerId),
         onSelect: (targetPlayerId: string) =>
@@ -312,7 +331,21 @@ export default function GameInterface({
           </div>
         </header>
         <div className="game-layout">
-          <StatusPanel status={me?.status ?? null} />
+          <div className="personal-hud">
+            <InviteHandCard
+              card={me?.inviteCard ?? null}
+              playable={inviteCanPick}
+              selected={activeFlow?.step === "pick"}
+              unavailableReason={inviteCardPlayable && !hasInviteTarget ? "Belum ada target yang bisa diajak." : inviteUnavailableReason}
+              onSelect={() => {
+                if (inviteCanPick && me?.pendingTurn && me.inviteCard) {
+                  setSelectedHexKey(null);
+                  setInviteFlow({ step: "pick", turnId: me.pendingTurn.turnId, cardId: me.inviteCard.cardId });
+                }
+              }}
+            />
+            <StatusPanel status={me?.status ?? null} />
+          </div>
           <section className="board-stage">
             {activeFlow?.step === "pick" ? <InvitePickBanner onCancel={() => setInviteFlow(null)} /> : null}
             {game.phase === "reveal" && !revealPopupOpen ? (
@@ -380,15 +413,6 @@ export default function GameInterface({
           </div>
           <div className="action-buttons">
             <button type="button" disabled aria-label="Ekspresi belum tersedia"><span>☺</span><small>Emote</small></button>
-            <button
-              type="button"
-              className="invite-button"
-              disabled={!inviteButtonEnabled}
-              aria-label="Kartu Ajakan"
-              onClick={() => {
-                if (pendingTurn) setInviteFlow({ step: "card", turnId: pendingTurn.turnId });
-              }}
-            ><i>{me?.inviteCard ? 1 : 0}</i><span>▱</span><small>Kartu Ajakan</small></button>
           </div>
         </footer>
       </section>
@@ -409,24 +433,15 @@ export default function GameInterface({
           <button type="button" className="underline" onClick={() => setInviteFlow(null)}>Tutup</button>
         </p>
       ) : null}
-      <InviteCardSheet
-        card={me?.inviteCard ?? null}
-        open={activeFlow?.step === "card"}
-        onClose={() => setInviteFlow(null)}
-        onPickTarget={() => {
-          if (activeFlow?.step === "card" && me?.inviteCard) {
-            setInviteFlow({ step: "pick", turnId: activeFlow.turnId, cardId: me.inviteCard.cardId });
-          }
-        }}
-      />
       <InviteConfirmSheet
-        flow={activeFlow}
+        flow={inviteCanPick ? activeFlow : null}
         targetName={activeFlow?.step === "confirm" ? getPlayerName(room, activeFlow.targetPlayerId) : ""}
         plan={me?.inviteCard?.plan ?? null}
         pending={invitePending}
         onCancel={() => setInviteFlow(null)}
         onConfirm={() => {
-          if (activeFlow?.step !== "confirm" || !pendingTurn) return;
+          if (activeFlow?.step !== "confirm" || !pendingTurn || !inviteCanPick ||
+            !me || !getSelectableInviteTargetIds(game, room, me.playerId).includes(activeFlow.targetPlayerId)) return;
           onSendInvite({
             turnId: pendingTurn.turnId,
             cardId: activeFlow.cardId,

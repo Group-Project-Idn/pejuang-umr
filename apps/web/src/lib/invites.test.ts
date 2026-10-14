@@ -77,6 +77,7 @@ function makeMe(overrides: Partial<Me> = {}): Me {
 function makeGame(overrides: Partial<PublicGameState> = {}): PublicGameState {
   return {
     activePlayerId: "p1",
+    phase: "turn",
     eliminated: [],
     inviteBusyPlayerIds: [],
     turnDeadline: 40_000,
@@ -151,6 +152,17 @@ describe("alur kirim batal", () => {
     const confirm = { ...flow, step: "confirm", targetPlayerId: "p2" } as const;
     expect(resolveInviteFlow(confirm, makeMe(), makeGame(), 1)).toEqual(confirm);
     expect(resolveInviteFlow(confirm, makeMe(), makeGame({ inviteBusyPlayerIds: ["p2"] }), 1)).toBeNull();
+  });
+
+  it("batal saat koneksi hilang, fase berganti, kartu berganti, atau target keluar dari room", () => {
+    const confirm = { ...flow, step: "confirm", targetPlayerId: "p2" } as const;
+    const room = { players: [{ playerId: "p1" }, { playerId: "p2", connected: false }] } as RoomState;
+    expect(resolveInviteFlow(confirm, makeMe(), makeGame(), 1, room)).toEqual(confirm);
+    expect(resolveInviteFlow(confirm, makeMe(), makeGame(), 1, room, false)).toBeNull();
+    expect(resolveInviteFlow(flow, makeMe(), makeGame({ phase: "reveal" }), 1)).toBeNull();
+    expect(resolveInviteFlow(flow, makeMe({ inviteCard: { ...card, cardId: "baru" } }), makeGame(), 1)).toBeNull();
+    expect(resolveInviteFlow(confirm, makeMe(), makeGame(), 1, { players: [{ playerId: "p1" }] } as RoomState)).toBeNull();
+    expect(resolveInviteFlow(confirm, makeMe(), makeGame({ pawns: [] }), 1, room)).toBeNull();
   });
 });
 

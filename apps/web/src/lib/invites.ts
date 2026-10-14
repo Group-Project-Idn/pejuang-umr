@@ -66,7 +66,7 @@ export function formatEffects(effects: readonly Effect[]): string {
 
 type Me = NonNullable<Snapshot["me"]>;
 
-/** Tombol Kartu Ajakan aktif: punya kartu, giliran sendiri, dan belum memilih heksa. */
+/** Kartu Ajakan bisa dimainkan: punya kartu, giliran sendiri, dan belum memilih heksa. */
 export function canUseInviteCard(
   me: Me | null,
   game: Pick<PublicGameState, "activePlayerId" | "eliminated">,
@@ -81,7 +81,6 @@ export function canUseInviteCard(
 }
 
 export type InviteFlow =
-  | { step: "card"; turnId: string }
   | { step: "pick"; turnId: string; cardId: string }
   | { step: "confirm"; turnId: string; cardId: string; targetPlayerId: string };
 
@@ -94,12 +93,17 @@ export function resolveInviteFlow(
   me: Me | null,
   game: PublicGameState,
   serverNow: number,
+  room?: Pick<RoomState, "players">,
+  connected = true,
 ): InviteFlow | null {
-  if (!flow || !canUseInviteCard(me, game)) return null;
+  if (!flow || !connected || game.phase !== "turn" || !canUseInviteCard(me, game)) return null;
   if (me!.pendingTurn!.turnId !== flow.turnId) return null;
   if (game.turnDeadline !== null && serverNow >= game.turnDeadline) return null;
-  if (flow.step !== "card" && me!.inviteCard!.cardId !== flow.cardId) return null;
-  if (flow.step === "confirm" && !isInviteTargetSelectable(game, me!.playerId, flow.targetPlayerId)) return null;
+  if (me!.inviteCard!.cardId !== flow.cardId) return null;
+  if (flow.step === "confirm" && (
+    !isInviteTargetSelectable(game, me!.playerId, flow.targetPlayerId) ||
+    (room && !getSelectableInviteTargetIds(game, room, me!.playerId).includes(flow.targetPlayerId))
+  )) return null;
   return flow;
 }
 
