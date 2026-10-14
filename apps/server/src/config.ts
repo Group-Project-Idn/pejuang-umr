@@ -12,8 +12,6 @@ export type ServerConfig = {
   revealStepMs?: number;
   /** Lama batch popup awal ronde bila ada keputusan: Bayar Hutang atau Event Tanggal (detik). */
   monthPaySeconds?: number;
-  /** Durasi kompatibilitas yang masih dipakai implementasi Ganti Bulan saat ini (ms). */
-  monthSummaryOnlyMs?: number;
   /** Lama batch popup awal ronde bila semua popup hanya informasi (ms). */
   popupInfoMs?: number;
   /** Lama kartu hasil pribadi di akhir ronde, ditambahkan ke jeda Fase Pembalikan (ms). */

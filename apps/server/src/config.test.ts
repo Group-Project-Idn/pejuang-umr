@@ -77,6 +77,13 @@ describe("readServerConfig", () => {
     }
   });
 
+  it("mengabaikan konfigurasi durasi popup lama; hanya POPUP_INFO_MS yang berlaku", () => {
+    const config = readServerConfig({ MONTH_SUMMARY_ONLY_MS: "3000", POPUP_INFO_MS: "9000" });
+    expect(config.popupInfoMs).toBe(9_000);
+    expect(config).not.toHaveProperty("monthSummaryOnlyMs");
+    expect(readServerConfig({ MONTH_SUMMARY_ONLY_MS: "3000" }).popupInfoMs).toBe(8_000);
+  });
+
   it("REFLECTION_PROVIDER default none, fake hanya di luar production; REFLECTION_TIMEOUT_MS default 15000", () => {
     const config = readServerConfig({ GUEST_TOKEN_SECRET: "change-me" });
     expect(config.reflectionProvider).toBe("none");
