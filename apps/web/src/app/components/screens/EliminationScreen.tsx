@@ -32,16 +32,16 @@ export default function EliminationScreen({
       <main className="room-folder mx-auto grid w-full max-w-2xl content-start gap-4 text-[color:var(--ink-text)]" style={{ minHeight: 0 }}>
         <header className="grid gap-2">
           {reason ? <span className="ui-stamp justify-self-start text-body-sm">{getEliminatedLabel(reason)}</span> : null}
-          <h1 className="text-headline font-black">{ELIMINATION_COPY.title}</h1>
+          <h1 className="font-heading text-headline font-bold">{ELIMINATION_COPY.title}</h1>
         </header>
         {status ? (
           <section className="ui-note p-3" aria-label={ELIMINATION_COPY.summary}>
-            <h2 className="text-title font-black">{ELIMINATION_COPY.summary}</h2>
+            <h2 className="font-heading text-title font-bold">{ELIMINATION_COPY.summary}</h2>
             <dl className="mt-2 grid grid-cols-2 gap-2 text-body-sm">
-              <dt>Kekayaan</dt><dd className="text-right">{formatRupiah(status.wealth)}</dd>
-              <dt>Hutang</dt><dd className="text-right">{formatRupiah(status.debt)}</dd>
-              <dt>Kesehatan</dt><dd className="text-right">{status.health}/10</dd>
-              <dt>Level Stress</dt><dd className="text-right">{status.stress}/10</dd>
+              <dt>Kekayaan</dt><dd className="type-number text-right">{formatRupiah(status.wealth)}</dd>
+              <dt>Hutang</dt><dd className="type-number text-right">{formatRupiah(status.debt)}</dd>
+              <dt>Kesehatan</dt><dd className="type-number text-right">{status.health}/10</dd>
+              <dt>Level Stress</dt><dd className="type-number text-right">{status.stress}/10</dd>
             </dl>
           </section>
         ) : null}

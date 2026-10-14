@@ -30,7 +30,7 @@ export default function TimerRing({ secondsLeft, totalSeconds, label = "Sisa wak
           className="stroke-indikator-kekayaan"
         />
       </svg>
-      <strong className="-mt-16 text-body tabular-nums text-teks-utama">{safe}</strong>
+      <strong className="type-number -mt-16 text-body text-teks-utama">{safe}</strong>
     </div>
   );
 }

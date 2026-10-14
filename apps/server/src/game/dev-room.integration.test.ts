@@ -3,12 +3,14 @@ import type { AddressInfo } from "node:net";
 import {
   DEV_ROOM_CODE,
   GameFinishedPayloadSchema,
+  RoomLookupResponseSchema,
+  RoomStateSchema,
   type ClientToServerEvents,
   type ServerToClientEvents,
 } from "@pejuang/shared";
 import { io as createClient, type Socket } from "socket.io-client";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ServerConfig } from "../config";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { readServerConfig, type ServerConfig } from "../config";
 import { RoomRepository } from "../repositories/room-repository";
 import { createPejuangServer } from "../server";
 import { createGuestToken } from "../services/guest-token";
@@ -20,11 +22,18 @@ type Received = { type: string; payload: any };
 const openServers: Array<ReturnType<typeof createPejuangServer>> = [];
 const openSockets: TestSocket[] = [];
 
+beforeEach(() => {
+  vi.stubEnv("NODE_ENV", "test");
+});
+
 afterEach(async () => {
-  vi.unstubAllEnvs();
-  for (const socket of openSockets.splice(0)) socket.disconnect();
-  for (const server of openServers.splice(0)) {
-    await new Promise<void>((resolve) => server.io.close(() => resolve()));
+  try {
+    for (const socket of openSockets.splice(0)) socket.disconnect();
+    for (const server of openServers.splice(0)) {
+      await new Promise<void>((resolve) => server.io.close(() => resolve()));
+    }
+  } finally {
+    vi.unstubAllEnvs();
   }
 });
 
@@ -67,6 +76,7 @@ async function startServer(overrides: Partial<ServerConfig> = {}, rooms?: RoomRe
 function connect(baseUrl: string, name: string, avatarId: string) {
   const guest = createGuestToken({ name, avatarId }, secret);
   const socket: TestSocket = createClient(baseUrl, {
+    autoConnect: false,
     transports: ["websocket"],
     auth: { token: guest.token },
     reconnection: false,
@@ -79,7 +89,22 @@ function connect(baseUrl: string, name: string, avatarId: string) {
 
 async function connected(baseUrl: string, name: string, avatarId: string) {
   const client = connect(baseUrl, name, avatarId);
-  await new Promise<void>((resolve) => client.socket.once("connect", resolve));
+  await new Promise<void>((resolve, reject) => {
+    const cleanup = () => {
+      clearTimeout(timer);
+      client.socket.off("connect", onConnect);
+      client.socket.off("connect_error", onError);
+    };
+    const onConnect = () => { cleanup(); resolve(); };
+    const onError = (error: Error) => { cleanup(); reject(error); };
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error("Timeout menghubungkan socket tes room dev."));
+    }, 2_000);
+    client.socket.once("connect", onConnect);
+    client.socket.once("connect_error", onError);
+    client.socket.connect();
+  });
   return client;
 }
 
@@ -89,12 +114,12 @@ type LooseSocket = {
   timeout(ms: number): { emitWithAck(event: string, payload: unknown): Promise<any> };
 };
 const finishGame = (socket: TestSocket, payload: unknown = { requestId: rid() }) =>
-  (socket as unknown as LooseSocket).emitWithAck("dev:finish-game", payload);
+  (socket as unknown as LooseSocket).timeout(2_000).emitWithAck("dev:finish-game", payload);
 const finishGameTimeout = (socket: TestSocket, ms: number) =>
   (socket as unknown as LooseSocket).timeout(ms).emitWithAck("dev:finish-game", { requestId: rid() });
 
 const join = (socket: TestSocket, roomCode: string) =>
-  socket.emitWithAck("room:join", { requestId: rid(), roomCode });
+  socket.timeout(2_000).emitWithAck("room:join", { requestId: rid(), roomCode });
 
 /** Dua tamu masuk UMR-0099 (yang pertama host), tamu kedua siap, host memulai game. */
 async function startDevGame(baseUrl: string, server: ReturnType<typeof createPejuangServer>) {
@@ -203,16 +228,52 @@ describe("room uji UMR-0099 (DEV_TOOLS=true)", () => {
   });
 
   it("lookup REST UMR-0099 saat kosong: bisa dimasuki", async () => {
-    const { baseUrl } = await startServer({ devTools: true });
+    const { server, baseUrl } = await startServer({ devTools: true });
+    expect(server.rooms.get(DEV_ROOM_CODE)).toBeNull();
     const response = await fetch(`${baseUrl}/api/v1/rooms/${DEV_ROOM_CODE}`);
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({
+    expect(RoomLookupResponseSchema.parse(await response.json())).toEqual({
       ok: true,
       code: DEV_ROOM_CODE,
       status: "waiting",
       playerCount: 0,
+      maxPlayers: 4,
       joinable: true,
+      reason: null,
     });
+    expect(server.rooms.get(DEV_ROOM_CODE)).toBeNull();
+  });
+
+  it("konfigurasi dev mengizinkan lookup kosong, join pertama, join berikutnya dan resume", async () => {
+    const config = readServerConfig({
+      NODE_ENV: "test", DEV_TOOLS: "true", GUEST_TOKEN_SECRET: secret,
+    });
+    const { server, baseUrl } = await startServer(config);
+    const lookup = async () => {
+      const response = await fetch(`${baseUrl}/api/v1/rooms/${DEV_ROOM_CODE}`);
+      expect(response.status).toBe(200);
+      return RoomLookupResponseSchema.parse(await response.json());
+    };
+    expect(await lookup()).toMatchObject({ playerCount: 0, joinable: true });
+    expect(server.rooms.get(DEV_ROOM_CODE)).toBeNull();
+    const first = await connected(baseUrl, "Pertama", "michael");
+    const firstJoin = await join(first.socket, DEV_ROOM_CODE);
+    expect(firstJoin.ok).toBe(true);
+    if (!firstJoin.ok) throw new Error(firstJoin.error);
+    expect(firstJoin.room.hostId).toBe(first.playerId);
+    expect(firstJoin.room.players).toHaveLength(1);
+    expect(await lookup()).toMatchObject({ playerCount: 1, joinable: true });
+    const second = await connected(baseUrl, "Kedua", "raka");
+    const secondJoin = await join(second.socket, DEV_ROOM_CODE);
+    expect(secondJoin.ok).toBe(true);
+    if (!secondJoin.ok) throw new Error(secondJoin.error);
+    const room = RoomStateSchema.parse(secondJoin.room);
+    expect(room.hostId).toBe(first.playerId);
+    expect(room.players.map((player) => player.playerId)).toEqual([first.playerId, second.playerId]);
+    expect(await lookup()).toMatchObject({ playerCount: 2, joinable: true });
+    expect(await second.socket.timeout(2_000).emitWithAck("session:resume", {
+      requestId: rid(), roomCode: DEV_ROOM_CODE,
+    })).toMatchObject({ ok: true, snapshot: { room: { code: DEV_ROOM_CODE, hostId: first.playerId } } });
   });
 
   it("kembali ke status menunggu saat semua pemain keluar: pemain berikutnya jadi host", async () => {

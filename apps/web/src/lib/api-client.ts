@@ -59,7 +59,7 @@ export async function lookupRoom(
     | { ok: false; error: string };
   if (!response.ok || (body as { ok?: boolean }).ok === false) {
     throw new Error(
-      (body as { error?: string }).error ?? "ROOM_NOT_FOUND",
+      (body as { error?: string }).error ?? "INTERNAL",
     );
   }
   return RoomLookupResponseSchema.parse(body);

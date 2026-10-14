@@ -57,8 +57,8 @@ function Podium({ top }: { top: ResultRow[] }) {
             {row.name}
             {row.isSelf ? " (Kamu)" : ""}
           </span>
-          <span className="text-title tabular-nums">{row.score}</span>
-          <span className="text-label">#{row.rank}</span>
+          <span className="type-number text-title">{row.score}</span>
+          <span className="type-number text-label">#{row.rank}</span>
           {row.eliminatedLabel ? <span className="text-label font-bold">{row.eliminatedLabel}</span> : null}
         </li>
       ))}
@@ -72,7 +72,7 @@ function RankRow({ row }: { row: ResultRow }) {
     <li className={`ui-note p-3 ${row.eliminated ? "opacity-75 grayscale" : ""}`}>
       <details>
         <summary className="flex min-h-11 cursor-pointer items-center gap-3">
-          <span className="w-6 text-title tabular-nums">{row.rank}</span>
+          <span className="type-number w-6 text-title">{row.rank}</span>
           <Avatar row={row} size={40} />
           <span className="grid min-w-0 flex-1">
             <span className="truncate font-bold">
@@ -83,7 +83,7 @@ function RankRow({ row }: { row: ResultRow }) {
             <span className="text-label underline">{RESULT_COPY.detail}</span>
           </span>
           <span className="text-right">
-            <span className="block text-title tabular-nums">{row.score}</span>
+            <span className="type-number block text-title">{row.score}</span>
             <span className="block text-label">{RESULT_COPY.scoreLabel}</span>
           </span>
         </summary>
@@ -150,7 +150,7 @@ export default function ResultScreen({
         <header className="flex flex-wrap items-center gap-3">
           {header.chip ? <span className="ui-note px-3 py-1 text-body-sm font-bold">{header.chip}</span> : null}
           <div className="grid">
-            <h1 className="text-headline font-black uppercase">{RESULT_COPY.title}</h1>
+            <h1 className="font-heading text-headline font-bold uppercase">{RESULT_COPY.title}</h1>
             <p className="text-body-sm">{RESULT_COPY.subtitle}</p>
           </div>
           <span className="ui-stamp text-title">{header.stamp}</span>
@@ -163,7 +163,7 @@ export default function ResultScreen({
               <ReflectionCard reflection={reflection} />
             </div>
             <section aria-labelledby="ranking-title" className="ui-note grid content-start gap-2 p-3">
-              <h2 id="ranking-title" className="text-title font-black uppercase">{RESULT_COPY.ranking}</h2>
+              <h2 id="ranking-title" className="font-heading text-title font-bold uppercase">{RESULT_COPY.ranking}</h2>
               <p className="text-label">{RESULT_COPY.scoreLabel} (0-100)</p>
               <ol className="grid gap-2" aria-label="Peringkat">
                 {rows.map((row) => <RankRow key={row.playerId} row={row} />)}
