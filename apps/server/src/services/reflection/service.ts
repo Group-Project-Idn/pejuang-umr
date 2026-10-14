@@ -69,7 +69,10 @@ export class ReflectionService {
         return fallback;
       }
       if ("error" in outcome) {
-        const name = outcome.error instanceof Error ? outcome.error.name : "unknown";
+        // Never print an exception's name/message from untrusted HTTP/provider code.
+        const rawName = outcome.error instanceof Error ? outcome.error.name : "";
+        const name = ["GeminiConfigurationError", "GeminiNetworkError", "GeminiAbortError",
+          "GeminiHttpError", "GeminiOutputError"].includes(rawName) ? rawName : "ProviderError";
         this.log(`[reflection] provider gagal (${name}), memakai cadangan aturan`);
         return fallback;
       }
