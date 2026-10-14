@@ -50,16 +50,10 @@ import {
   buildStartGrid,
   getVisibleCards,
   pickGrid,
-  SEASON_LABEL,
 } from "@/lib/popup-cards";
 import type { PopupBatch, ResultsWindow, TransientNotice } from "@/lib/room-session-view";
 import StatusPanel from "./StatusPanel";
-
-const SEASON_ICON = {
-  rainy: "☂",
-  dry: "☀",
-  transition: "◐",
-} as const;
+import CalendarCard from "./CalendarCard";
 
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
@@ -304,19 +298,7 @@ export default function GameInterface({
             <span>PU</span>
             <div><strong>Pejuang UMR</strong></div>
           </div>
-          <div className="calendar-card">
-            <span className="binder binder-left" />
-            <span className="binder binder-right" />
-            <strong>{game.calendar.dateLabel}</strong>
-            <small>Langkah {game.calendar.step}/{game.calendar.totalSteps}</small>
-            <div className="weather">
-              {SEASON_ICON[game.calendar.season]}
-              <span>{SEASON_LABEL[game.calendar.season]}</span>
-            </div>
-            <small className="season-hint" role="status">
-              {game.calendar.seasonHint}
-            </small>
-          </div>
+          <CalendarCard calendar={game.calendar} />
           <div className="mission-card">
             <span>▰</span>
             <div>
