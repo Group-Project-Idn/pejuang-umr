@@ -17,6 +17,7 @@ import { resolveHexClick } from "@/lib/hex-detail";
 import {
   canUseInviteCard,
   getDisabledInvitePawnIds,
+  getInviteCardAvailability,
   getInvitePopup,
   getPlayerName,
   getSelectableInviteTargetIds,
@@ -129,6 +130,7 @@ export default function GameInterface({
   const [selectedHexKey, setSelectedHexKey] = useState<string | null>(null);
   const [dismissedNoticeId, setDismissedNoticeId] = useState<number | null>(null);
   const [inviteFlow, setInviteFlow] = useState<InviteFlow | null>(null);
+  const [cancelledInviteNotice, setCancelledInviteNotice] = useState<string | null>(null);
   // Kartu popup yang ditutup pemain di layarnya sendiri; id memuat batch/ronde, jadi tidak bocor ke ronde lain.
   const [dismissedCardIds, setDismissedCardIds] = useState<ReadonlySet<string>>(() => new Set());
   const [expiredInviteId, setExpiredInviteId] = useState<string | null>(null);
@@ -201,25 +203,34 @@ export default function GameInterface({
   const connected = connectionStatus === "terhubung";
   const activeFlow = resolveInviteFlow(inviteFlow, me, game, serverNow, room, connected);
   const flowCancelled = connected && inviteFlow !== null && activeFlow === null;
-  const inviteCardPlayable = connected && game.phase === "turn" &&
-    canUseInviteCard(me, game) && (game.turnDeadline === null || serverNow < game.turnDeadline) &&
-    !actionPending && !invitePending && !flowCancelled && !popupGrid;
-  const inviteUnavailableReason = !me?.inviteCard
-    ? "Belum ada kartu yang bisa dimainkan."
-    : !connected ? "Menunggu koneksi pulih."
-    : game.phase !== "turn" || game.activePlayerId !== me.playerId || !me.pendingTurn
-      ? "Bisa dimainkan saat giliranmu sebelum memilih heksa."
-      : game.eliminated.includes(me.playerId) ? "Pemain tereliminasi tidak bisa mengajak."
-      : actionPending || invitePending || popupGrid ? "Menunggu respons server atau keputusan awal ronde."
-      : "Waktu giliran sudah habis.";
-  const hasInviteTarget = me && getSelectableInviteTargetIds(game, room, me.playerId).length > 0;
-  const inviteCanPick = inviteCardPlayable && Boolean(hasInviteTarget);
+  const invalidFlowNotice = flowCancelled
+    ? game.phase === "turn" && canUseInviteCard(me, game) &&
+      (game.turnDeadline === null || serverNow < game.turnDeadline) &&
+      inviteFlow.step === "confirm" && me?.pendingTurn?.turnId === inviteFlow.turnId &&
+      me.inviteCard?.cardId === inviteFlow.cardId
+      ? "Target Ajakan tidak tersedia. Pilih pemain lain selagi giliranmu berlangsung."
+      : game.turnDeadline !== null && serverNow >= game.turnDeadline
+        ? INVITE_FLOW_CANCELLED_NOTICE
+        : "Giliran atau Kartu Ajakan berubah. Pilihan sebelumnya dibatalkan; kartu tidak terpakai."
+    : null;
+  const { playable: inviteCanPick, reason: inviteUnavailableReason } = getInviteCardAvailability({
+    me, game, room, serverNow, connected, actionPending, invitePending, hasPopupGrid: Boolean(popupGrid),
+  });
   // Jangan hidupkan kembali pilihan lama setelah koneksi pulih pada turnId yang sama.
   useEffect(() => {
     if (connected) return;
     const timer = window.setTimeout(() => setInviteFlow(null), 0);
     return () => window.clearTimeout(timer);
   }, [connected]);
+  useEffect(() => {
+    if (!invalidFlowNotice) return;
+    const cancelled = inviteFlow;
+    const timer = window.setTimeout(() => {
+      setInviteFlow((current) => current === cancelled ? null : current);
+      setCancelledInviteNotice(invalidFlowNotice);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [invalidFlowNotice, inviteFlow]);
   const popup = getInvitePopup(me, now, serverClockOffsetMs);
   const popupExpired = isInviteExpired(pendingInvite, now, serverClockOffsetMs);
   const expiredNotice = popupExpired && pendingInvite?.inviteId !== expiredInviteId;
@@ -336,9 +347,10 @@ export default function GameInterface({
               card={me?.inviteCard ?? null}
               playable={inviteCanPick}
               selected={activeFlow?.step === "pick"}
-              unavailableReason={inviteCardPlayable && !hasInviteTarget ? "Belum ada target yang bisa diajak." : inviteUnavailableReason}
+              unavailableReason={inviteUnavailableReason}
               onSelect={() => {
                 if (inviteCanPick && me?.pendingTurn && me.inviteCard) {
+                  setCancelledInviteNotice(null);
                   setSelectedHexKey(null);
                   setInviteFlow({ step: "pick", turnId: me.pendingTurn.turnId, cardId: me.inviteCard.cardId });
                 }
@@ -427,10 +439,13 @@ export default function GameInterface({
         }}
         onClose={() => setSelectedHexKey(null)}
       />
-      {flowCancelled ? (
+      {invalidFlowNotice || cancelledInviteNotice ? (
         <p className="game-action-message" role="status">
-          {INVITE_FLOW_CANCELLED_NOTICE}{" "}
-          <button type="button" className="underline" onClick={() => setInviteFlow(null)}>Tutup</button>
+          {invalidFlowNotice ?? cancelledInviteNotice}{" "}
+          <button type="button" className="underline" onClick={() => {
+            if (invalidFlowNotice) setInviteFlow((current) => current === inviteFlow ? null : current);
+            setCancelledInviteNotice(null);
+          }}>Tutup</button>
         </p>
       ) : null}
       <InviteConfirmSheet

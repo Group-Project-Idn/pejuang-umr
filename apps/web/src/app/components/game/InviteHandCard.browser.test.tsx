@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process";
 import { createServer } from "node:http";
 import { accessSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -6,11 +5,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import StatusPanel from "./StatusPanel";
 import { InviteHandCard } from "./invites";
+import { measureViewport } from "./browser-viewport";
 
 const chrome = ["/usr/bin/google-chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser"]
   .find((binary) => { try { accessSync(binary); return true; } catch { return false; } });
 
-describe.skipIf(!chrome)("Kartu Ajakan selalu terlihat di HUD", () => {
+describe.skipIf(!chrome && !process.env.CI)("Kartu Ajakan selalu terlihat di HUD", () => {
   it("kartu tetap berada dalam layout di mobile dan desktop", async () => {
     const css = readFileSync(resolve("src/app/globals.css"), "utf8");
     const invite = renderToStaticMarkup(<InviteHandCard
@@ -32,6 +32,7 @@ describe.skipIf(!chrome)("Kartu Ajakan selalu terlihat di HUD", () => {
           const c = card.getBoundingClientRect(); const b = board.getBoundingClientRect();
           const s = status.getBoundingClientRect(); const r = scoreboard.getBoundingClientRect();
           document.body.dataset.result = JSON.stringify({
+            viewportWidth: innerWidth, viewportHeight: innerHeight,
             horizontalOverflow: document.documentElement.scrollWidth > innerWidth,
             cardVisible: c.width > 0 && c.height > 0 && getComputedStyle(card).display !== 'none',
             cardBeforeBoard: innerWidth <= 760 ? c.bottom <= b.top : c.right <= b.left,
@@ -45,20 +46,12 @@ describe.skipIf(!chrome)("Kartu Ajakan selalu terlihat di HUD", () => {
     try {
       const address = server.address();
       if (!address || typeof address === "string") throw new Error("Browser test server unavailable");
-      for (const width of [320, 375, 390, 760, 768, 900]) {
-        const html = await new Promise<string>((done, fail) => {
-          const child = spawn(chrome!, ["--headless", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage",
-            "--no-first-run", `--window-size=${width},900`, "--virtual-time-budget=1000", "--dump-dom",
-            `http://127.0.0.1:${address.port}/`], { stdio: ["ignore", "pipe", "pipe"] });
-          let output = "";
-          child.stdout.on("data", (chunk: Buffer) => { output += chunk.toString(); });
-          child.stderr.resume();
-          child.on("error", fail);
-          child.on("close", (code) => code === 0 ? done(output) : fail(new Error(`Chrome exited ${code}`)));
-        });
-        const result = html.match(/data-result="([^"]+)"/);
-        expect(result, `viewport ${width}: ${html.slice(0, 500)}`).not.toBeNull();
-        expect(JSON.parse(result![1].replaceAll("&quot;", '"')), `viewport ${width}`).toEqual({
+      if (!chrome) throw new Error("Chromium diperlukan untuk tes responsif (install chromium/google-chrome).");
+      for (const width of [320, 375, 390, 760, 761, 768, 900, 1440]) {
+        const { viewportWidth, viewportHeight, ...checks } = await measureViewport(chrome, `http://127.0.0.1:${address.port}/`, width);
+        expect(viewportWidth).toBe(width);
+        expect(viewportHeight).toBe(900);
+        expect(checks, `viewport ${width}`).toEqual({
           horizontalOverflow: false, cardVisible: true, cardBeforeBoard: true,
           controlsAccessible: true, statusAfterBoard: true, statusInViewport: true,
         });

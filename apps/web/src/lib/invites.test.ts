@@ -14,6 +14,7 @@ import {
   canUseInviteCard,
   formatEffects,
   getDisabledInvitePawnIds,
+  getInviteCardAvailability,
   getInviteErrorMessage,
   getInvitePopup,
   getSelectableInviteTargetIds,
@@ -163,6 +164,47 @@ describe("alur kirim batal", () => {
     expect(resolveInviteFlow(flow, makeMe({ inviteCard: { ...card, cardId: "baru" } }), makeGame(), 1)).toBeNull();
     expect(resolveInviteFlow(confirm, makeMe(), makeGame(), 1, { players: [{ playerId: "p1" }] } as RoomState)).toBeNull();
     expect(resolveInviteFlow(confirm, makeMe(), makeGame({ pawns: [] }), 1, room)).toBeNull();
+  });
+
+  it("target A batal: kartu langsung bisa memilih target B, tanpa pesan timer keliru", () => {
+    const room = { players: ["p1", "p3"].map((playerId) => ({ playerId })) } as RoomState;
+    const game = makeGame();
+    const previous = { ...flow, step: "confirm", targetPlayerId: "p2" } as const;
+    expect(resolveInviteFlow(previous, makeMe(), game, 1, room)).toBeNull();
+    const availability = getInviteCardAvailability({
+      me: makeMe(), game, room, serverNow: 1, connected: true,
+      actionPending: false, invitePending: false, hasPopupGrid: false,
+    });
+    expect(availability).toEqual({ playable: true, reason: "" });
+    expect(resolveInviteFlow({ ...flow, step: "confirm", targetPlayerId: "p3" }, makeMe(), game, 1, room))
+      .toMatchObject({ targetPlayerId: "p3" });
+  });
+
+  it("perubahan giliran, disconnect/reconnect, dan ack gagal tidak mengonsumsi kartu", () => {
+    const room = { players: ["p1", "p2"].map((playerId) => ({ playerId })) } as RoomState;
+    const defaults = { me: makeMe(), game: makeGame(), room, serverNow: 1,
+      connected: true, actionPending: false, invitePending: false, hasPopupGrid: false };
+    expect(getInviteCardAvailability({ ...defaults, connected: false }).playable).toBe(false);
+    expect(resolveInviteFlow(flow, defaults.me, defaults.game, 1, room, false)).toBeNull();
+    expect(getInviteCardAvailability(defaults).playable).toBe(true);
+    expect(getInviteCardAvailability({ ...defaults, game: makeGame({ activePlayerId: "p2" }) }).playable).toBe(false);
+    expect(getInviteCardAvailability({ ...defaults, me: makeMe({ pendingTurn: null }) }).playable).toBe(false);
+    expect(getInviteCardAvailability({ ...defaults, invitePending: true }).playable).toBe(false);
+    expect(getInviteCardAvailability({ ...defaults, actionPending: true }).playable).toBe(false);
+    expect(getInviteCardAvailability({ ...defaults, hasPopupGrid: true }).playable).toBe(false);
+    expect(getInviteCardAvailability({ ...defaults, serverNow: 40_000 })).toEqual({
+      playable: false, reason: "Waktu giliran sudah habis.",
+    });
+    expect(getInviteCardAvailability({ ...defaults, room: { players: room.players.filter((player) => player.playerId === "p1") } })).toEqual({
+      playable: false, reason: "Belum ada target yang bisa diajak.",
+    });
+    // Server menolak / ack gagal: kartu lokal tetap ada, sehingga dapat dipilih ulang.
+    expect(sessionWith(defaults.me).me?.inviteCard).toEqual(card);
+    expect(getInviteCardAvailability(defaults).playable).toBe(true);
+    // Hanya ack sukses / snapshot server yang boleh menghapus kartu.
+    const consumed = clearAcceptedPrivateAction(sessionWith(defaults.me), { kind: "inviteCard", cardId: card.cardId });
+    expect(consumed.me?.inviteCard).toBeNull();
+    expect(getInviteCardAvailability({ ...defaults, me: consumed.me }).playable).toBe(false);
   });
 });
 

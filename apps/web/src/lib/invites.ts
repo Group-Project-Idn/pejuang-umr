@@ -80,6 +80,36 @@ export function canUseInviteCard(
   );
 }
 
+/** Ketersediaan kartu di HUD; alur pemilihan yang kedaluwarsa tidak mengunci kartu berikutnya. */
+export function getInviteCardAvailability(input: {
+  me: Me | null;
+  game: PublicGameState;
+  room: Pick<RoomState, "players">;
+  serverNow: number;
+  connected: boolean;
+  actionPending: boolean;
+  invitePending: boolean;
+  hasPopupGrid: boolean;
+}): { playable: boolean; reason: string } {
+  const { me, game, room, serverNow, connected, actionPending, invitePending, hasPopupGrid } = input;
+  if (!me?.inviteCard) return { playable: false, reason: "Belum ada kartu yang bisa dimainkan." };
+  if (!connected) return { playable: false, reason: "Menunggu koneksi pulih." };
+  if (game.phase !== "turn" || game.activePlayerId !== me.playerId || !me.pendingTurn) {
+    return { playable: false, reason: "Bisa dimainkan saat giliranmu sebelum memilih heksa." };
+  }
+  if (game.eliminated.includes(me.playerId)) return { playable: false, reason: "Pemain tereliminasi tidak bisa mengajak." };
+  if (actionPending || invitePending || hasPopupGrid) {
+    return { playable: false, reason: "Menunggu respons server atau keputusan awal ronde." };
+  }
+  if (game.turnDeadline !== null && serverNow >= game.turnDeadline) {
+    return { playable: false, reason: "Waktu giliran sudah habis." };
+  }
+  if (!getSelectableInviteTargetIds(game, room, me.playerId).length) {
+    return { playable: false, reason: "Belum ada target yang bisa diajak." };
+  }
+  return { playable: true, reason: "" };
+}
+
 export type InviteFlow =
   | { step: "pick"; turnId: string; cardId: string }
   | { step: "confirm"; turnId: string; cardId: string; targetPlayerId: string };
